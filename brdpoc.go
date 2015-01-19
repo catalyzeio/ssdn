@@ -25,26 +25,23 @@ func dial(loc string) (valid_conn net.Conn) {
 }
 
 func service(tif *water.Interface, conn net.Conn) {
-	buffer := make([]byte, 9000+2)
+	buffer := make([]byte, 2+9000)
+	header := buffer[:2]
+	data := buffer[2:]
 	for {
-		n, err := io.ReadAtLeast(conn, buffer, 2)
+		_, err := io.ReadFull(conn, header)
 		if err != nil {
-			fmt.Printf("failed to read inbound data: %v\n", err)
+			fmt.Printf("failed to read inbound header: %v\n", err)
 			break
 		}
-		fmt.Printf("read %d bytes\n", n)
-		payload_len := int(buffer[0])&0x1F<<8 | int(buffer[1])
-		payload_rem := 2 + payload_len - n
-		if payload_rem > 0 {
-			fmt.Printf("reading %d more bytes\n", payload_rem)
-			_, err = io.ReadFull(conn, buffer[n:n+payload_rem])
-			if err != nil {
-				fmt.Printf("failed to read inbound data: %v\n", err)
-				break
-			}
+		payload_len := int(header[0])&0x1F<<8 | int(header[1])
+		payload := data[:payload_len]
+		_, err = io.ReadFull(conn, payload)
+		if err != nil {
+			fmt.Printf("failed to read inbound payload: %v\n", err)
+			break
 		}
 		fmt.Printf("read %d inbound bytes\n", payload_len)
-		payload := buffer[2:2+payload_len]
 		logpacket(payload, "received")
 		_, err = tif.Write(payload)
 		if err != nil {
@@ -70,8 +67,8 @@ func logpacket(buffer []byte, direction string) {
 }
 
 func main() {
-	var port = flag.Int("port", 5050, "listen port")
-	var loc = flag.String("dest", "127.0.0.1:5051", "forwarding destination")
+	port := flag.Int("port", 5050, "listen port")
+	loc := flag.String("dest", "127.0.0.1:5051", "forwarding destination")
 	flag.Parse()
 	fmt.Printf("listening on %d, sending to %s\n", *port, *loc)
 
@@ -91,19 +88,20 @@ func main() {
 
 	out := dial(*loc)
 	fmt.Printf("connected to %s\n", *loc)
-	buffer := make([]byte, 9000+2)
-	payload := buffer[2:]
+	buffer := make([]byte, 2+9000)
+	header := buffer[:2]
+	data := buffer[2:]
 	for {
-		n, err := tif.Read(payload)
+		n, err := tif.Read(data)
 		if err != nil {
 			fmt.Printf("failed to read outbound data: %v\n", err)
 			break
 		}
 		fmt.Printf("read %d outbound bytes\n", n)
-		buffer[0] = byte((n >> 8) & 0x1F)
-		buffer[1] = byte(n)
-		logpacket(payload, "sending")
-		_, err = out.Write(buffer[:n+2])
+		header[0] = byte((n >> 8) & 0x1F)
+		header[1] = byte(n)
+		logpacket(data, "sending")
+		_, err = out.Write(buffer[:2+n])
 		if err != nil {
 			fmt.Printf("failed to send outbound data: %v\n", err)
 		}
