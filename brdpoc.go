@@ -44,9 +44,9 @@ func service(tif *water.Interface, conn net.Conn) {
 			}
 		}
 		fmt.Printf("read %d inbound bytes\n", payload_len)
-		payload := buffer[2:payload_len]
+		payload := buffer[2:2+payload_len]
 		logpacket(payload, "received")
-		_, err = tif.Write(buffer[:n])
+		_, err = tif.Write(payload)
 		if err != nil {
 			fmt.Printf("failed to write inbound data: %v\n", err)
 		}
