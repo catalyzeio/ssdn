@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
 	"net"
 	"time"
 
@@ -24,17 +25,31 @@ func dial(loc string) (valid_conn net.Conn) {
 }
 
 func service(tif *water.Interface, conn net.Conn) {
-	buffer := make([]byte, 9000)
+	buffer := make([]byte, 9000+2)
 	for {
-		n, err := conn.Read(buffer)
+		n, err := io.ReadAtLeast(conn, buffer, 2)
 		if err != nil {
 			fmt.Printf("failed to read inbound data: %v\n", err)
 			break
-		} else {
-			fmt.Printf("read %d inbound bytes\n", n)
 		}
-		logpacket(buffer, "received")
-		tif.Write(buffer[:n])
+		fmt.Printf("read %d bytes\n", n)
+		payload_len := int(buffer[0])&0x1F<<8 | int(buffer[1])
+		payload_rem := 2 + payload_len - n
+		if payload_rem > 0 {
+			fmt.Printf("reading %d more bytes\n", payload_rem)
+			_, err = io.ReadFull(conn, buffer[n:n+payload_rem])
+			if err != nil {
+				fmt.Printf("failed to read inbound data: %v\n", err)
+				break
+			}
+		}
+		fmt.Printf("read %d inbound bytes\n", payload_len)
+		payload := buffer[2:payload_len]
+		logpacket(payload, "received")
+		_, err = tif.Write(buffer[:n])
+		if err != nil {
+			fmt.Printf("failed to write inbound data: %v\n", err)
+		}
 	}
 }
 
@@ -43,9 +58,9 @@ func accept(tif *water.Interface, l net.Listener) {
 		conn, err := l.Accept()
 		if err != nil {
 			fmt.Printf("failed to accept inbound connection: %v\n", err)
-		} else {
-			go service(tif, conn)
+			break
 		}
+		go service(tif, conn)
 	}
 }
 
@@ -76,16 +91,21 @@ func main() {
 
 	out := dial(*loc)
 	fmt.Printf("connected to %s\n", *loc)
-	buffer := make([]byte, 9000)
+	buffer := make([]byte, 9000+2)
+	payload := buffer[2:]
 	for {
-		n, err := tif.Read(buffer)
+		n, err := tif.Read(payload)
 		if err != nil {
 			fmt.Printf("failed to read outbound data: %v\n", err)
 			break
-		} else {
-			fmt.Printf("read %d outbound bytes\n", n)
 		}
-		logpacket(buffer, "sending")
-		out.Write(buffer[:n])
+		fmt.Printf("read %d outbound bytes\n", n)
+		buffer[0] = byte((n >> 8) & 0x1F)
+		buffer[1] = byte(n)
+		logpacket(payload, "sending")
+		_, err = out.Write(buffer[:n+2])
+		if err != nil {
+			fmt.Printf("failed to send outbound data: %v\n", err)
+		}
 	}
 }
