@@ -11,6 +11,12 @@ import (
 	"github.com/songgao/water/waterutil"
 )
 
+const (
+	headerSize    = 2
+	maxPacketSize = 9000
+	bufferSize    = headerSize + maxPacketSize
+)
+
 func dial(loc string) (valid_conn net.Conn) {
 	for {
 		conn, err := net.Dial("tcp", loc)
@@ -25,9 +31,9 @@ func dial(loc string) (valid_conn net.Conn) {
 }
 
 func service(tif *water.Interface, conn net.Conn) {
-	buffer := make([]byte, 2+9000)
-	header := buffer[:2]
-	data := buffer[2:]
+	buffer := make([]byte, bufferSize)
+	header := buffer[:headerSize]
+	data := buffer[headerSize:]
 	for {
 		_, err := io.ReadFull(conn, header)
 		if err != nil {
@@ -88,9 +94,9 @@ func main() {
 
 	out := dial(*loc)
 	fmt.Printf("connected to %s\n", *loc)
-	buffer := make([]byte, 2+9000)
-	header := buffer[:2]
-	data := buffer[2:]
+	buffer := make([]byte, bufferSize)
+	header := buffer[:headerSize]
+	data := buffer[headerSize:]
 	for {
 		n, err := tif.Read(data)
 		if err != nil {
@@ -101,7 +107,7 @@ func main() {
 		header[0] = byte((n >> 8) & 0x1F)
 		header[1] = byte(n)
 		logpacket(data, "sending")
-		_, err = out.Write(buffer[:2+n])
+		_, err = out.Write(buffer[:headerSize+n])
 		if err != nil {
 			fmt.Printf("failed to send outbound data: %v\n", err)
 		}
