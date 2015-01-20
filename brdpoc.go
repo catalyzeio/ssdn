@@ -30,7 +30,7 @@ func dial(loc string) (valid_conn net.Conn) {
 	}
 }
 
-func service(tif *water.Interface, conn net.Conn) {
+func service(verbose bool, tif *water.Interface, conn net.Conn) {
 	buffer := make([]byte, bufferSize)
 	header := buffer[:headerSize]
 	data := buffer[headerSize:]
@@ -47,8 +47,10 @@ func service(tif *water.Interface, conn net.Conn) {
 			fmt.Printf("failed to read inbound payload: %v\n", err)
 			break
 		}
-		fmt.Printf("read %d inbound bytes\n", payload_len)
-		logpacket(payload, "received")
+		if verbose {
+			fmt.Printf("read %d inbound bytes\n", payload_len)
+			logpacket(payload, "received")
+		}
 		_, err = tif.Write(payload)
 		if err != nil {
 			fmt.Printf("failed to write inbound data: %v\n", err)
@@ -56,14 +58,14 @@ func service(tif *water.Interface, conn net.Conn) {
 	}
 }
 
-func accept(tif *water.Interface, l net.Listener) {
+func accept(verbose bool, tif *water.Interface, l net.Listener) {
 	for {
 		conn, err := l.Accept()
 		if err != nil {
 			fmt.Printf("failed to accept inbound connection: %v\n", err)
 			break
 		}
-		go service(tif, conn)
+		go service(verbose, tif, conn)
 	}
 }
 
@@ -75,6 +77,7 @@ func logpacket(buffer []byte, direction string) {
 func main() {
 	port := flag.Int("port", 5050, "listen port")
 	loc := flag.String("dest", "127.0.0.1:5051", "forwarding destination")
+	verbose := flag.Bool("verbose", false, "verbose logging")
 	flag.Parse()
 	fmt.Printf("listening on %d, sending to %s\n", *port, *loc)
 
@@ -90,7 +93,7 @@ func main() {
 		fmt.Printf("failed to listen: %v\n", err)
 		return
 	}
-	go accept(tif, l)
+	go accept(*verbose, tif, l)
 
 	out := dial(*loc)
 	fmt.Printf("connected to %s\n", *loc)
@@ -103,10 +106,12 @@ func main() {
 			fmt.Printf("failed to read outbound data: %v\n", err)
 			break
 		}
-		fmt.Printf("read %d outbound bytes\n", n)
 		header[0] = byte((n >> 8) & 0x1F)
 		header[1] = byte(n)
-		logpacket(data, "sending")
+		if *verbose {
+			fmt.Printf("read %d outbound bytes\n", n)
+			logpacket(data, "sending")
+		}
 		_, err = out.Write(buffer[:headerSize+n])
 		if err != nil {
 			fmt.Printf("failed to send outbound data: %v\n", err)
