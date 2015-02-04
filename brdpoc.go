@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"flag"
 	"fmt"
 	"io"
@@ -17,9 +18,15 @@ const (
 	bufferSize    = headerSize + maxPacketSize
 )
 
-func dial(loc string) (valid_conn net.Conn) {
+func dial(loc string, tlsConfig *tls.Config) (valid_conn net.Conn) {
 	for {
-		conn, err := net.Dial("tcp", loc)
+		var conn net.Conn
+		var err error
+		if tlsConfig != nil {
+			conn, err = tls.Dial("tcp", loc, tlsConfig)
+		} else {
+			conn, err = net.Dial("tcp", loc)
+		}
 		if err != nil {
 			fmt.Printf("failed to connect to %s: %v\n", loc, err)
 		} else {
@@ -78,6 +85,8 @@ func main() {
 	port := flag.Int("port", 5050, "listen port")
 	loc := flag.String("dest", "127.0.0.1:5051", "forwarding destination")
 	verbose := flag.Bool("verbose", false, "verbose logging")
+	cert := flag.String("cert", "", "TLS certificate")
+	key := flag.String("key", "", "TLS private key")
 	flag.Parse()
 	fmt.Printf("listening on %d, sending to %s\n", *port, *loc)
 
@@ -88,14 +97,33 @@ func main() {
 	}
 	fmt.Printf("created %v\n", tif)
 
-	l, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", *port))
+	var tlsConfig *tls.Config = nil
+	if len(*cert) > 0 {
+		fmt.Printf("using TLS certificate, key: %s, %s\n", *cert, *key)
+		keyPair, err := tls.LoadX509KeyPair(*cert, *key)
+		if err != nil {
+			fmt.Printf("failed to load key pair: %v\n", err)
+			return
+		}
+		tlsConfig = &tls.Config{
+			Certificates: []tls.Certificate{keyPair},
+			InsecureSkipVerify: true,
+		}
+	}
+
+	var l net.Listener
+	if tlsConfig != nil {
+		l, err = tls.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", *port), tlsConfig)
+	} else {
+		l, err = net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", *port))
+	}
 	if err != nil {
 		fmt.Printf("failed to listen: %v\n", err)
 		return
 	}
 	go accept(*verbose, tif, l)
 
-	out := dial(*loc)
+	out := dial(*loc, tlsConfig)
 	fmt.Printf("connected to %s\n", *loc)
 	buffer := make([]byte, bufferSize)
 	header := buffer[:headerSize]
