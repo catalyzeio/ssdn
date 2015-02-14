@@ -16,7 +16,28 @@ const (
 	headerSize    = 2
 	maxPacketSize = 9000
 	bufferSize    = headerSize + maxPacketSize
+	numBuffers    = 1024
 )
+
+type PacketBuffer struct {
+	length int
+	buffer []byte
+	header []byte
+	data   []byte
+}
+
+func makeBuffers() (in chan *PacketBuffer, out chan *PacketBuffer) {
+	in = make(chan *PacketBuffer, numBuffers)
+	out = make(chan *PacketBuffer, numBuffers)
+	for i := 0; i < numBuffers; i++ {
+		pkt := PacketBuffer{}
+		pkt.buffer = make([]byte, bufferSize)
+		pkt.header = pkt.buffer[:headerSize]
+		pkt.data = pkt.buffer[headerSize:]
+		in <- &pkt
+	}
+	return
+}
 
 func dial(loc string, tlsConfig *tls.Config) (valid_conn net.Conn) {
 	for {
@@ -37,31 +58,46 @@ func dial(loc string, tlsConfig *tls.Config) (valid_conn net.Conn) {
 	}
 }
 
-func service(verbose bool, tif *water.Interface, conn net.Conn) {
-	buffer := make([]byte, bufferSize)
-	header := buffer[:headerSize]
-	data := buffer[headerSize:]
+func logPacket(buffer []byte, direction string) {
+	fmt.Printf("%s packet: src=%s dest=%s\n",
+		direction, waterutil.IPv4Source(buffer), waterutil.IPv4Destination(buffer))
+}
+
+func forwardIn(tif *water.Interface, read chan *PacketBuffer, written chan *PacketBuffer) {
 	for {
-		_, err := io.ReadFull(conn, header)
+		pkt := <-read
+		_, err := tif.Write(pkt.data)
+		if err != nil {
+			fmt.Printf("failed to write inbound data: %v\n", err)
+			break
+		}
+		written <- pkt
+	}
+}
+
+func service(verbose bool, tif *water.Interface, conn net.Conn) {
+	in, out := makeBuffers()
+	go forwardIn(tif, out, in)
+	for {
+		pkt := <-in
+		_, err := io.ReadFull(conn, pkt.header)
 		if err != nil {
 			fmt.Printf("failed to read inbound header: %v\n", err)
 			break
 		}
-		payload_len := int(header[0])&0x1F<<8 | int(header[1])
-		payload := data[:payload_len]
-		_, err = io.ReadFull(conn, payload)
+		n := int(pkt.header[0])&0x1F<<8 | int(pkt.header[1])
+		pkt.data = pkt.buffer[headerSize : headerSize+n]
+		_, err = io.ReadFull(conn, pkt.data)
 		if err != nil {
 			fmt.Printf("failed to read inbound payload: %v\n", err)
 			break
 		}
 		if verbose {
-			fmt.Printf("read %d inbound bytes\n", payload_len)
-			logpacket(payload, "received")
+			fmt.Printf("read %d inbound bytes\n", n)
+			logPacket(pkt.data, "received")
 		}
-		_, err = tif.Write(payload)
-		if err != nil {
-			fmt.Printf("failed to write inbound data: %v\n", err)
-		}
+		pkt.length = n
+		out <- pkt
 	}
 }
 
@@ -76,9 +112,21 @@ func accept(verbose bool, tif *water.Interface, l net.Listener) {
 	}
 }
 
-func logpacket(buffer []byte, direction string) {
-	fmt.Printf("%s packet: src=%s dest=%s\n",
-		direction, waterutil.IPv4Source(buffer), waterutil.IPv4Destination(buffer))
+func forwardOut(loc *string, tlsConfig *tls.Config, read chan *PacketBuffer, sent chan *PacketBuffer) {
+	out := dial(*loc, tlsConfig)
+	fmt.Printf("connected to %s\n", *loc)
+	for {
+		pkt := <-read
+		n := pkt.length
+		pkt.header[0] = byte((n >> 8) & 0x1F)
+		pkt.header[1] = byte(n)
+		_, err := out.Write(pkt.buffer[:headerSize+n])
+		if err != nil {
+			fmt.Printf("failed to send outbound data: %v\n", err)
+			break
+		}
+		sent <- pkt
+	}
 }
 
 func main() {
@@ -106,7 +154,7 @@ func main() {
 			return
 		}
 		tlsConfig = &tls.Config{
-			Certificates: []tls.Certificate{keyPair},
+			Certificates:       []tls.Certificate{keyPair},
 			InsecureSkipVerify: true,
 		}
 	}
@@ -123,26 +171,20 @@ func main() {
 	}
 	go accept(*verbose, tif, l)
 
-	out := dial(*loc, tlsConfig)
-	fmt.Printf("connected to %s\n", *loc)
-	buffer := make([]byte, bufferSize)
-	header := buffer[:headerSize]
-	data := buffer[headerSize:]
+	in, out := makeBuffers()
+	go forwardOut(loc, tlsConfig, out, in)
 	for {
-		n, err := tif.Read(data)
+		pkt := <-in
+		n, err := tif.Read(pkt.data)
 		if err != nil {
 			fmt.Printf("failed to read outbound data: %v\n", err)
 			break
 		}
-		header[0] = byte((n >> 8) & 0x1F)
-		header[1] = byte(n)
 		if *verbose {
 			fmt.Printf("read %d outbound bytes\n", n)
-			logpacket(data, "sending")
+			logPacket(pkt.data, "sending")
 		}
-		_, err = out.Write(buffer[:headerSize+n])
-		if err != nil {
-			fmt.Printf("failed to send outbound data: %v\n", err)
-		}
+		pkt.length = n
+		out <- pkt
 	}
 }
