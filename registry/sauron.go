@@ -174,10 +174,11 @@ func (reg *SauronRegistry) msgLoop() bool {
 		case tx := <-reg.txChan:
 			respMsg, err := reg.sendRecv(tx.request)
 			if err != nil {
-				respMsg = &message{
+				tx.respChan <- &message{
 					Type:    "error",
 					Message: err.Error(),
 				}
+				return false
 			}
 			tx.respChan <- respMsg
 		}
