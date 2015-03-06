@@ -1,7 +1,6 @@
 package proto
 
 import (
-	"bufio"
 	"crypto/tls"
 	"fmt"
 	"log"
@@ -10,63 +9,38 @@ import (
 	"time"
 )
 
-type ConnReader interface {
-	ReadConn(conn net.Conn, dest <-chan []byte)
-}
-
-type ConnWriter interface {
-	WriteConn(conn net.Conn, src <-chan []byte, abort <-chan bool)
-}
+type ConnHandler func(conn net.Conn, abort <-chan bool) error
 
 type ReconnectClient struct {
-	In     chan []byte
-	Out    chan []byte
-	Events chan Event
-
-	Reader ConnReader
-	Writer ConnWriter
+	Handler ConnHandler
 
 	host   string
 	port   int
 	config *tls.Config
 
-	control chan request
+	control chan clientRequest
 }
 
-type Event int
+type clientRequest int
 
 const (
-	Connected Event = iota
-	Disconnected
-)
-
-type request int
-
-const (
-	disconnect request = iota
+	disconnect clientRequest = iota
 	stop
 )
 
 const (
 	maxReconnectDelay = 5 * time.Second
-	chanSize          = 64
 )
 
-func NewClient(host string, port int) *ReconnectClient {
-	return NewTLSClient(host, port, nil)
-}
-
-func NewTLSClient(host string, port int, config *tls.Config) *ReconnectClient {
+func NewClient(handler ConnHandler, host string, port int, config *tls.Config) *ReconnectClient {
 	return &ReconnectClient{
-		In:     make(chan []byte, chanSize),
-		Out:    make(chan []byte, chanSize),
-		Events: make(chan Event, chanSize),
+		Handler: handler,
 
 		host:   host,
 		port:   port,
 		config: config,
 
-		control: make(chan request),
+		control: make(chan clientRequest, 1),
 	}
 }
 
@@ -95,7 +69,7 @@ func (c *ReconnectClient) run() {
 }
 
 func (c *ReconnectClient) connect(target string, initDelay bool) bool {
-	abort := make(chan bool)
+	abort := make(chan bool, 1)
 
 	// connect to remote host
 	conn := c.dial(target, initDelay)
@@ -103,30 +77,35 @@ func (c *ReconnectClient) connect(target string, initDelay bool) bool {
 		return true
 	}
 
-	// schedule cleanup and and trigger connected event
+	// schedule cleanup
 	defer func() {
 		conn.Close()
 		abort <- true
 		log.Printf("Disconnected from %s", target)
-		c.Events <- Disconnected
 	}()
 	log.Printf("Connected to %s", target)
-	c.Events <- Connected
 
 	// set up connection
 	tcpConn := conn.(*net.TCPConn)
 	tcpConn.SetKeepAlive(true)
 	tcpConn.SetKeepAlivePeriod(15 * time.Second)
 
-	// service inbound and outbound channels
-	done := make(chan bool, 2)
-	go doRead(target, done, c.Reader, conn, c.In)
-	go doWrite(target, done, c.Writer, conn, c.Out, abort)
+	// run handler
+	failed := make(chan bool, 1)
+	if c.Handler != nil {
+		go func() {
+			err := c.Handler(conn, abort)
+			if err != nil {
+				log.Printf("Error in connection handler: %s", err)
+				failed <- true
+			}
+		}()
+	}
 
-	// continue until control signal or reader/writer finish or fail
+	// continue until control signal or handler failure
 	result := false
 	select {
-	case <-done:
+	case <-failed:
 		// allow reconnect
 	case msg := <-c.control:
 		switch msg {
@@ -164,6 +143,7 @@ func (c *ReconnectClient) dial(target string, initDelay bool) net.Conn {
 
 		log.Printf("Connecting to %s", target)
 		conn, err := net.Dial("tcp", target)
+		// TODO TLS dial
 		if err == nil {
 			return conn
 		}
@@ -173,52 +153,5 @@ func (c *ReconnectClient) dial(target string, initDelay bool) net.Conn {
 			delay = maxReconnectDelay
 		}
 		log.Printf("Error connecting to %s: %s; retrying in %s", target, err, delay)
-	}
-}
-
-func doRead(target string, done chan<- bool, reader ConnReader, conn net.Conn, dest chan []byte) {
-	defer func() {
-		done <- true
-	}()
-
-	if reader != nil {
-		reader.ReadConn(conn, dest)
-		return
-	}
-
-	const readBufferSize = 1 << 18 // 64 KiB
-	b := bufio.NewReaderSize(conn, readBufferSize)
-	for {
-		msg, err := b.ReadBytes('\n')
-		if err != nil {
-			log.Printf("Failed to read from %s: %s", target, err)
-			break
-		}
-		dest <- msg
-	}
-}
-
-func doWrite(target string, done chan<- bool, writer ConnWriter, conn net.Conn, src chan []byte, abort <-chan bool) {
-	defer func() {
-		done <- true
-	}()
-
-	if writer != nil {
-		writer.WriteConn(conn, src, abort)
-		return
-	}
-
-	for {
-		select {
-		case <-abort:
-			log.Printf("Aborting writes to %s", target)
-			return
-		case msg := <-src:
-			_, err := conn.Write(msg)
-			if err != nil {
-				log.Printf("Failed to send to %s: %s", target, err)
-				return
-			}
-		}
 	}
 }
