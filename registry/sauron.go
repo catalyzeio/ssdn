@@ -58,11 +58,15 @@ type transaction struct {
 	respChan chan *message
 }
 
+const (
+	txChanSize = 16
+)
+
 func NewRegistry(tenant string, host string, port int, config *tls.Config) *SauronRegistry {
 	return &SauronRegistry{
 		Tenant: tenant,
 		client: proto.NewTLSClient(host, port, config),
-		txChan: make(chan *transaction, 16),
+		txChan: make(chan *transaction, txChanSize),
 	}
 }
 
@@ -150,10 +154,11 @@ func (reg *SauronRegistry) waitForConnection() bool {
 
 func (reg *SauronRegistry) msgLoop() bool {
 	// send auth message
+	log.Printf("Authenticating as %s", reg.Tenant)
 	authMsg := message{
 		Type:   "authenticate",
 		Tenant: reg.Tenant,
-		Token:  "foo",
+		Token:  "foo", // TODO pull from env var
 	}
 	respMsg, err := reg.sendRecv(&authMsg)
 	if err != nil {
@@ -190,11 +195,13 @@ func (reg *SauronRegistry) sendRecv(request *message) (*message, error) {
 	// send request
 	reqBytes, err := json.Marshal(request)
 	if err != nil {
-		// hopefully the json encoding error is transient; disconnect should eventually trigger retry
+		// hopefully the json encoding error is transient;
+		// this disconnect should eventually trigger retry
 		client.Disconnect()
 		return nil, err
 	}
 	client.Out <- append(reqBytes, '\n')
+	log.Printf(" -> %s", reqBytes)
 
 	// wait for response to come back or client to disconnect
 	in := client.In
@@ -207,6 +214,7 @@ func (reg *SauronRegistry) sendRecv(request *message) (*message, error) {
 				return nil, fmt.Errorf("disconnected from registry")
 			}
 		case respBytes := <-in:
+			log.Printf(" <- %s", respBytes)
 			response := message{}
 			err = json.Unmarshal(respBytes, &response)
 			if err != nil {

@@ -18,24 +18,6 @@ type ConnWriter interface {
 	WriteConn(conn net.Conn, src <-chan []byte, abort <-chan bool)
 }
 
-type Event int
-
-const (
-	maxReconnectDelay = 5 * time.Second
-)
-
-const (
-	Connected Event = iota
-	Disconnected
-)
-
-type request int
-
-const (
-	disconnect request = iota
-	stop
-)
-
 type ReconnectClient struct {
 	In     chan []byte
 	Out    chan []byte
@@ -51,7 +33,24 @@ type ReconnectClient struct {
 	control chan request
 }
 
-const chanSize = 64
+type Event int
+
+const (
+	Connected Event = iota
+	Disconnected
+)
+
+type request int
+
+const (
+	disconnect request = iota
+	stop
+)
+
+const (
+	maxReconnectDelay = 5 * time.Second
+	chanSize          = 64
+)
 
 func NewClient(host string, port int) *ReconnectClient {
 	return NewTLSClient(host, port, nil)
@@ -59,33 +58,35 @@ func NewClient(host string, port int) *ReconnectClient {
 
 func NewTLSClient(host string, port int, config *tls.Config) *ReconnectClient {
 	return &ReconnectClient{
-		In:      make(chan []byte, chanSize),
-		Out:     make(chan []byte, chanSize),
-		Events:  make(chan Event, chanSize),
-		host:    host,
-		port:    port,
-		config:  config,
+		In:     make(chan []byte, chanSize),
+		Out:    make(chan []byte, chanSize),
+		Events: make(chan Event, chanSize),
+
+		host:   host,
+		port:   port,
+		config: config,
+
 		control: make(chan request),
 	}
 }
 
-func (p *ReconnectClient) Start() {
-	go p.run()
+func (c *ReconnectClient) Start() {
+	go c.run()
 }
 
-func (p *ReconnectClient) Disconnect() {
-	p.control <- disconnect
+func (c *ReconnectClient) Disconnect() {
+	c.control <- disconnect
 }
 
-func (p *ReconnectClient) Stop() {
-	p.control <- stop
+func (c *ReconnectClient) Stop() {
+	c.control <- stop
 }
 
-func (p *ReconnectClient) run() {
-	target := fmt.Sprintf("%s:%d", p.host, p.port)
+func (c *ReconnectClient) run() {
+	target := fmt.Sprintf("%s:%d", c.host, c.port)
 	initDelay := false
 	for {
-		if p.connect(target, initDelay) {
+		if c.connect(target, initDelay) {
 			return
 		}
 		log.Printf("Reconnecting to %s", target)
@@ -93,11 +94,11 @@ func (p *ReconnectClient) run() {
 	}
 }
 
-func (p *ReconnectClient) connect(target string, initDelay bool) bool {
+func (c *ReconnectClient) connect(target string, initDelay bool) bool {
 	abort := make(chan bool)
 
 	// connect to remote host
-	conn := p.dial(target, initDelay)
+	conn := c.dial(target, initDelay)
 	if conn == nil {
 		return true
 	}
@@ -107,10 +108,10 @@ func (p *ReconnectClient) connect(target string, initDelay bool) bool {
 		conn.Close()
 		abort <- true
 		log.Printf("Disconnected from %s", target)
-		p.Events <- Disconnected
+		c.Events <- Disconnected
 	}()
 	log.Printf("Connected to %s", target)
-	p.Events <- Connected
+	c.Events <- Connected
 
 	// set up connection
 	tcpConn := conn.(*net.TCPConn)
@@ -119,15 +120,15 @@ func (p *ReconnectClient) connect(target string, initDelay bool) bool {
 
 	// service inbound and outbound channels
 	done := make(chan bool, 2)
-	go doRead(target, done, p.Reader, conn, p.In)
-	go doWrite(target, done, p.Writer, conn, p.Out, abort)
+	go doRead(target, done, c.Reader, conn, c.In)
+	go doWrite(target, done, c.Writer, conn, c.Out, abort)
 
 	// continue until control signal or reader/writer finish or fail
 	result := false
 	select {
 	case <-done:
 		// allow reconnect
-	case msg := <-p.control:
+	case msg := <-c.control:
 		switch msg {
 		case stop:
 			// inhibit reconnect
@@ -139,7 +140,7 @@ func (p *ReconnectClient) connect(target string, initDelay bool) bool {
 	return result
 }
 
-func (p *ReconnectClient) dial(target string, initDelay bool) net.Conn {
+func (c *ReconnectClient) dial(target string, initDelay bool) net.Conn {
 	var delay time.Duration
 	if initDelay {
 		delay = time.Second
@@ -147,7 +148,7 @@ func (p *ReconnectClient) dial(target string, initDelay bool) net.Conn {
 
 	for {
 		select {
-		case cmsg := <-p.control:
+		case cmsg := <-c.control:
 			switch cmsg {
 			case disconnect:
 				log.Printf("Not connected to %s; ignoring disconnection request", target)
