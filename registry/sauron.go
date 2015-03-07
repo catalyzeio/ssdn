@@ -5,9 +5,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"github.com/catalyzeio/shadowfax/proto"
+)
+
+const (
+	TenantTokenEnvVar = "REGISTRY_TENANT_TOKEN"
 )
 
 type Advertisement struct {
@@ -119,7 +124,7 @@ func (reg *SauronRegistry) handshake(caller proto.SyncCaller) error {
 	req := message{
 		Type:   "authenticate",
 		Tenant: reg.Tenant,
-		Token:  "foo", // TODO pull from env var
+		Token:  os.Getenv(TenantTokenEnvVar),
 	}
 	_, err := call(caller, &req)
 	if err != nil {
