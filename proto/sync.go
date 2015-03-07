@@ -86,6 +86,8 @@ func (c *SyncClient) syncHandler(conn net.Conn, abort <-chan bool) error {
 			timeout = time.After(c.idleTimeout)
 		}
 
+		// TODO try to detect disconnections immediately
+
 		select {
 		case <-abort:
 			return nil
