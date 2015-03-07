@@ -13,12 +13,12 @@ type SyncCaller interface {
 }
 
 type SyncClient struct {
-	Handshaker     func(caller SyncCaller) error
-	TimeoutHandler func()
+	Handshaker  func(caller SyncCaller) error
+	IdleHandler func(caller SyncCaller) error
 
-	client   *ReconnectClient
-	requests chan *syncReq
-	timeout  time.Duration
+	client      *ReconnectClient
+	requests    chan *syncReq
+	idleTimeout time.Duration
 }
 
 type directCaller struct {
@@ -40,10 +40,10 @@ const (
 	separator = '\n'
 )
 
-func NewSyncClient(host string, port int, config *tls.Config, timeout time.Duration) *SyncClient {
+func NewSyncClient(host string, port int, config *tls.Config, idleTimeout time.Duration) *SyncClient {
 	s := SyncClient{
-		requests: make(chan *syncReq, 1),
-		timeout:  timeout,
+		requests:    make(chan *syncReq, 1),
+		idleTimeout: idleTimeout,
 	}
 	s.client = NewClient(s.syncHandler, host, port, config)
 	return &s
@@ -81,9 +81,19 @@ func (c *SyncClient) syncHandler(conn net.Conn, abort <-chan bool) error {
 	}
 
 	for {
+		var timeout <-chan time.Time
+		if c.idleTimeout > 0 && c.IdleHandler != nil {
+			timeout = time.After(c.idleTimeout)
+		}
+
 		select {
 		case <-abort:
 			return nil
+		case <-timeout:
+			err := c.IdleHandler(&dc)
+			if err != nil {
+				return err
+			}
 		case request := <-c.requests:
 			msg, err := dc.SyncCall(request.msg)
 			request.result <- &syncResp{msg, err}

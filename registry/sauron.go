@@ -62,6 +62,7 @@ func NewRegistry(tenant string, host string, port int, config *tls.Config) *Saur
 		client: proto.NewSyncClient(host, port, config, pingInterval),
 	}
 	reg.client.Handshaker = reg.handshake
+	reg.client.IdleHandler = reg.idle
 	return &reg
 }
 
@@ -126,4 +127,9 @@ func (reg *SauronRegistry) handshake(caller proto.SyncCaller) error {
 	}
 	log.Printf("Authenticated as %s", reg.Tenant)
 	return nil
+}
+
+func (reg *SauronRegistry) idle(caller proto.SyncCaller) error {
+	_, err := call(caller, &message{Type: "ping"})
+	return err
 }
