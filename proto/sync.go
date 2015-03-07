@@ -5,14 +5,25 @@ import (
 	"crypto/tls"
 	"log"
 	"net"
+	"time"
 )
 
-// TODO hook for connection handshake
-// TODO timeout trigger for idle connections
+type SyncCaller interface {
+	SyncCall(msg []byte) ([]byte, error)
+}
 
 type SyncClient struct {
+	Handshaker     func(caller SyncCaller) error
+	TimeoutHandler func()
+
 	client   *ReconnectClient
 	requests chan *syncReq
+	timeout  time.Duration
+}
+
+type directCaller struct {
+	conn   net.Conn
+	reader *bufio.Reader
 }
 
 type syncReq struct {
@@ -25,9 +36,14 @@ type syncResp struct {
 	err error
 }
 
-func NewSyncClient(host string, port int, config *tls.Config) *SyncClient {
+const (
+	separator = '\n'
+)
+
+func NewSyncClient(host string, port int, config *tls.Config, timeout time.Duration) *SyncClient {
 	s := SyncClient{
 		requests: make(chan *syncReq, 1),
+		timeout:  timeout,
 	}
 	s.client = NewClient(s.syncHandler, host, port, config)
 	return &s
@@ -45,7 +61,7 @@ func (c *SyncClient) Stop() {
 	c.client.Stop()
 }
 
-func (c *SyncClient) Call(msg []byte) ([]byte, error) {
+func (c *SyncClient) SyncCall(msg []byte) ([]byte, error) {
 	req := syncReq{msg, make(chan *syncResp, 1)}
 	c.requests <- &req
 	resp := <-req.result
@@ -55,27 +71,41 @@ func (c *SyncClient) Call(msg []byte) ([]byte, error) {
 func (c *SyncClient) syncHandler(conn net.Conn, abort <-chan bool) error {
 	const bufferSize = 1 << 18 // 64 KiB
 	r := bufio.NewReaderSize(conn, bufferSize)
+
+	dc := directCaller{conn, r}
+	if c.Handshaker != nil {
+		err := c.Handshaker(&dc)
+		if err != nil {
+			return err
+		}
+	}
+
 	for {
 		select {
 		case <-abort:
 			return nil
 		case request := <-c.requests:
-			result := syncResp{}
-			// send request
-			log.Printf(" -> %s", request.msg)
-			_, result.err = conn.Write(request.msg)
-			if result.err != nil {
-				request.result <- &result
-				return result.err
+			msg, err := dc.SyncCall(request.msg)
+			request.result <- &syncResp{msg, err}
+			if err != nil {
+				return err
 			}
-			// read result
-			result.msg, result.err = r.ReadBytes('\n')
-			if result.err != nil {
-				request.result <- &result
-				return result.err
-			}
-			log.Printf(" <- %s", result.msg)
-			request.result <- &result
 		}
 	}
+}
+
+func (dc *directCaller) SyncCall(reqMsg []byte) ([]byte, error) {
+	// send request
+	log.Printf(" -> %s", reqMsg)
+	_, err := dc.conn.Write(append(reqMsg, separator))
+	if err != nil {
+		return nil, err
+	}
+	// read result
+	respMsg, err := dc.reader.ReadBytes(separator)
+	if err != nil {
+		return nil, err
+	}
+	log.Printf(" <- %s", respMsg)
+	return respMsg, err
 }

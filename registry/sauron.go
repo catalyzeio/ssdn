@@ -2,6 +2,12 @@ package registry
 
 import (
 	"crypto/tls"
+	"encoding/json"
+	"fmt"
+	"log"
+	"time"
+
+	"github.com/catalyzeio/shadowfax/proto"
 )
 
 type Advertisement struct {
@@ -12,7 +18,8 @@ type Advertisement struct {
 type SauronRegistry struct {
 	Tenant string
 
-	ads []Advertisement
+	client *proto.SyncClient
+	ads    []Advertisement
 }
 
 type weightedLocation struct {
@@ -44,27 +51,79 @@ type message struct {
 	Message string `json:"message,omitempty"`
 }
 
+const (
+	pingInterval = 15 * time.Second
+)
+
 func NewRegistry(tenant string, host string, port int, config *tls.Config) *SauronRegistry {
-	return &SauronRegistry{
+	reg := SauronRegistry{
 		Tenant: tenant,
+
+		client: proto.NewSyncClient(host, port, config, pingInterval),
 	}
+	reg.client.Handshaker = reg.handshake
+	return &reg
 }
 
 func (reg *SauronRegistry) Start(ads []Advertisement) {
 	reg.ads = ads
-	// TODO
+	reg.client.Start()
 }
 
 func (reg *SauronRegistry) Stop() {
-	// TODO
+	reg.client.Stop()
 }
 
 func (reg *SauronRegistry) Query(requires string) (*string, error) {
-	// TODO
-	return nil, nil
+	resp, err := call(reg.client, &message{Type: "query", Requires: requires})
+	if err != nil {
+		return nil, err
+	}
+	return &resp.Location, nil
 }
 
 func (reg *SauronRegistry) QueryAll(requires string) ([]string, error) {
-	// TODO
-	return nil, nil
+	resp, err := call(reg.client, &message{Type: "queryAll", Requires: requires})
+	if err != nil {
+		return nil, err
+	}
+	var locations []string
+	for _, wloc := range resp.Locations {
+		locations = append(locations, wloc.Location)
+	}
+	return locations, nil
+}
+
+func call(caller proto.SyncCaller, req *message) (*message, error) {
+	reqMsg, err := json.Marshal(req)
+	if err != nil {
+		return nil, err
+	}
+	respMsg, err := caller.SyncCall(reqMsg)
+	if err != nil {
+		return nil, err
+	}
+	resp := message{}
+	err = json.Unmarshal(respMsg, &resp)
+	if err != nil {
+		return nil, err
+	}
+	if resp.Type == "error" {
+		return nil, fmt.Errorf("registry operation %s failed: %s", req.Type, resp.Message)
+	}
+	return &resp, nil
+}
+
+func (reg *SauronRegistry) handshake(caller proto.SyncCaller) error {
+	req := message{
+		Type:   "authenticate",
+		Tenant: reg.Tenant,
+		Token:  "foo", // TODO pull from env var
+	}
+	_, err := call(caller, &req)
+	if err != nil {
+		return err
+	}
+	log.Printf("Authenticated as %s", reg.Tenant)
+	return nil
 }
