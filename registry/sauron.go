@@ -16,8 +16,8 @@ const (
 )
 
 type Advertisement struct {
-	Name     string
-	Location string
+	Name     string `json:"name"`
+	Location string `json:"location"`
 }
 
 type SauronRegistry struct {
@@ -132,6 +132,19 @@ func (reg *SauronRegistry) handshake(caller proto.SyncCaller) error {
 		return err
 	}
 	log.Printf("Authenticated as %s", reg.Tenant)
+
+	if reg.ads != nil {
+		req := message{
+			Type:     "advertise",
+			Provides: reg.ads,
+		}
+		_, err := call(caller, &req)
+		if err != nil {
+			return err
+		}
+		log.Printf("Advertised %v", reg.ads)
+	}
+
 	return nil
 }
 

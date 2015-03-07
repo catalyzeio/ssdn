@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"math/rand"
 	"os"
 	"time"
 
@@ -19,7 +20,15 @@ func main() {
 	}
 
 	r := registry.NewRegistry("orchestration", "localhost", 7411, config)
-	r.Start(nil)
+	ads := make([]registry.Advertisement, 2)
+	for i := 0; i < len(ads); i++ {
+		ads[i] = registry.Advertisement{
+			Name:     fmt.Sprintf("key%d", i),
+			Location: fmt.Sprintf("val%d", rand.Intn(100)),
+		}
+	}
+	r.Start(ads)
+
 	for i := 0; i < 3; i++ {
 		fmt.Printf("querying\n")
 		a, err := r.QueryAll("orchestration_agent")
