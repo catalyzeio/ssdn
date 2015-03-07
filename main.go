@@ -1,14 +1,24 @@
 package main
 
 import (
+	"flag"
 	"fmt"
+	"os"
 	"time"
 
+	"github.com/catalyzeio/shadowfax/proto"
 	"github.com/catalyzeio/shadowfax/registry"
 )
 
 func main() {
-	r := registry.NewRegistry("orchestration", "localhost", 7411, nil)
+	flag.Parse()
+	config, err := proto.GenerateTLSConfig()
+	if err != nil {
+		fmt.Printf("Invalid TLS settings: %s\n", err)
+		os.Exit(1)
+	}
+
+	r := registry.NewRegistry("orchestration", "localhost", 7411, config)
 	r.Start(nil)
 	for i := 0; i < 3; i++ {
 		fmt.Printf("querying\n")

@@ -86,9 +86,15 @@ func (c *ReconnectClient) connect(target string, initDelay bool) bool {
 	log.Printf("Connected to %s", target)
 
 	// set up connection
-	tcpConn := conn.(*net.TCPConn)
-	tcpConn.SetKeepAlive(true)
-	tcpConn.SetKeepAlivePeriod(15 * time.Second)
+	tcpConn, ok := conn.(*net.TCPConn)
+	if ok {
+		tcpConn.SetKeepAlive(true)
+		tcpConn.SetKeepAlivePeriod(15 * time.Second)
+		log.Printf("Enabled TCP keepalives on connection to %s", target)
+	} else {
+		// XXX tls.Conn does not currently provide a way to set TCP keepalives on the underlying socket
+		log.Printf("Could not enable TCP keepalives on connection to %s", target)
+	}
 
 	// run handler
 	failed := make(chan bool, 1)
@@ -142,8 +148,13 @@ func (c *ReconnectClient) dial(target string, initDelay bool) net.Conn {
 		}
 
 		log.Printf("Connecting to %s", target)
-		conn, err := net.Dial("tcp", target)
-		// TODO TLS dial
+		var conn net.Conn
+		var err error
+		if c.config != nil {
+			conn, err = tls.Dial("tcp", target, c.config)
+		} else {
+			conn, err = net.Dial("tcp", target)
+		}
 		if err == nil {
 			return conn
 		}
