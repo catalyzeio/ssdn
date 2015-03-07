@@ -36,8 +36,8 @@ type message struct {
 	Type string `json:"type"`
 
 	// authenticate request
-	Tenant string `json:"tenant,omitempty"`
-	Token  string `json:"token,omitempty"`
+	Tenant string  `json:"tenant,omitempty"`
+	Token  *string `json:"token,omitempty"`
 
 	// advertise request
 	Provides  []Advertisement `json:"provides,omitempty"`
@@ -121,10 +121,11 @@ func call(caller proto.SyncCaller, req *message) (*message, error) {
 }
 
 func (reg *SauronRegistry) handshake(caller proto.SyncCaller) error {
+	token := os.Getenv(TenantTokenEnvVar)
 	req := message{
 		Type:   "authenticate",
 		Tenant: reg.Tenant,
-		Token:  os.Getenv(TenantTokenEnvVar),
+		Token:  &token,
 	}
 	_, err := call(caller, &req)
 	if err != nil {
