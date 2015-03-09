@@ -1,0 +1,14 @@
+#!/bin/bash -e
+
+if [ "$#" -ne 3 ]; then
+	echo "Usage: $0 [bridge] [mtu] [linkif]"
+	exit 1
+fi
+
+bname=$1
+mtu=$2
+linkif=$3
+
+ip link set ${linkif} mtu ${mtu}
+brctl addif ${bname} ${linkif}
+ip link set ${linkif} up

@@ -1,0 +1,11 @@
+#!/bin/bash -e
+
+if [ "$#" -ne 1 ]; then
+	echo "Usage: $0 [bridge]"
+	exit 1
+fi
+
+bname=$1
+
+ip link set ${bname} down || true
+brctl delbr ${bname}
