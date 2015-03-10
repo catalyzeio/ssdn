@@ -1,43 +1,58 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
-	"math/rand"
 	"os"
-	"time"
 
-	"github.com/catalyzeio/shadowfax/proto"
-	"github.com/catalyzeio/shadowfax/registry"
+	"github.com/catalyzeio/shadowfax/cli"
 )
 
+func fail(format string, args ...interface{}) {
+	fmt.Fprintf(os.Stderr, format, args...)
+	os.Exit(1)
+}
+
 func main() {
+	tenantFlag := flag.String("tenant", "", "tenant identifier (required)")
+	cliDirFlag := flag.String("rundir", "/var/run/shadowfax", "server socket directory")
 	flag.Parse()
-	config, err := proto.GenerateTLSConfig()
+
+	if len(*tenantFlag) == 0 {
+		fail("Missing -tenant argument\n")
+	}
+
+	client := cli.NewClient(*cliDirFlag, *tenantFlag)
+	err := client.Connect()
 	if err != nil {
-		fmt.Printf("Invalid TLS settings: %s\n", err)
-		os.Exit(1)
+		fail("Could not connect to server: %s\n", err)
 	}
 
-	r := registry.NewRegistry("orchestration", "localhost", 7411, config)
-	ads := make([]registry.Advertisement, 2)
-	for i := 0; i < len(ads); i++ {
-		ads[i] = registry.Advertisement{
-			Name:     fmt.Sprintf("key%d", i),
-			Location: fmt.Sprintf("val%d", rand.Intn(100)),
-		}
-	}
-	r.Start(ads)
+	defer client.Close()
 
-	for i := 0; i < 3; i++ {
-		fmt.Printf("querying\n")
-		a, err := r.QueryAll("orchestration_agent")
-		if err == nil {
-			fmt.Printf("query result: %v\n", a)
-		} else {
-			fmt.Printf("query failed: %v\n", err)
+	args := flag.Args()
+	if len(args) > 0 {
+		resp, err := client.CallWithArgs(args...)
+		if err != nil {
+			fail("Request failed: %s\n", err)
 		}
-		time.Sleep(3 * time.Second)
+		if resp != nil {
+			print(*resp)
+		}
+		return
 	}
-	time.Sleep(1 * time.Hour)
+
+	s := bufio.NewScanner(os.Stdin)
+	print("> ")
+	for s.Scan() {
+		resp, err := client.Call(s.Text())
+		if err != nil {
+			fail("Request failed: %s\n", err)
+		}
+		if resp != nil {
+			print(*resp)
+		}
+		print("> ")
+	}
 }
