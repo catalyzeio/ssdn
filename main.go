@@ -14,6 +14,15 @@ func fail(format string, args ...interface{}) {
 	os.Exit(1)
 }
 
+func show(resp *string, err error) {
+	if err != nil {
+		fail("Request failed: %s\n", err)
+	}
+	if resp != nil {
+		print(*resp)
+	}
+}
+
 func main() {
 	tenantFlag := flag.String("tenant", "", "tenant identifier (required)")
 	cliDirFlag := flag.String("rundir", "/var/run/shadowfax", "server socket directory")
@@ -33,26 +42,14 @@ func main() {
 
 	args := flag.Args()
 	if len(args) > 0 {
-		resp, err := client.CallWithArgs(args...)
-		if err != nil {
-			fail("Request failed: %s\n", err)
-		}
-		if resp != nil {
-			print(*resp)
-		}
+		show(client.CallWithArgs(args...))
 		return
 	}
 
 	s := bufio.NewScanner(os.Stdin)
 	print("> ")
 	for s.Scan() {
-		resp, err := client.Call(s.Text())
-		if err != nil {
-			fail("Request failed: %s\n", err)
-		}
-		if resp != nil {
-			print(*resp)
-		}
+		show(client.Call(s.Text()))
 		print("> ")
 	}
 }

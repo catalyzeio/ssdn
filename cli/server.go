@@ -3,6 +3,7 @@ package cli
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"os"
@@ -90,6 +91,9 @@ func (c *CommandListener) service(conn net.Conn) {
 	r := bufio.NewReaderSize(conn, bufSize)
 	for {
 		request, err := r.ReadString(delim)
+		if err == io.EOF {
+			return
+		}
 		if err != nil {
 			log.Printf("Error receiving request: %s", err)
 			return
