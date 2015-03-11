@@ -47,7 +47,7 @@ func main() {
 	log.Printf("Tenant: %s, tenant ID: %s", tenant, tenID)
 
 	// init bridge
-	invoker := actions.NewInvoker(path.Join(*confDirFlag, "actions.d", "l2link"))
+	invoker := actions.NewInvoker(path.Join(*confDirFlag, "l2link.d"))
 	err := invoker.Execute("create", tenID)
 	if err != nil {
 		fail("Could not initialize bridge: %s\n", err)
