@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/catalyzeio/shadowfax/cli"
 )
@@ -21,6 +22,16 @@ func show(resp *string, err error) {
 	if resp != nil {
 		print(*resp)
 	}
+}
+
+func check(resp *string, err error) {
+	if err == nil && resp != nil {
+		s := *resp
+		if strings.HasPrefix(s, cli.ErrorPrefix) {
+			fail(s)
+		}
+	}
+	show(resp, err)
 }
 
 func main() {
@@ -42,7 +53,7 @@ func main() {
 
 	args := flag.Args()
 	if len(args) > 0 {
-		show(client.CallWithArgs(args...))
+		check(client.CallWithArgs(args...))
 		return
 	}
 

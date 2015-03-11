@@ -12,14 +12,27 @@ import (
 	"time"
 )
 
+const (
+	ErrorPrefix = "Error: "
+)
+
 type CommandHandler func(args ...string) (string, error)
 
 type CommandListener struct {
-	dsPath  string
-	handler CommandHandler
+	dsPath   string
+	handlers map[string]*entry
 
 	start   time.Time
 	command chan bool
+}
+
+type entry struct {
+	command     string
+	usage       string
+	description string
+	minArgs     int
+	maxArgs     int
+	handler     CommandHandler
 }
 
 const (
@@ -27,13 +40,19 @@ const (
 	delim   = '\n'
 )
 
-func NewServer(baseDir string, tenant string, handler CommandHandler) *CommandListener {
+func NewServer(baseDir, tenant string) *CommandListener {
 	c := CommandListener{
-		dsPath:  path.Join(baseDir, tenant),
-		handler: handler,
-		command: make(chan bool),
+		dsPath:   path.Join(baseDir, tenant),
+		handlers: make(map[string]*entry),
+		command:  make(chan bool),
 	}
+	c.Register("uptime", "", "Displays process uptime", 0, 0, c.uptime)
+	c.Register("help", "[command]", "Shows help on available commands", 0, 1, c.help)
 	return &c
+}
+
+func (c *CommandListener) Register(command, usage, description string, minArgs, maxArgs int, handler CommandHandler) {
+	c.handlers[command] = &entry{command, usage, description, minArgs, maxArgs, handler}
 }
 
 func (c *CommandListener) Start() error {
@@ -103,13 +122,9 @@ func (c *CommandListener) service(conn net.Conn) {
 		args := strings.Fields(request)
 		response := ""
 		if len(args) > 0 {
-			if args[0] == "uptime" {
-				response = time.Now().Sub(c.start).String()
-			} else {
-				response, err = c.handler(args...)
-				if err != nil {
-					response = fmt.Sprintf("Error: %s", err)
-				}
+			response, err = c.dispatch(args[0], args[1:])
+			if err != nil {
+				response = ErrorPrefix + err.Error()
 			}
 		}
 		log.Printf("CLI -> %s", response)
@@ -120,4 +135,62 @@ func (c *CommandListener) service(conn net.Conn) {
 			return
 		}
 	}
+}
+
+func (c *CommandListener) dispatch(cmd string, args []string) (string, error) {
+	entry, err := c.disambiguate(cmd)
+	if err != nil {
+		return "", err
+	}
+
+	n := len(args)
+	if n < entry.minArgs || (entry.maxArgs >= 0 && n > entry.maxArgs) {
+		return "", fmt.Errorf("invalid number of arguments to command '%s'", entry.command)
+	}
+	return entry.handler(args...)
+}
+
+func (c *CommandListener) disambiguate(cmd string) (*entry, error) {
+	match, present := c.handlers[cmd]
+	if present {
+		return match, nil
+	}
+
+	var candidate *entry
+	for _, e := range c.handlers {
+		if strings.HasPrefix(e.command, cmd) {
+			if candidate != nil {
+				return nil, fmt.Errorf("ambiguous command '%s'", cmd)
+			}
+			candidate = e
+		}
+	}
+	if candidate == nil {
+		return nil, fmt.Errorf("unknown command '%s'", cmd)
+	}
+	return candidate, nil
+}
+
+func (c *CommandListener) uptime(args ...string) (string, error) {
+	return time.Now().Sub(c.start).String(), nil
+}
+
+func (c *CommandListener) help(args ...string) (string, error) {
+	if len(args) > 0 {
+		entry, err := c.disambiguate(args[0])
+		if err != nil {
+			return "", err
+		}
+		usage := entry.usage
+		if len(usage) > 0 {
+			usage = " " + usage
+		}
+		return fmt.Sprintf("%s%s: %s", entry.command, usage, entry.description), nil
+	}
+
+	msg := []string{"Available commands:"}
+	for k := range c.handlers {
+		msg = append(msg, k)
+	}
+	return strings.Join(msg, " "), nil
 }
