@@ -36,14 +36,14 @@ func check(resp *string, err error) {
 
 func main() {
 	tenantFlag := flag.String("tenant", "", "tenant identifier (required)")
-	cliDirFlag := flag.String("rundir", "/var/run/shadowfax", "server socket directory")
+	runDirFlag := flag.String("rundir", "/var/run/shadowfax", "server socket directory")
 	flag.Parse()
 
 	if len(*tenantFlag) == 0 {
 		fail("Missing -tenant argument\n")
 	}
 
-	client := cli.NewClient(*cliDirFlag, *tenantFlag)
+	client := cli.NewClient(*runDirFlag, *tenantFlag)
 	err := client.Connect()
 	if err != nil {
 		fail("Could not connect to server: %s\n", err)
