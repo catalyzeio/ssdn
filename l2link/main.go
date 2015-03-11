@@ -48,7 +48,9 @@ func main() {
 
 	// init bridge
 	invoker := actions.NewInvoker(path.Join(*confDirFlag, "l2link.d"))
-	err := invoker.Execute("create", tenID)
+	invoker.Start()
+
+	_, err := invoker.Execute("create", tenID)
 	if err != nil {
 		fail("Could not initialize bridge: %s\n", err)
 	}
