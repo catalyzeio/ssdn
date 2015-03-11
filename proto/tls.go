@@ -24,7 +24,7 @@ func GenerateTLSConfig() (*tls.Config, error) {
 	return NewTLSConfig(*useTLSFlag, *certFileFlag, *keyFileFlag, *caFileFlag)
 }
 
-func NewTLSConfig(useTLS bool, certFile string, keyFile string, caFile string) (*tls.Config, error) {
+func NewTLSConfig(useTLS bool, certFile, keyFile, caFile string) (*tls.Config, error) {
 	if !useTLS {
 		return nil, nil
 	}
