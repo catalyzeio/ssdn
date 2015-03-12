@@ -1,5 +1,7 @@
 package main
 
+// TODO per-package logging levels (glog?)
+
 import (
 	"bufio"
 	"flag"
