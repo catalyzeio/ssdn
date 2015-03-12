@@ -38,6 +38,7 @@ type syncResp struct {
 
 const (
 	separator = '\n'
+	bufSize   = 1 << 18 // 64 KiB
 )
 
 func NewSyncClient(host string, port int, config *tls.Config, idleTimeout time.Duration) *SyncClient {
@@ -69,8 +70,7 @@ func (c *SyncClient) SyncCall(msg []byte) ([]byte, error) {
 }
 
 func (c *SyncClient) syncHandler(conn net.Conn, abort <-chan bool) error {
-	const bufferSize = 1 << 18 // 64 KiB
-	r := bufio.NewReaderSize(conn, bufferSize)
+	r := bufio.NewReaderSize(conn, bufSize)
 
 	dc := directCaller{conn, r}
 	if c.Handshaker != nil {

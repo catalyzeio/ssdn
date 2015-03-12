@@ -236,6 +236,7 @@ func (o *L2Link) service(conn net.Conn) {
 		if client != nil {
 			o.clientDisconnected(client)
 		}
+		log.Printf("Client disconnected: %s", conn.RemoteAddr())
 	}()
 
 	log.Printf("Inbound connection: %s", conn.RemoteAddr())
