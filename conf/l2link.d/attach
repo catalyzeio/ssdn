@@ -18,7 +18,8 @@ containerif=$5
 nspid=$(${DOCKER} inspect -f '{{ .State.Pid }}' $container)
 
 # create veth pair
-ip link add name ${localif} type veth peer name ${containerif}
+tempif=${localif}.cont
+ip link add name ${localif} type veth peer name ${tempif}
 
 # add local interface to bridge
 ip link set ${localif} mtu ${mtu}
@@ -40,5 +41,5 @@ if [ ! -f ${container} ]; then
 fi
 
 # add remote interface to container
-ip link set ${containerif} netns ${container}
-ip netns exec ${container} ip link set ${containerif} up mtu ${mtu}
+ip link set ${tempif} netns ${container}
+ip netns exec ${container} ip link set ${tempif} up mtu ${mtu} name ${containerif}
