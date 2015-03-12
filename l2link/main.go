@@ -29,10 +29,10 @@ func main() {
 	flag.Parse()
 
 	tenant, tenantID, err := overlay.GetTenantFlags()
-	log.Printf("Servicing tenant: %s, tenant ID: %s", tenant, tenantID)
 	if err != nil {
 		fail("Invalid tenant config: %s\n", err)
 	}
+	log.Printf("Servicing tenant: %s, tenant ID: %s", tenant, tenantID)
 
 	mtu := uint16(*mtuFlag)
 	if mtu < 0x400 || mtu > 0x8000 {

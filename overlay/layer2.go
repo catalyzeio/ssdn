@@ -27,6 +27,9 @@ type L2Link struct {
 	connMutex   sync.Mutex
 	connections map[string]string
 	ifIndex     int
+
+	clientMutex sync.Mutex
+	clients     map[string]string
 }
 
 const (
@@ -43,6 +46,7 @@ func NewL2Link(tenantID string, mtu uint16, listenAddress *proto.Address, config
 		invoker:       invoker,
 		cli:           cli,
 		connections:   make(map[string]string),
+		clients:       make(map[string]string),
 	}
 
 	cli.Register("addpeer", "[proto://host:port]", "Adds a peer at the specified address", 1, 1, l.cliAddPeer)
@@ -58,7 +62,8 @@ func NewL2Link(tenantID string, mtu uint16, listenAddress *proto.Address, config
 }
 
 func (o *L2Link) Start() error {
-	// TODO restore existing state
+	// TODO restore existing state (bridge, veth pairs kept)
+	// TODO recover on reboots (bridge, veth pairs killed)
 
 	var err error
 	initCLI := false
@@ -99,28 +104,47 @@ func (o *L2Link) Start() error {
 	return nil
 }
 
-// TODO Stop function
+func (o *L2Link) AddPeer(url string) error {
+	// TODO
+	return fmt.Errorf("Not implemented")
+}
+
+func (o *L2Link) DeletePeer(url string) error {
+	// TODO
+	return fmt.Errorf("Not implemented")
+}
+
+func (o *L2Link) ListPeers() map[string]string {
+	// TODO
+	return nil
+}
 
 func (o *L2Link) cliAddPeer(args ...string) (string, error) {
 	peerURL := args[0]
-	_ = peerURL
 
-	return "TODO", nil
+	err := o.AddPeer(peerURL)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("Added peer %s", peerURL), nil
 }
 
 func (o *L2Link) cliDelPeer(args ...string) (string, error) {
 	peerURL := args[0]
-	_ = peerURL
 
-	return "TODO", nil
+	err := o.AddPeer(peerURL)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("Deleted peer %s", peerURL), nil
 }
 
 func (o *L2Link) cliPeers(args ...string) (string, error) {
-	return "TODO", nil
+	return fmt.Sprintf("Peers: %s", mapValues(o.ListPeers())), nil
 }
 
 func (o *L2Link) cliClients(args ...string) (string, error) {
-	return "TODO", nil
+	return o.listClients(), nil
 }
 
 func (o *L2Link) cliAttach(args ...string) (string, error) {
@@ -188,11 +212,7 @@ func (o *L2Link) containerConnections() string {
 	o.connMutex.Lock()
 	defer o.connMutex.Unlock()
 
-	var links []string
-	for k, v := range o.connections {
-		links = append(links, fmt.Sprintf("%s via %s", k, v))
-	}
-	return fmt.Sprintf("Connections: %s", strings.Join(links, ", "))
+	return fmt.Sprintf("Connections: %s", mapValues(o.connections))
 }
 
 func (o *L2Link) accept(listener net.Listener) {
@@ -205,13 +225,64 @@ func (o *L2Link) accept(listener net.Listener) {
 			log.Printf("Error accepting connections: %s", err)
 			return
 		}
-		o.service(conn)
+		go o.service(conn)
 	}
 }
 
 func (o *L2Link) service(conn net.Conn) {
-	defer conn.Close()
+	var client net.Addr
+	defer func() {
+		conn.Close()
+		if client != nil {
+			o.clientDisconnected(client)
+		}
+	}()
 
 	log.Printf("Inbound connection: %s", conn.RemoteAddr())
-	// TODO
+
+	tap, err := NewL2Tap(conn)
+	if err != nil {
+		log.Printf("Error creating tap: %s", err)
+		return
+	}
+
+	_, err = o.invoker.Execute("link", tap.Name)
+	if err != nil {
+		log.Printf("Error linking tap to bridge: %s", err)
+		return
+	}
+
+	client = conn.RemoteAddr()
+	o.clientConnected(client, tap.Name)
+
+	tap.Forward()
+}
+
+func (o *L2Link) clientConnected(addr net.Addr, downlinkIface string) {
+	o.clientMutex.Lock()
+	defer o.clientMutex.Unlock()
+
+	o.clients[addr.String()] = downlinkIface
+}
+
+func (o *L2Link) clientDisconnected(addr net.Addr) {
+	o.clientMutex.Lock()
+	defer o.clientMutex.Unlock()
+
+	delete(o.clients, addr.String())
+}
+
+func (o *L2Link) listClients() string {
+	o.clientMutex.Lock()
+	defer o.clientMutex.Unlock()
+
+	return fmt.Sprintf("Clients: %s", mapValues(o.clients))
+}
+
+func mapValues(m map[string]string) string {
+	var entries []string
+	for k, v := range m {
+		entries = append(entries, fmt.Sprintf("%s via %s", k, v))
+	}
+	return strings.Join(entries, ", ")
 }
