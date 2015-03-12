@@ -1,0 +1,27 @@
+#!/bin/bash -e
+
+if [ "$#" -lt 2 ]; then
+	echo "Usage: $0 [container] [args...]"
+	exit 1
+fi
+
+NSDIR=/var/run/netns
+DOCKER=$(command -v docker.io || command -v docker)
+
+container=$1; shift
+
+# grab container network namespace from docker
+nspid=$(${DOCKER} inspect -f '{{ .State.Pid }}' $container)
+
+# set up netns container link
+if [ ! -d ${NSDIR} ]; then
+	mkdir -p ${NSDIR}
+fi
+cd ${NSDIR}
+if [ ! -f ${container} ]; then
+	rm -f ${container}
+	ln -s /proc/${nspid}/ns/net ${container}
+fi
+
+# exec command
+ip netns exec ${container} "$@"
