@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"path"
+	"sort"
 	"strings"
 	"time"
 )
@@ -192,5 +193,6 @@ func (c *Listener) help(args ...string) (string, error) {
 	for k := range c.handlers {
 		msg = append(msg, k)
 	}
+	sort.Strings(msg[1:])
 	return strings.Join(msg, " "), nil
 }
