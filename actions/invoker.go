@@ -7,7 +7,7 @@ import (
 	"path"
 )
 
-type ActionInvoker struct {
+type Invoker struct {
 	dir      string
 	requests chan *actionReq
 	command  chan bool
@@ -24,30 +24,30 @@ type actionResp struct {
 	err    error
 }
 
-func NewInvoker(dir string) *ActionInvoker {
-	return &ActionInvoker{
+func NewInvoker(dir string) *Invoker {
+	return &Invoker{
 		dir:      dir,
 		requests: make(chan *actionReq),
 		command:  make(chan bool),
 	}
 }
 
-func (a *ActionInvoker) Start() {
+func (a *Invoker) Start() {
 	go a.run()
 }
 
-func (a *ActionInvoker) Stop() {
+func (a *Invoker) Stop() {
 	a.command <- true
 }
 
-func (a *ActionInvoker) Execute(action string, args ...string) ([]byte, error) {
+func (a *Invoker) Execute(action string, args ...string) ([]byte, error) {
 	req := actionReq{action, args, make(chan *actionResp, 1)}
 	a.requests <- &req
 	resp := <-req.result
 	return resp.output, resp.err
 }
 
-func (a *ActionInvoker) run() {
+func (a *Invoker) run() {
 	for {
 		select {
 		case <-a.command:
@@ -58,7 +58,7 @@ func (a *ActionInvoker) run() {
 	}
 }
 
-func (a *ActionInvoker) invoke(req *actionReq) {
+func (a *Invoker) invoke(req *actionReq) {
 	target := path.Join(a.dir, req.action)
 	cmd := exec.Command(target, req.args...)
 	output, err := cmd.CombinedOutput()

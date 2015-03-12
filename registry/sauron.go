@@ -20,7 +20,7 @@ type Advertisement struct {
 	Location string `json:"location"`
 }
 
-type SauronRegistry struct {
+type SauronClient struct {
 	Tenant string
 
 	client *proto.SyncClient
@@ -60,8 +60,8 @@ const (
 	pingInterval = 15 * time.Second
 )
 
-func NewRegistry(tenant string, host string, port int, config *tls.Config) *SauronRegistry {
-	reg := SauronRegistry{
+func NewRegistry(tenant string, host string, port int, config *tls.Config) *SauronClient {
+	reg := SauronClient{
 		Tenant: tenant,
 
 		client: proto.NewSyncClient(host, port, config, pingInterval),
@@ -71,16 +71,16 @@ func NewRegistry(tenant string, host string, port int, config *tls.Config) *Saur
 	return &reg
 }
 
-func (reg *SauronRegistry) Start(ads []Advertisement) {
+func (reg *SauronClient) Start(ads []Advertisement) {
 	reg.ads = ads
 	reg.client.Start()
 }
 
-func (reg *SauronRegistry) Stop() {
+func (reg *SauronClient) Stop() {
 	reg.client.Stop()
 }
 
-func (reg *SauronRegistry) Query(requires string) (*string, error) {
+func (reg *SauronClient) Query(requires string) (*string, error) {
 	resp, err := call(reg.client, &message{Type: "query", Requires: requires})
 	if err != nil {
 		return nil, err
@@ -88,7 +88,7 @@ func (reg *SauronRegistry) Query(requires string) (*string, error) {
 	return &resp.Location, nil
 }
 
-func (reg *SauronRegistry) QueryAll(requires string) ([]string, error) {
+func (reg *SauronClient) QueryAll(requires string) ([]string, error) {
 	resp, err := call(reg.client, &message{Type: "queryAll", Requires: requires})
 	if err != nil {
 		return nil, err
@@ -120,7 +120,7 @@ func call(caller proto.SyncCaller, req *message) (*message, error) {
 	return &resp, nil
 }
 
-func (reg *SauronRegistry) handshake(caller proto.SyncCaller) error {
+func (reg *SauronClient) handshake(caller proto.SyncCaller) error {
 	token := os.Getenv(TenantTokenEnvVar)
 	req := message{
 		Type:   "authenticate",
@@ -148,7 +148,7 @@ func (reg *SauronRegistry) handshake(caller proto.SyncCaller) error {
 	return nil
 }
 
-func (reg *SauronRegistry) idle(caller proto.SyncCaller) error {
+func (reg *SauronClient) idle(caller proto.SyncCaller) error {
 	_, err := call(caller, &message{Type: "ping"})
 	return err
 }

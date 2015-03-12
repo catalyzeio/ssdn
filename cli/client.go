@@ -7,21 +7,21 @@ import (
 	"strings"
 )
 
-type CommandClient struct {
+type Client struct {
 	dsPath string
 
 	conn   net.Conn
 	reader *bufio.Reader
 }
 
-func NewClient(baseDir string, tenant string) *CommandClient {
-	c := CommandClient{
-		dsPath: path.Join(baseDir, tenant),
+func NewClient(baseDir string, name string) *Client {
+	c := Client{
+		dsPath: path.Join(baseDir, name),
 	}
 	return &c
 }
 
-func (c *CommandClient) Connect() error {
+func (c *Client) Connect() error {
 	conn, err := net.Dial("unix", c.dsPath)
 	if err != nil {
 		return err
@@ -31,18 +31,18 @@ func (c *CommandClient) Connect() error {
 	return nil
 }
 
-func (c *CommandClient) Close() error {
+func (c *Client) Close() error {
 	if c.conn == nil {
 		return nil
 	}
 	return c.conn.Close()
 }
 
-func (c *CommandClient) CallWithArgs(args ...string) (*string, error) {
+func (c *Client) CallWithArgs(args ...string) (*string, error) {
 	return c.Call(strings.Join(args, " "))
 }
 
-func (c *CommandClient) Call(request string) (*string, error) {
+func (c *Client) Call(request string) (*string, error) {
 	_, err := c.conn.Write(append([]byte(request), delim))
 	if err != nil {
 		return nil, err

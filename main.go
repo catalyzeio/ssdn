@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/catalyzeio/shadowfax/cli"
+	"github.com/catalyzeio/shadowfax/overlay"
 )
 
 func fail(format string, args ...interface{}) {
@@ -35,16 +36,17 @@ func check(resp *string, err error) {
 }
 
 func main() {
-	tenantFlag := flag.String("tenant", "", "tenant identifier (required)")
+	overlay.AddTenantFlags()
 	runDirFlag := flag.String("rundir", "/var/run/shadowfax", "server socket directory")
 	flag.Parse()
 
-	if len(*tenantFlag) == 0 {
-		fail("Missing -tenant argument\n")
+	tenant, _, err := overlay.GetTenantFlags()
+	if err != nil {
+		fail("Invalid tenant config: %s\n", err)
 	}
 
-	client := cli.NewClient(*runDirFlag, *tenantFlag)
-	err := client.Connect()
+	client := cli.NewClient(*runDirFlag, tenant)
+	err = client.Connect()
 	if err != nil {
 		fail("Could not connect to server: %s\n", err)
 	}

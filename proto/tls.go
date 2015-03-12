@@ -13,7 +13,7 @@ var certFileFlag *string
 var keyFileFlag *string
 var caFileFlag *string
 
-func init() {
+func AddTLSFlags() {
 	useTLSFlag = flag.Bool("tls", false, "whether to listen using TLS")
 	certFileFlag = flag.String("cert", "", "certificate to use in TLS mode")
 	keyFileFlag = flag.String("key", "", "certificate key to use in TLS mode")

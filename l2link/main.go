@@ -6,17 +6,12 @@ import (
 	"log"
 	"os"
 	"path"
-	"regexp"
 	"time"
 
 	"github.com/catalyzeio/shadowfax/actions"
 	"github.com/catalyzeio/shadowfax/cli"
-)
-
-var TenantPattern = regexp.MustCompile("^[-0-9A-Za-z_]+$")
-
-const (
-	TenantIdLength = 6
+	"github.com/catalyzeio/shadowfax/overlay"
+	"github.com/catalyzeio/shadowfax/proto"
 )
 
 func fail(format string, args ...interface{}) {
@@ -25,61 +20,34 @@ func fail(format string, args ...interface{}) {
 }
 
 func main() {
-	tenantFlag := flag.String("tenant", "", "tenant identifier (required)")
+	proto.AddTLSFlags()
+	overlay.AddTenantFlags()
 	runDirFlag := flag.String("rundir", "/var/run/shadowfax", "server socket directory")
 	confDirFlag := flag.String("confdir", "/etc/shadowfax", "configuration directory")
 	flag.Parse()
 
-	// validate tenant
-	tenant := *tenantFlag
-	tlen := len(tenant)
-	if tlen == 0 {
-		fail("Missing -tenant argument\n")
-	}
-	if !TenantPattern.MatchString(tenant) {
-		fail("Invalid -tenant argument '%s'\n", tenant)
-	}
-
-	tenID := tenant
-	if len(tenID) > TenantIdLength {
-		tenID = tenID[:TenantIdLength]
-	}
-	log.Printf("Tenant: %s, tenant ID: %s", tenant, tenID)
-
-	// init bridge
-	invoker := actions.NewInvoker(path.Join(*confDirFlag, "l2link.d"))
-	invoker.Start()
-
-	_, err := invoker.Execute("create", tenID)
+	tenant, tenID, err := overlay.GetTenantFlags()
+	log.Printf("Running for tenant: %s, tenant ID: %s", tenant, tenID)
 	if err != nil {
-		fail("Could not initialize bridge: %s\n", err)
+		fail("Invalid tenant config: %s\n", err)
 	}
 
-	// start CLI server
-	s := cli.NewServer(*runDirFlag, tenant)
-
-	s.Register("addpeer", "[proto://host:port]", "Adds a peer at the specified address", 1, 1, todo)
-	s.Register("delpeer", "[proto://host:port]", "Deletes the peer at the specified address", 1, 1, todo)
-	s.Register("peers", "", "List all active peers", 0, 0, todo)
-
-	s.Register("attach", "[container]", "Attaches the given container to this overlay network", 1, 1, todo)
-	s.Register("detach", "[container]", "Detaches the given container from this overlay network", 1, 1, todo)
-	s.Register("connections", "", "Lists all containers attached to this overlay network", 0, 0, todo)
-
-	err = s.Start()
+	config, err := proto.GenerateTLSConfig()
 	if err != nil {
-		fail("Could not start CLI listener: %s\n", err)
+		fail("Invalid TLS config: %s\n", err)
 	}
 
-	// TODO start packet listener (if configured)
+	ai := actions.NewInvoker(path.Join(*confDirFlag, "l2link.d"))
+	cl := cli.NewServer(*runDirFlag, tenant)
+
+	overlay := overlay.NewL2Link(tenID, ai, cl, config)
+	err = overlay.Start()
+	if err != nil {
+		fail("Failed to start overlay: %s\n", err)
+	}
 
 	// TODO registry integration
-
 	for {
 		time.Sleep(time.Hour)
 	}
-}
-
-func todo(arg ...string) (string, error) {
-	return "TODO", nil
 }

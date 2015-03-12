@@ -16,9 +16,9 @@ const (
 	ErrorPrefix = "Error: "
 )
 
-type CommandHandler func(args ...string) (string, error)
+type Handler func(args ...string) (string, error)
 
-type CommandListener struct {
+type Listener struct {
 	dsPath   string
 	handlers map[string]*entry
 
@@ -32,7 +32,7 @@ type entry struct {
 	description string
 	minArgs     int
 	maxArgs     int
-	handler     CommandHandler
+	handler     Handler
 }
 
 const (
@@ -40,9 +40,9 @@ const (
 	delim   = '\n'
 )
 
-func NewServer(baseDir, tenant string) *CommandListener {
-	c := CommandListener{
-		dsPath:   path.Join(baseDir, tenant),
+func NewServer(baseDir, name string) *Listener {
+	c := Listener{
+		dsPath:   path.Join(baseDir, name),
 		handlers: make(map[string]*entry),
 		command:  make(chan bool),
 	}
@@ -51,11 +51,11 @@ func NewServer(baseDir, tenant string) *CommandListener {
 	return &c
 }
 
-func (c *CommandListener) Register(command, usage, description string, minArgs, maxArgs int, handler CommandHandler) {
+func (c *Listener) Register(command, usage, description string, minArgs, maxArgs int, handler Handler) {
 	c.handlers[command] = &entry{command, usage, description, minArgs, maxArgs, handler}
 }
 
-func (c *CommandListener) Start() error {
+func (c *Listener) Start() error {
 	// remove any existing domain socket
 	_, err := os.Stat(c.dsPath)
 	if err == nil {
@@ -74,11 +74,11 @@ func (c *CommandListener) Start() error {
 	return nil
 }
 
-func (c *CommandListener) Stop() {
+func (c *Listener) Stop() {
 	c.command <- true
 }
 
-func (c *CommandListener) listen(l net.Listener) {
+func (c *Listener) listen(l net.Listener) {
 	defer l.Close()
 
 	go c.accept(l)
@@ -91,7 +91,7 @@ func (c *CommandListener) listen(l net.Listener) {
 	}
 }
 
-func (c *CommandListener) accept(l net.Listener) {
+func (c *Listener) accept(l net.Listener) {
 	log.Printf("CLI accepting commands at %s", c.dsPath)
 	c.start = time.Now()
 	for {
@@ -104,7 +104,7 @@ func (c *CommandListener) accept(l net.Listener) {
 	}
 }
 
-func (c *CommandListener) service(conn net.Conn) {
+func (c *Listener) service(conn net.Conn) {
 	defer conn.Close()
 
 	r := bufio.NewReaderSize(conn, bufSize)
@@ -137,7 +137,7 @@ func (c *CommandListener) service(conn net.Conn) {
 	}
 }
 
-func (c *CommandListener) dispatch(cmd string, args []string) (string, error) {
+func (c *Listener) dispatch(cmd string, args []string) (string, error) {
 	entry, err := c.disambiguate(cmd)
 	if err != nil {
 		return "", err
@@ -150,7 +150,7 @@ func (c *CommandListener) dispatch(cmd string, args []string) (string, error) {
 	return entry.handler(args...)
 }
 
-func (c *CommandListener) disambiguate(cmd string) (*entry, error) {
+func (c *Listener) disambiguate(cmd string) (*entry, error) {
 	match, present := c.handlers[cmd]
 	if present {
 		return match, nil
@@ -171,11 +171,11 @@ func (c *CommandListener) disambiguate(cmd string) (*entry, error) {
 	return candidate, nil
 }
 
-func (c *CommandListener) uptime(args ...string) (string, error) {
+func (c *Listener) uptime(args ...string) (string, error) {
 	return time.Now().Sub(c.start).String(), nil
 }
 
-func (c *CommandListener) help(args ...string) (string, error) {
+func (c *Listener) help(args ...string) (string, error) {
 	if len(args) > 0 {
 		entry, err := c.disambiguate(args[0])
 		if err != nil {
