@@ -20,16 +20,28 @@ func fail(format string, args ...interface{}) {
 }
 
 func main() {
-	proto.AddTLSFlags()
 	overlay.AddTenantFlags()
+	proto.AddListenFlags(false)
+	proto.AddTLSFlags()
 	runDirFlag := flag.String("rundir", "/var/run/shadowfax", "server socket directory")
 	confDirFlag := flag.String("confdir", "/etc/shadowfax", "configuration directory")
+	mtuFlag := flag.Int("mtu", 9000, "MTU to use for virtual interfaces")
 	flag.Parse()
 
-	tenant, tenID, err := overlay.GetTenantFlags()
-	log.Printf("Running for tenant: %s, tenant ID: %s", tenant, tenID)
+	tenant, tenantID, err := overlay.GetTenantFlags()
+	log.Printf("Servicing tenant: %s, tenant ID: %s", tenant, tenantID)
 	if err != nil {
 		fail("Invalid tenant config: %s\n", err)
+	}
+
+	mtu := uint16(*mtuFlag)
+	if mtu < 0x400 || mtu > 0x8000 {
+		fail("Invalid MTU: %d\n", mtu)
+	}
+
+	listenAddress, err := proto.GetListenAddress()
+	if err != nil {
+		fail("Invalid listener config: %s\n", err)
 	}
 
 	config, err := proto.GenerateTLSConfig()
@@ -37,10 +49,10 @@ func main() {
 		fail("Invalid TLS config: %s\n", err)
 	}
 
-	ai := actions.NewInvoker(path.Join(*confDirFlag, "l2link.d"))
-	cl := cli.NewServer(*runDirFlag, tenant)
+	invoker := actions.NewInvoker(path.Join(*confDirFlag, "l2link.d"))
+	cli := cli.NewServer(*runDirFlag, tenant)
 
-	overlay := overlay.NewL2Link(tenID, ai, cl, config)
+	overlay := overlay.NewL2Link(tenantID, mtu, listenAddress, config, invoker, cli)
 	err = overlay.Start()
 	if err != nil {
 		fail("Failed to start overlay: %s\n", err)

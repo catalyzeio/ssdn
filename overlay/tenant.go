@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	tenantIdLength = 6
+	tenantIDLength = 6
 )
 
 var (
@@ -31,10 +31,10 @@ func GetTenantFlags() (string, string, error) {
 	}
 
 	// extract tenant ID
-	tenID := tenant
-	if len(tenID) > tenantIdLength {
-		tenID = tenID[:tenantIdLength]
+	tenantID := tenant
+	if len(tenantID) > tenantIDLength {
+		tenantID = tenantID[:tenantIDLength]
 	}
 
-	return tenant, tenID, nil
+	return tenant, tenantID, nil
 }
