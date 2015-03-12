@@ -128,6 +128,7 @@ func (c *Listener) service(conn net.Conn) {
 				response = ErrorPrefix + err.Error()
 			}
 		}
+		response = strings.Replace(response, string(delim), "; ", -1)
 		log.Printf("CLI -> %s", response)
 
 		_, err = conn.Write(append([]byte(response), delim))
