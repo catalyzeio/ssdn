@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	MaxPacketSize = 1 << 15 // 32 KiB
+	MaxPacketSize = 1<<15 - 1 // just under 32 KiB
 )
 
 type L2Tap struct {
