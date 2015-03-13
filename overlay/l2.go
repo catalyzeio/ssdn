@@ -24,14 +24,15 @@ type L2Overlay struct {
 	invoker *actions.Invoker
 	cli     *cli.Listener
 
-	peers *L2Peers
+	peerMutex sync.Mutex
+	peers     map[string]*L2Peer
+
+	clientMutex sync.Mutex
+	clients     map[string]string
 
 	connMutex   sync.Mutex
 	connections map[string]string
 	ifIndex     int
-
-	clientMutex sync.Mutex
-	clients     map[string]string
 }
 
 const (
@@ -47,7 +48,7 @@ func NewL2Overlay(tenantID string, mtu uint16, listenAddress *proto.Address, con
 		config:        config,
 		invoker:       invoker,
 		cli:           cli,
-		peers:         NewL2Peers(config),
+		peers:         make(map[string]*L2Peer),
 		connections:   make(map[string]string),
 		clients:       make(map[string]string),
 	}
@@ -73,7 +74,6 @@ func (o *L2Overlay) Start() error {
 	defer func() {
 		if err != nil {
 			o.invoker.Stop()
-			o.peers.Stop()
 			if initCLI {
 				o.cli.Stop()
 			}
@@ -82,9 +82,6 @@ func (o *L2Overlay) Start() error {
 
 	// start action invoker
 	o.invoker.Start()
-
-	// start peers
-	o.peers.Start()
 
 	// initialize bridge
 	_, err = o.invoker.Execute("create", o.tenantID)
@@ -112,15 +109,80 @@ func (o *L2Overlay) Start() error {
 }
 
 func (o *L2Overlay) AddPeer(url string) error {
-	return o.peers.AddPeer(url)
+	addr, err := proto.ParseAddress(url)
+	if err != nil {
+		return err
+	}
+
+	// verify new peer before creating client/tap
+	err = o.addPeer(url, nil)
+	if err != nil {
+		return err
+	}
+
+	peer, err := NewL2Peer(addr, o.config)
+	if err != nil {
+		return err
+	}
+
+	tap, err := NewL2Tap()
+	if err != nil {
+		return err
+	}
+	peer.Start(tap)
+
+	err = o.addPeer(url, peer)
+	if err != nil {
+		peer.Stop()
+		return err
+	}
+	return nil
+}
+
+func (o *L2Overlay) addPeer(url string, peer *L2Peer) error {
+	o.peerMutex.Lock()
+	defer o.peerMutex.Unlock()
+
+	_, present := o.peers[url]
+	if present {
+		return fmt.Errorf("already connected to peer %s", url)
+	}
+	if peer != nil {
+		o.peers[url] = peer
+	}
+	return nil
 }
 
 func (o *L2Overlay) DeletePeer(url string) error {
-	return o.peers.DeletePeer(url)
+	peer, err := o.removePeer(url)
+	if err != nil {
+		return err
+	}
+	peer.Stop()
+	return nil
+}
+
+func (o *L2Overlay) removePeer(url string) (*L2Peer, error) {
+	o.peerMutex.Lock()
+	defer o.peerMutex.Unlock()
+
+	peer, present := o.peers[url]
+	if !present {
+		return nil, fmt.Errorf("no such peer %s", url)
+	}
+	delete(o.peers, url)
+	return peer, nil
 }
 
 func (o *L2Overlay) ListPeers() map[string]string {
-	return o.peers.ListPeers()
+	o.peerMutex.Lock()
+	defer o.peerMutex.Unlock()
+
+	m := make(map[string]string)
+	for k, v := range o.peers {
+		m[k] = v.Name()
+	}
+	return m
 }
 
 func (o *L2Overlay) cliAddPeer(args ...string) (string, error) {
