@@ -15,8 +15,8 @@ import (
 )
 
 type L2Overlay struct {
-	tenantID string
-	mtu      uint16
+	bridge string
+	mtu    uint16
 
 	listenAddress *proto.Address
 	config        *tls.Config
@@ -40,9 +40,9 @@ const (
 	containerIface     = "eth1"
 )
 
-func NewL2Overlay(tenantID string, mtu uint16, listenAddress *proto.Address, config *tls.Config, invoker *actions.Invoker, cli *cli.Listener) *L2Overlay {
+func NewL2Overlay(bridge string, mtu uint16, listenAddress *proto.Address, config *tls.Config, invoker *actions.Invoker, cli *cli.Listener) *L2Overlay {
 	l := L2Overlay{
-		tenantID:      tenantID,
+		bridge:        bridge,
 		mtu:           mtu,
 		listenAddress: listenAddress,
 		config:        config,
@@ -84,10 +84,11 @@ func (o *L2Overlay) Start() error {
 	o.invoker.Start()
 
 	// initialize bridge
-	_, err = o.invoker.Execute("create", o.tenantID)
+	_, err = o.invoker.Execute("create", o.bridge)
 	if err != nil {
 		return err
 	}
+	log.Printf("Created bridge %s", o.bridge)
 
 	// initialize CLI
 	err = o.cli.Start()
@@ -129,6 +130,12 @@ func (o *L2Overlay) AddPeer(url string) error {
 	if err != nil {
 		return err
 	}
+
+	err = o.link(tap.Name())
+	if err != nil {
+		return err
+	}
+
 	peer.Start(tap)
 
 	err = o.addPeer(url, peer)
@@ -221,7 +228,7 @@ func (o *L2Overlay) cliAttach(args ...string) (string, error) {
 		return "", err
 	}
 	mtuStr := strconv.Itoa(int(o.mtu))
-	_, err = o.invoker.Execute("attach", o.tenantID, mtuStr, container, localIface, containerIface)
+	_, err = o.invoker.Execute("attach", o.bridge, mtuStr, container, localIface, containerIface)
 	if err != nil {
 		return "", err
 	}
@@ -236,7 +243,7 @@ func (o *L2Overlay) cliDetach(args ...string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	_, err = o.invoker.Execute("detach", o.tenantID, localIface)
+	_, err = o.invoker.Execute("detach", o.bridge, localIface)
 	if err != nil {
 		return "", err
 	}
@@ -257,7 +264,7 @@ func (o *L2Overlay) attach(container string) (string, error) {
 	}
 	i := o.ifIndex
 	o.ifIndex++
-	localIface := fmt.Sprintf(localIfaceTemplate, o.tenantID, i)
+	localIface := fmt.Sprintf(localIfaceTemplate, o.bridge, i)
 	o.connections[container] = localIface
 	return localIface, nil
 }
@@ -312,7 +319,7 @@ func (o *L2Overlay) service(conn net.Conn) {
 	defer tap.Close()
 
 	tapName := tap.Name()
-	_, err = o.invoker.Execute("link", tapName)
+	err = o.link(tapName)
 	if err != nil {
 		log.Printf("Error linking tap to bridge: %s", err)
 		return
@@ -322,6 +329,12 @@ func (o *L2Overlay) service(conn net.Conn) {
 	defer o.clientDisconnected(client)
 
 	tap.Forward(conn)
+}
+
+func (o *L2Overlay) link(tapName string) error {
+	mtuStr := strconv.Itoa(int(o.mtu))
+	_, err := o.invoker.Execute("link", o.bridge, mtuStr, tapName)
+	return err
 }
 
 func (o *L2Overlay) clientConnected(addr net.Addr, downlinkIface string) {
