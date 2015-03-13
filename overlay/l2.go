@@ -36,7 +36,7 @@ type L2Overlay struct {
 }
 
 const (
-	localIfaceTemplate = "sfl2.%s.%d"
+	localIfaceTemplate = "sf2.%s.%d"
 	containerIface     = "eth1"
 )
 

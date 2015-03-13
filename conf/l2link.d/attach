@@ -18,7 +18,7 @@ containerif=$5
 nspid=$(${DOCKER} inspect -f '{{ .State.Pid }}' $container)
 
 # create veth pair
-tempif=${localif}.cont
+tempif=${localif}c
 ip link add name ${localif} type veth peer name ${tempif}
 
 # add local interface to bridge
