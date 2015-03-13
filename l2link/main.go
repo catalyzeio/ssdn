@@ -34,10 +34,11 @@ func main() {
 	}
 	log.Printf("Servicing tenant: %s, tenant ID: %s", tenant, tenantID)
 
-	mtu := uint16(*mtuFlag)
-	if mtu < 0x400 || mtu > 0x8000 {
-		fail("Invalid MTU: %d\n", mtu)
+	mtuVal := *mtuFlag
+	if mtuVal < 0x400 || mtuVal > overlay.MaxPacketSize {
+		fail("Invalid MTU: %d\n", mtuVal)
 	}
+	mtu := uint16(mtuVal)
 
 	listenAddress, err := proto.GetListenAddress()
 	if err != nil {
@@ -52,7 +53,7 @@ func main() {
 	invoker := actions.NewInvoker(path.Join(*confDirFlag, "l2link.d"))
 	cli := cli.NewServer(*runDirFlag, tenant)
 
-	overlay := overlay.NewL2Link(tenantID, mtu, listenAddress, config, invoker, cli)
+	overlay := overlay.NewL2Overlay(tenantID, mtu, listenAddress, config, invoker, cli)
 	err = overlay.Start()
 	if err != nil {
 		fail("Failed to start overlay: %s\n", err)

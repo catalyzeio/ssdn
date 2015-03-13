@@ -14,7 +14,7 @@ import (
 	"github.com/catalyzeio/shadowfax/proto"
 )
 
-type L2Link struct {
+type L2Overlay struct {
 	tenantID string
 	mtu      uint16
 
@@ -23,6 +23,8 @@ type L2Link struct {
 
 	invoker *actions.Invoker
 	cli     *cli.Listener
+
+	peers *L2Peers
 
 	connMutex   sync.Mutex
 	connections map[string]string
@@ -37,14 +39,15 @@ const (
 	containerIface     = "eth1"
 )
 
-func NewL2Link(tenantID string, mtu uint16, listenAddress *proto.Address, config *tls.Config, invoker *actions.Invoker, cli *cli.Listener) *L2Link {
-	l := L2Link{
+func NewL2Overlay(tenantID string, mtu uint16, listenAddress *proto.Address, config *tls.Config, invoker *actions.Invoker, cli *cli.Listener) *L2Overlay {
+	l := L2Overlay{
 		tenantID:      tenantID,
 		mtu:           mtu,
 		listenAddress: listenAddress,
 		config:        config,
 		invoker:       invoker,
 		cli:           cli,
+		peers:         NewL2Peers(config),
 		connections:   make(map[string]string),
 		clients:       make(map[string]string),
 	}
@@ -61,7 +64,7 @@ func NewL2Link(tenantID string, mtu uint16, listenAddress *proto.Address, config
 	return &l
 }
 
-func (o *L2Link) Start() error {
+func (o *L2Overlay) Start() error {
 	// TODO restore existing state (bridge, veth pairs kept)
 	// TODO recover on reboots (bridge, veth pairs killed)
 
@@ -70,6 +73,7 @@ func (o *L2Link) Start() error {
 	defer func() {
 		if err != nil {
 			o.invoker.Stop()
+			o.peers.Stop()
 			if initCLI {
 				o.cli.Stop()
 			}
@@ -78,6 +82,9 @@ func (o *L2Link) Start() error {
 
 	// start action invoker
 	o.invoker.Start()
+
+	// start peers
+	o.peers.Start()
 
 	// initialize bridge
 	_, err = o.invoker.Execute("create", o.tenantID)
@@ -104,22 +111,19 @@ func (o *L2Link) Start() error {
 	return nil
 }
 
-func (o *L2Link) AddPeer(url string) error {
-	// TODO
-	return fmt.Errorf("Not implemented")
+func (o *L2Overlay) AddPeer(url string) error {
+	return o.peers.AddPeer(url)
 }
 
-func (o *L2Link) DeletePeer(url string) error {
-	// TODO
-	return fmt.Errorf("Not implemented")
+func (o *L2Overlay) DeletePeer(url string) error {
+	return o.peers.DeletePeer(url)
 }
 
-func (o *L2Link) ListPeers() map[string]string {
-	// TODO
-	return nil
+func (o *L2Overlay) ListPeers() map[string]string {
+	return o.peers.ListPeers()
 }
 
-func (o *L2Link) cliAddPeer(args ...string) (string, error) {
+func (o *L2Overlay) cliAddPeer(args ...string) (string, error) {
 	peerURL := args[0]
 
 	err := o.AddPeer(peerURL)
@@ -129,7 +133,7 @@ func (o *L2Link) cliAddPeer(args ...string) (string, error) {
 	return fmt.Sprintf("Added peer %s", peerURL), nil
 }
 
-func (o *L2Link) cliDelPeer(args ...string) (string, error) {
+func (o *L2Overlay) cliDelPeer(args ...string) (string, error) {
 	peerURL := args[0]
 
 	err := o.AddPeer(peerURL)
@@ -139,15 +143,15 @@ func (o *L2Link) cliDelPeer(args ...string) (string, error) {
 	return fmt.Sprintf("Deleted peer %s", peerURL), nil
 }
 
-func (o *L2Link) cliPeers(args ...string) (string, error) {
+func (o *L2Overlay) cliPeers(args ...string) (string, error) {
 	return fmt.Sprintf("Peers: %s", mapValues(o.ListPeers())), nil
 }
 
-func (o *L2Link) cliClients(args ...string) (string, error) {
+func (o *L2Overlay) cliClients(args ...string) (string, error) {
 	return o.listClients(), nil
 }
 
-func (o *L2Link) cliAttach(args ...string) (string, error) {
+func (o *L2Overlay) cliAttach(args ...string) (string, error) {
 	container := args[0]
 
 	localIface, err := o.attach(container)
@@ -162,7 +166,7 @@ func (o *L2Link) cliAttach(args ...string) (string, error) {
 	return fmt.Sprintf("Attached to %s", container), nil
 }
 
-func (o *L2Link) cliDetach(args ...string) (string, error) {
+func (o *L2Overlay) cliDetach(args ...string) (string, error) {
 	container := args[0]
 	_ = container
 
@@ -177,11 +181,11 @@ func (o *L2Link) cliDetach(args ...string) (string, error) {
 	return fmt.Sprintf("Detached from %s", container), nil
 }
 
-func (o *L2Link) cliConnections(args ...string) (string, error) {
+func (o *L2Overlay) cliConnections(args ...string) (string, error) {
 	return o.containerConnections(), nil
 }
 
-func (o *L2Link) attach(container string) (string, error) {
+func (o *L2Overlay) attach(container string) (string, error) {
 	o.connMutex.Lock()
 	defer o.connMutex.Unlock()
 
@@ -196,7 +200,7 @@ func (o *L2Link) attach(container string) (string, error) {
 	return localIface, nil
 }
 
-func (o *L2Link) detach(container string) (string, error) {
+func (o *L2Overlay) detach(container string) (string, error) {
 	o.connMutex.Lock()
 	defer o.connMutex.Unlock()
 
@@ -208,14 +212,14 @@ func (o *L2Link) detach(container string) (string, error) {
 	return localIface, nil
 }
 
-func (o *L2Link) containerConnections() string {
+func (o *L2Overlay) containerConnections() string {
 	o.connMutex.Lock()
 	defer o.connMutex.Unlock()
 
 	return fmt.Sprintf("Connections: %s", mapValues(o.connections))
 }
 
-func (o *L2Link) accept(listener net.Listener) {
+func (o *L2Overlay) accept(listener net.Listener) {
 	defer listener.Close()
 
 	log.Printf("Listening on %s", listener.Addr())
@@ -229,51 +233,50 @@ func (o *L2Link) accept(listener net.Listener) {
 	}
 }
 
-func (o *L2Link) service(conn net.Conn) {
-	var client net.Addr
+func (o *L2Overlay) service(conn net.Conn) {
+	client := conn.RemoteAddr()
 	defer func() {
 		conn.Close()
-		if client != nil {
-			o.clientDisconnected(client)
-		}
 		log.Printf("Client disconnected: %s", conn.RemoteAddr())
 	}()
 
-	log.Printf("Inbound connection: %s", conn.RemoteAddr())
+	log.Printf("Inbound connection: %s", client)
 
-	tap, err := NewL2Tap(conn)
+	tap, err := NewL2Tap()
 	if err != nil {
 		log.Printf("Error creating tap: %s", err)
 		return
 	}
+	defer tap.Close()
 
-	_, err = o.invoker.Execute("link", tap.Name)
+	tapName := tap.Name()
+	_, err = o.invoker.Execute("link", tapName)
 	if err != nil {
 		log.Printf("Error linking tap to bridge: %s", err)
 		return
 	}
 
-	client = conn.RemoteAddr()
-	o.clientConnected(client, tap.Name)
+	o.clientConnected(client, tapName)
+	defer o.clientDisconnected(client)
 
-	tap.Forward()
+	tap.Forward(conn)
 }
 
-func (o *L2Link) clientConnected(addr net.Addr, downlinkIface string) {
+func (o *L2Overlay) clientConnected(addr net.Addr, downlinkIface string) {
 	o.clientMutex.Lock()
 	defer o.clientMutex.Unlock()
 
 	o.clients[addr.String()] = downlinkIface
 }
 
-func (o *L2Link) clientDisconnected(addr net.Addr) {
+func (o *L2Overlay) clientDisconnected(addr net.Addr) {
 	o.clientMutex.Lock()
 	defer o.clientMutex.Unlock()
 
 	delete(o.clients, addr.String())
 }
 
-func (o *L2Link) listClients() string {
+func (o *L2Overlay) listClients() string {
 	o.clientMutex.Lock()
 	defer o.clientMutex.Unlock()
 

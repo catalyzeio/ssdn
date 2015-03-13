@@ -46,7 +46,7 @@ func NewSyncClient(host string, port int, config *tls.Config, idleTimeout time.D
 		requests:    make(chan *syncReq, 1),
 		idleTimeout: idleTimeout,
 	}
-	s.client = NewClient(s.syncHandler, host, port, config)
+	s.client = NewClient(s.connHandler, host, port, config)
 	return &s
 }
 
@@ -69,7 +69,7 @@ func (c *SyncClient) SyncCall(msg []byte) ([]byte, error) {
 	return resp.msg, resp.err
 }
 
-func (c *SyncClient) syncHandler(conn net.Conn, abort <-chan bool) error {
+func (c *SyncClient) connHandler(conn net.Conn, abort <-chan bool) error {
 	r := bufio.NewReaderSize(conn, bufSize)
 
 	dc := directCaller{conn, r}
