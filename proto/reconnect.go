@@ -97,21 +97,21 @@ func (c *ReconnectClient) connect(target string, initDelay bool) bool {
 	}
 
 	// run handler
-	failed := make(chan bool, 1)
+	finished := make(chan bool, 1)
 	if c.Handler != nil {
 		go func() {
 			err := c.Handler(conn, abort)
 			if err != nil {
 				log.Printf("Error in connection handler: %s", err)
-				failed <- true
 			}
+			finished <- true
 		}()
 	}
 
-	// continue until control signal or handler failure
+	// continue until control signal or handler finishes
 	result := false
 	select {
-	case <-failed:
+	case <-finished:
 		// allow reconnect
 	case msg := <-c.control:
 		switch msg {
