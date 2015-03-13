@@ -1,0 +1,6 @@
+Package: shadowfax
+Version: VERSION
+Architecture: all
+Maintainer: Adam Leko <adam@catalyze.io>
+Depends: bridge-utils, net-tools, iproute
+Description: Secure network overlays for Docker containers.
