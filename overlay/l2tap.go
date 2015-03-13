@@ -48,6 +48,8 @@ func (lt *L2Tap) Close() {
 func (lt *L2Tap) Forward(peer net.Conn) {
 	done := make(chan bool, 2)
 
+	// TODO protocol handshake
+
 	go lt.connReader(peer, done)
 	go lt.connWriter(peer, done)
 
