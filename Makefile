@@ -6,6 +6,7 @@ deb: clean build
 	mkdir -p build/usr/bin
 	cp -av l2link/l2link build/usr/bin/
 	cp -av shadowfax build/usr/bin/
+	cp -av dnetns build/usr/bin/
 
 	mkdir -p build/etc
 	cp -av conf build/etc/shadowfax
