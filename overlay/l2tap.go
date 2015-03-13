@@ -23,7 +23,7 @@ const (
 )
 
 func NewL2Tap() (*L2Tap, error) {
-	tap, err := water.NewTAP("sfl2.tap%d")
+	tap, err := water.NewTAP("sf2.tap%d")
 	if err != nil {
 		return nil, err
 	}
