@@ -205,7 +205,7 @@ func (o *L2Overlay) cliAddPeer(args ...string) (string, error) {
 func (o *L2Overlay) cliDelPeer(args ...string) (string, error) {
 	peerURL := args[0]
 
-	err := o.AddPeer(peerURL)
+	err := o.DeletePeer(peerURL)
 	if err != nil {
 		return "", err
 	}
