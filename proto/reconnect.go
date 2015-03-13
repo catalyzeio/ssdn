@@ -159,6 +159,8 @@ func (c *ReconnectClient) dial(target string, initDelay bool) net.Conn {
 			return conn
 		}
 
+		// TODO optional timeout with a handler trigger
+
 		delay += time.Duration(500+rand.Intn(500)) * time.Millisecond
 		if delay > maxReconnectDelay {
 			delay = maxReconnectDelay
