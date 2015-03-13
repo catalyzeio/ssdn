@@ -102,8 +102,6 @@ func (lt *L2Tap) connWriter(peer net.Conn, done chan<- bool) {
 		done <- true
 	}()
 
-	// TODO periodic ping messages for broken TLS connections?
-
 	header := make([]byte, 2)
 	msgBuffer := make([]byte, MaxPacketSize)
 	w := bufio.NewWriterSize(peer, bufSize)
