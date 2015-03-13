@@ -3,10 +3,10 @@ GIT_REV=$(shell git rev-parse --short HEAD)
 VERSION=0.2.0-dev.0-${GIT_REV}
 
 deb: clean build
-	mkdir -p build/usr/bin
-	cp -av l2link/l2link build/usr/bin/
-	cp -av shadowfax build/usr/bin/
-	cp -av dnetns build/usr/bin/
+	mkdir -p build/usr/sbin
+	cp -av l2link/l2link build/usr/sbin/
+	cp -av shadowfax build/usr/sbin/
+	cp -av dnetns build/usr/sbin/
 
 	mkdir -p build/etc
 	cp -av conf build/etc/shadowfax
