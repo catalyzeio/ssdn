@@ -15,7 +15,7 @@ localif=$4
 containerif=$5
 
 # grab container network namespace from docker
-nspid=$(${DOCKER} inspect -f '{{ .State.Pid }}' $container)
+nspid=$(${DOCKER} inspect -f '{{ .State.Pid }}' ${container})
 
 # create veth pair
 tempif=${localif}c

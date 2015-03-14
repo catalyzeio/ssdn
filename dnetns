@@ -11,7 +11,7 @@ DOCKER=$(command -v docker.io || command -v docker)
 container=$1; shift
 
 # grab container network namespace from docker
-nspid=$(${DOCKER} inspect -f '{{ .State.Pid }}' $container)
+nspid=$(${DOCKER} inspect -f '{{ .State.Pid }}' ${container})
 
 # set up netns container link
 if [ ! -d ${NSDIR} ]; then
