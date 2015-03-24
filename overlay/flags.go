@@ -14,6 +14,8 @@ var (
 	tenantPattern = regexp.MustCompile("^[-0-9A-Za-z_]+$")
 	tenantFlag    *string
 	tenantIDFlag  *string
+
+	mtuFlag *int
 )
 
 func AddTenantFlags() {
@@ -50,4 +52,16 @@ func GetTenantFlags() (string, string, error) {
 	}
 
 	return tenant, tenantID, nil
+}
+
+func AddMTUFlag() {
+	mtuFlag = flag.Int("mtu", 9000, "MTU to use for virtual interfaces")
+}
+
+func GetMTUFlag() (uint16, error) {
+	mtuVal := *mtuFlag
+	if mtuVal < 0x400 || mtuVal > MaxPacketSize {
+		return 0, fmt.Errorf("invalid MTU: %d", mtuVal)
+	}
+	return uint16(mtuVal), nil
 }

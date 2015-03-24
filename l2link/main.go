@@ -8,7 +8,6 @@ import (
 	"path"
 	"time"
 
-	"github.com/catalyzeio/shadowfax/actions"
 	"github.com/catalyzeio/shadowfax/cli"
 	"github.com/catalyzeio/shadowfax/overlay"
 	"github.com/catalyzeio/shadowfax/proto"
@@ -21,11 +20,11 @@ func fail(format string, args ...interface{}) {
 
 func main() {
 	overlay.AddTenantFlags()
+	overlay.AddMTUFlag()
 	proto.AddListenFlags(false)
 	proto.AddTLSFlags()
 	runDirFlag := flag.String("rundir", "/var/run/shadowfax", "server socket directory")
 	confDirFlag := flag.String("confdir", "/etc/shadowfax", "configuration directory")
-	mtuFlag := flag.Int("mtu", 9000, "MTU to use for virtual interfaces")
 	flag.Parse()
 
 	tenant, tenantID, err := overlay.GetTenantFlags()
@@ -34,11 +33,10 @@ func main() {
 	}
 	log.Printf("Servicing tenant: %s, tenant ID: %s", tenant, tenantID)
 
-	mtuVal := *mtuFlag
-	if mtuVal < 0x400 || mtuVal > overlay.MaxPacketSize {
-		fail("Invalid MTU: %d\n", mtuVal)
+	mtu, err := overlay.GetMTUFlag()
+	if err != nil {
+		fail("Invalid MTU config: %s\n", err)
 	}
-	mtu := uint16(mtuVal)
 
 	listenAddress, err := proto.GetListenAddress()
 	if err != nil {
@@ -50,13 +48,28 @@ func main() {
 		fail("Invalid TLS config: %s\n", err)
 	}
 
-	invoker := actions.NewInvoker(path.Join(*confDirFlag, "l2link.d"))
 	cli := cli.NewServer(*runDirFlag, tenant)
 
-	overlay := overlay.NewL2Overlay(tenantID, mtu, listenAddress, config, invoker, cli)
-	err = overlay.Start()
+	bridge := overlay.NewL2Bridge(tenantID, mtu, path.Join(*confDirFlag, "l2link.d"))
+	err = bridge.Start(cli)
 	if err != nil {
-		fail("Failed to start overlay: %s\n", err)
+		fail("Failed to start bridge: %s\n", err)
+	}
+
+	peers := overlay.NewL2Peers(config, bridge)
+	peers.Start(cli)
+
+	if listenAddress != nil {
+		listener := overlay.NewL2Listener(listenAddress, config, bridge)
+		err = listener.Start(cli)
+		if err != nil {
+			fail("Failed to start listener: %s\n", err)
+		}
+	}
+
+	err = cli.Start()
+	if err != nil {
+		fail("Failed to start CLI: %s\n", err)
 	}
 
 	// TODO registry integration
