@@ -6,7 +6,7 @@ import (
 	"log"
 	"net"
 
-	"github.com/songgao/water"
+	"github.com/catalyzeio/taptun"
 )
 
 const (
@@ -15,7 +15,7 @@ const (
 
 type L2Tap struct {
 	name string
-	tap  *water.Interface
+	tap  *taptun.Interface
 }
 
 const (
@@ -23,7 +23,7 @@ const (
 )
 
 func NewL2Tap() (*L2Tap, error) {
-	tap, err := water.NewTAP("sf2.tap%d")
+	tap, err := taptun.NewTAP("sf2.tap%d")
 	if err != nil {
 		return nil, err
 	}
@@ -41,8 +41,8 @@ func (lt *L2Tap) Name() string {
 	return lt.name
 }
 
-func (lt *L2Tap) Close() {
-	// TODO add close method to water library
+func (lt *L2Tap) Close() error {
+	return lt.tap.Close()
 }
 
 func (lt *L2Tap) Forward(peer net.Conn) {
