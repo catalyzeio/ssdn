@@ -20,11 +20,12 @@ type L2Tap struct {
 }
 
 const (
-	bufSize = 1 << 18 // 64 KiB
+	bufSize         = 1 << 18 // 64 KiB
+	tapNameTemplate = "sf2.tap%d"
 )
 
 func NewL2Tap() (*L2Tap, error) {
-	tap, err := taptun.NewTAP("sf2.tap%d")
+	tap, err := taptun.NewTAP(tapNameTemplate)
 	if err != nil {
 		return nil, err
 	}
