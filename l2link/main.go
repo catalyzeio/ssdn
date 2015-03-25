@@ -21,10 +21,9 @@ func fail(format string, args ...interface{}) {
 func main() {
 	overlay.AddTenantFlags()
 	overlay.AddMTUFlag()
+	overlay.AddDirFlags()
 	proto.AddListenFlags(false)
 	proto.AddTLSFlags()
-	runDirFlag := flag.String("rundir", "/var/run/shadowfax", "server socket directory")
-	confDirFlag := flag.String("confdir", "/etc/shadowfax", "configuration directory")
 	flag.Parse()
 
 	tenant, tenantID, err := overlay.GetTenantFlags()
@@ -38,6 +37,11 @@ func main() {
 		fail("Invalid MTU config: %s\n", err)
 	}
 
+	runDir, confDir, err := overlay.GetDirFlags()
+	if err != nil {
+		fail("Invalid directory config: %s\n", err)
+	}
+
 	listenAddress, err := proto.GetListenAddress()
 	if err != nil {
 		fail("Invalid listener config: %s\n", err)
@@ -48,9 +52,9 @@ func main() {
 		fail("Invalid TLS config: %s\n", err)
 	}
 
-	cli := cli.NewServer(*runDirFlag, tenant)
+	cli := cli.NewServer(runDir, tenant)
 
-	bridge := overlay.NewL2Bridge(tenantID, mtu, path.Join(*confDirFlag, "l2link.d"))
+	bridge := overlay.NewL2Bridge(tenantID, mtu, path.Join(confDir, "l2link.d"))
 	err = bridge.Start(cli)
 	if err != nil {
 		fail("Failed to start bridge: %s\n", err)

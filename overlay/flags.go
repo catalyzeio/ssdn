@@ -16,6 +16,9 @@ var (
 	tenantIDFlag  *string
 
 	mtuFlag *int
+
+	runDirFlag  *string
+	confDirFlag *string
 )
 
 func AddTenantFlags() {
@@ -64,4 +67,23 @@ func GetMTUFlag() (uint16, error) {
 		return 0, fmt.Errorf("invalid MTU: %d", mtuVal)
 	}
 	return uint16(mtuVal), nil
+}
+
+func AddDirFlags() {
+	runDirFlag = flag.String("rundir", "/var/run/shadowfax", "server socket directory")
+	confDirFlag = flag.String("confdir", "/etc/shadowfax", "configuration directory")
+}
+
+func GetDirFlags() (string, string, error) {
+	runDir := *runDirFlag
+	if len(runDir) == 0 {
+		return "", "", fmt.Errorf("-rundir is required")
+	}
+
+	confDir := *confDirFlag
+	if len(confDir) == 0 {
+		return "", "", fmt.Errorf("-confdir is required")
+	}
+
+	return runDir, confDir, nil
 }
