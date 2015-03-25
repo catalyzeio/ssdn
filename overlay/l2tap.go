@@ -31,7 +31,7 @@ func NewL2Tap() (*L2Tap, error) {
 	}
 
 	name := tap.Name()
-	log.Printf("Created layer 2 tap %s\n", name)
+	log.Printf("Created layer 2 tap %s", name)
 
 	return &L2Tap{
 		name: name,

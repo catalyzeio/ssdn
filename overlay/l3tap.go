@@ -38,7 +38,7 @@ func (lt *L3Tap) createLinkedTap() (*taptun.Interface, error) {
 	}
 
 	name := tap.Name()
-	log.Printf("Created layer 3 tap %s\n", name)
+	log.Printf("Created layer 3 tap %s", name)
 
 	err = lt.bridge.link(name)
 	if err != nil {
@@ -68,7 +68,7 @@ func (lt *L3Tap) service(tap *taptun.Interface) {
 func (lt *L3Tap) forward(tap *taptun.Interface) {
 	defer func() {
 		tap.Close()
-		log.Printf("Closed tap %s\n", tap.Name())
+		log.Printf("Closed tap %s", tap.Name())
 	}()
 
 	done := make(chan bool, 2)
@@ -93,7 +93,7 @@ func (lt *L3Tap) tapReader(tap *taptun.Interface, done chan<- bool) {
 			log.Printf("Error reading from tap: %s", err)
 			return
 		}
-		log.Printf("Read %d bytes\n", len)
+		log.Printf("Read %d bytes", len)
 	}
 }
 
