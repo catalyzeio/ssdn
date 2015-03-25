@@ -2,6 +2,7 @@ package overlay
 
 import (
 	"bufio"
+	"fmt"
 	"io"
 	"log"
 	"net"
@@ -48,15 +49,19 @@ func (lt *L2Tap) Close() error {
 func (lt *L2Tap) Forward(peer net.Conn) {
 	done := make(chan bool, 2)
 
-	// TODO protocol handshake
+	r, w, err := Handshake(peer, "SFL2 1.0")
+	if err != nil {
+		log.Printf("Error initializing connection to %s: %s", peer.RemoteAddr(), err)
+		return
+	}
 
-	go lt.connReader(peer, done)
-	go lt.connWriter(peer, done)
+	go lt.connReader(r, done)
+	go lt.connWriter(w, done)
 
 	<-done
 }
 
-func (lt *L2Tap) connReader(peer net.Conn, done chan<- bool) {
+func (lt *L2Tap) connReader(r *bufio.Reader, done chan<- bool) {
 	defer func() {
 		done <- true
 	}()
@@ -64,7 +69,6 @@ func (lt *L2Tap) connReader(peer net.Conn, done chan<- bool) {
 	header := make([]byte, 2)
 	msgBuffer := make([]byte, MaxPacketSize)
 
-	r := bufio.NewReaderSize(peer, bufSize)
 	for {
 		// read header
 		_, err := io.ReadFull(r, header)
@@ -99,14 +103,13 @@ func (lt *L2Tap) connReader(peer net.Conn, done chan<- bool) {
 	}
 }
 
-func (lt *L2Tap) connWriter(peer net.Conn, done chan<- bool) {
+func (lt *L2Tap) connWriter(w *bufio.Writer, done chan<- bool) {
 	defer func() {
 		done <- true
 	}()
 
 	header := make([]byte, 2)
 	msgBuffer := make([]byte, MaxPacketSize)
-	w := bufio.NewWriterSize(peer, bufSize)
 
 	for {
 		// read whole packet from tap
@@ -137,4 +140,30 @@ func (lt *L2Tap) connWriter(peer net.Conn, done chan<- bool) {
 			return
 		}
 	}
+}
+
+func Handshake(peer net.Conn, hello string) (*bufio.Reader, *bufio.Writer, error) {
+	const delim = '\n'
+	message := hello + string(delim)
+
+	r := bufio.NewReaderSize(peer, bufSize)
+	w := bufio.NewWriterSize(peer, bufSize)
+
+	_, err := w.WriteString(message)
+	if err != nil {
+		return nil, nil, err
+	}
+	err = w.Flush()
+	if err != nil {
+		return nil, nil, err
+	}
+	resp, err := r.ReadString(delim)
+	if err != nil {
+		return nil, nil, err
+	}
+	if resp != message {
+		return nil, nil, fmt.Errorf("peer sent invalid handshake")
+	}
+
+	return r, w, nil
 }
