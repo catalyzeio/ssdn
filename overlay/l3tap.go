@@ -54,13 +54,13 @@ func (lt *L3Tap) service(tap *taptun.Interface) {
 		lt.forward(tap)
 
 		for {
+			time.Sleep(time.Second)
 			newTap, err := lt.createLinkedTap()
 			if err == nil {
 				tap = newTap
 				break
 			}
-			log.Printf("Error creating tap: %s; retrying in 1 second\n", err)
-			time.Sleep(time.Second)
+			log.Printf("Error creating tap: %s", err)
 		}
 	}
 }
