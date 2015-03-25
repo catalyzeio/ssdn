@@ -22,7 +22,7 @@ func main() {
 	overlay.AddTenantFlags()
 	overlay.AddMTUFlag()
 	overlay.AddDirFlags()
-	proto.AddListenFlags(false)
+	proto.AddListenFlags(true)
 	proto.AddTLSFlags()
 	flag.Parse()
 
@@ -43,6 +43,9 @@ func main() {
 	}
 
 	listenAddress, err := proto.GetListenAddress()
+	if listenAddress == nil {
+		err = fmt.Errorf("-listen is required")
+	}
 	if err != nil {
 		fail("Invalid listener config: %s\n", err)
 	}
@@ -54,12 +57,20 @@ func main() {
 
 	cli := cli.NewServer(runDir, tenant)
 
-	// TODO inject route into attached addresses
-	bridge := overlay.NewL2Bridge(tenantID, mtu, path.Join(confDir, "l3bridge.d"))
+	bridge := overlay.NewL3Bridge(tenantID, mtu, path.Join(confDir, "l3bridge.d"))
 	err = bridge.Start(cli)
 	if err != nil {
 		fail("Failed to start bridge: %s\n", err)
 	}
+
+	tap := overlay.NewL3Tap(bridge)
+	err = tap.Start(cli)
+	if err != nil {
+		fail("Failed to start tap: %s\n", err)
+	}
+
+	peers := overlay.NewL3Peers()
+	peers.Start(cli)
 
 	listener := overlay.NewL3Listener(listenAddress, config)
 	err = listener.Start(cli)
