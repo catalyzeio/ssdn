@@ -60,6 +60,7 @@ func (c *Listener) Start() error {
 	// remove any existing domain socket
 	_, err := os.Stat(c.dsPath)
 	if err == nil {
+		// TODO bail if existing socket is live
 		err := os.Remove(c.dsPath)
 		if err != nil {
 			return err
