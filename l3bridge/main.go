@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net"
 	"os"
 	"path"
 	"time"
@@ -24,6 +25,7 @@ func main() {
 	overlay.AddDirFlags()
 	proto.AddListenFlags(true)
 	proto.AddTLSFlags()
+	gwIPFlag := flag.String("gateway", "192.168.0.254", "virtual gateway IP address")
 	flag.Parse()
 
 	tenant, tenantID, err := overlay.GetTenantFlags()
@@ -55,6 +57,15 @@ func main() {
 		fail("Invalid TLS config: %s\n", err)
 	}
 
+	gwIP := net.ParseIP(*gwIPFlag)
+	if gwIP == nil {
+		fail("Invalid gateway IP address: %s\n", *gwIPFlag)
+	}
+	gwIP = gwIP.To4()
+	if gwIP == nil {
+		fail("Gateway IP must be an IPv4 address: %s\n", *gwIPFlag)
+	}
+
 	cli := cli.NewServer(runDir, tenant)
 
 	bridge := overlay.NewL3Bridge(tenantID, mtu, path.Join(confDir, "l3bridge.d"))
@@ -63,7 +74,10 @@ func main() {
 		fail("Failed to start bridge: %s\n", err)
 	}
 
-	tap := overlay.NewL3Tap(bridge)
+	tap, err := overlay.NewL3Tap(gwIP, mtu, bridge)
+	if err != nil {
+		fail("Failed to create tap: %s\n", err)
+	}
 	err = tap.Start(cli)
 	if err != nil {
 		fail("Failed to start tap: %s\n", err)
