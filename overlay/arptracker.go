@@ -17,14 +17,14 @@ const (
 	ARPIsProcessing
 )
 
-type ARPTable map[int][]byte
+type ARPTable map[uint32][]byte
 
 type ARPTracker struct {
 	localIP  []byte
 	localMAC []byte
 
 	trackersMutex sync.Mutex
-	trackers      map[int]chan []byte
+	trackers      map[uint32]chan []byte
 
 	control chan *atRequest
 }
@@ -47,7 +47,7 @@ func NewARPTracker(localIP []byte, localMAC []byte) *ARPTracker {
 		localIP:  localIP,
 		localMAC: localMAC,
 
-		trackers: make(map[int]chan []byte),
+		trackers: make(map[uint32]chan []byte),
 
 		control: make(chan *atRequest),
 	}
@@ -278,7 +278,7 @@ func (at *ARPTracker) service() {
 	}
 }
 
-func (at *ARPTracker) isTracking(ipKey int, result []byte) bool {
+func (at *ARPTracker) isTracking(ipKey uint32, result []byte) bool {
 	at.trackersMutex.Lock()
 	defer at.trackersMutex.Unlock()
 
@@ -292,12 +292,12 @@ func (at *ARPTracker) isTracking(ipKey int, result []byte) bool {
 
 // This method requires a 4-byte IP address to function properly.
 // Use ip.To4() if the IPv4 address may have been encoded with 16 bytes.
-func IPv4ToInt(ip []byte) int {
-	return int(ip[0])<<24 | int(ip[1])<<16 | int(ip[2])<<8 | int(ip[3])
+func IPv4ToInt(ip []byte) uint32 {
+	return uint32(ip[0])<<24 | uint32(ip[1])<<16 | uint32(ip[2])<<8 | uint32(ip[3])
 }
 
 // Reverse operation of IPv4ToInt.
-func IntToIPv4(ip int) []byte {
+func IntToIPv4(ip uint32) []byte {
 	return []byte{byte(ip >> 24), byte(ip >> 16), byte(ip >> 8), byte(ip)}
 }
 
@@ -332,7 +332,7 @@ func (t ARPTable) StringMap() map[string]string {
 	return sm
 }
 
-func (t ARPTable) modify(listeners map[chan ARPTable]interface{}, newKey int, newMAC []byte) ARPTable {
+func (t ARPTable) modify(listeners map[chan ARPTable]interface{}, newKey uint32, newMAC []byte) ARPTable {
 	// copy existing table and response into new table
 	newTable := make(ARPTable)
 	for k, v := range t {
