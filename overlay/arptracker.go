@@ -35,6 +35,9 @@ type atRequest struct {
 	listener chan ARPTable
 	add      bool
 
+	entryIP  []byte
+	entryMAC []byte
+
 	arp       *PacketBuffer
 	processed chan *PacketBuffer
 }
@@ -77,6 +80,13 @@ func (at *ARPTracker) RemoveListener(listener chan ARPTable) {
 	at.control <- &atRequest{
 		listener: listener,
 		add:      false,
+	}
+}
+
+func (at *ARPTracker) Seed(ip net.IP, mac []byte) {
+	at.control <- &atRequest{
+		entryIP:  ip,
+		entryMAC: mac,
 	}
 }
 
@@ -243,6 +253,12 @@ func (at *ARPTracker) service() {
 			}
 		}
 
+		// process seed requests
+		entryIP := req.entryIP
+		if entryIP != nil {
+			table = table.modify(listeners, IPv4ToInt(entryIP), req.entryMAC)
+		}
+
 		// process ARP responses
 		arp := req.arp
 		if arp != nil {
@@ -254,18 +270,7 @@ func (at *ARPTracker) service() {
 
 			ipKey := IPv4ToInt(senderIP)
 			if at.isTracking(ipKey, senderMAC) {
-				// copy existing table and response into new table
-				newTable := make(ARPTable)
-				for k, v := range table {
-					newTable[k] = v
-				}
-				newTable[ipKey] = senderMAC
-
-				// fire off notifications for updated table
-				table = newTable
-				for k, _ := range listeners {
-					k <- table
-				}
+				table = table.modify(listeners, ipKey, senderMAC)
 			}
 
 			req.processed <- arp
@@ -324,4 +329,19 @@ func (t ARPTable) StringMap() map[string]string {
 		sm[ip.String()] = mac.String()
 	}
 	return sm
+}
+
+func (t ARPTable) modify(listeners map[chan ARPTable]interface{}, newKey int, newMAC []byte) ARPTable {
+	// copy existing table and response into new table
+	newTable := make(ARPTable)
+	for k, v := range t {
+		newTable[k] = v
+	}
+	newTable[newKey] = newMAC
+
+	// fire off notifications for updated table
+	for k, _ := range listeners {
+		k <- newTable
+	}
+	return newTable
 }
