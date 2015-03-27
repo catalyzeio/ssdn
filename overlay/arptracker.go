@@ -1,6 +1,9 @@
 package overlay
 
 import (
+	"bytes"
+	"fmt"
+	"log"
 	"net"
 	"sync"
 )
@@ -11,7 +14,7 @@ const (
 	NotARP ARPResult = iota
 	ARPUnsupported
 	ARPReply
-	ARPProcessing
+	ARPIsProcessing
 )
 
 type ARPTable map[int][]byte
@@ -20,16 +23,18 @@ type ARPTracker struct {
 	localIP  []byte
 	localMAC []byte
 
-	listenersMutex sync.Mutex
-	listeners      map[chan ARPTable]interface{}
-
 	trackersMutex sync.Mutex
-	trackers      map[int]chan bool
+	trackers      map[int]chan []byte
 
-	control chan *arpMessage
+	control chan *atRequest
 }
 
-type arpMessage struct {
+type atRequest struct {
+	snapshot chan ARPTable
+
+	listener chan ARPTable
+	add      bool
+
 	arp       *PacketBuffer
 	processed chan *PacketBuffer
 }
@@ -39,58 +44,108 @@ func NewARPTracker(localIP []byte, localMAC []byte) *ARPTracker {
 		localIP:  localIP,
 		localMAC: localMAC,
 
-		listeners: make(map[chan ARPTable]interface{}),
+		trackers: make(map[int]chan []byte),
 
-		control: make(chan *arpMessage),
+		control: make(chan *atRequest),
 	}
 }
 
-func (a *ARPTracker) Start() {
-	go a.service()
+func (at *ARPTracker) Start() {
+	go at.service()
 }
 
-func (a *ARPTracker) Stop() {
-	a.control <- nil
+func (at *ARPTracker) Stop() {
+	at.control <- nil
 }
 
-func (a *ARPTracker) AddListener(listener chan ARPTable) {
-	a.listenersMutex.Lock()
-	defer a.listenersMutex.Unlock()
-
-	a.listeners[listener] = nil
+func (at *ARPTracker) Snapshot() ARPTable {
+	snapshot := make(chan ARPTable, 1)
+	at.control <- &atRequest{
+		snapshot: snapshot,
+	}
+	return <-snapshot
 }
 
-func (a *ARPTracker) RemoveListener(listener chan ARPTable) {
-	a.listenersMutex.Lock()
-	defer a.listenersMutex.Unlock()
-
-	delete(a.listeners, listener)
+func (at *ARPTracker) AddListener(listener chan ARPTable) {
+	at.control <- &atRequest{
+		listener: listener,
+		add:      true,
+	}
 }
 
-func (a *ARPTracker) TrackQuery(ip net.IP, resolved chan bool) bool {
+func (at *ARPTracker) RemoveListener(listener chan ARPTable) {
+	at.control <- &atRequest{
+		listener: listener,
+		add:      false,
+	}
+}
+
+func (at *ARPTracker) TrackQuery(ip net.IP, resolved chan []byte) bool {
 	key := IPv4ToInt(ip)
 
-	a.trackersMutex.Lock()
-	defer a.trackersMutex.Unlock()
+	at.trackersMutex.Lock()
+	defer at.trackersMutex.Unlock()
 
-	_, present := a.trackers[key]
+	_, present := at.trackers[key]
 	if present {
 		return false
 	}
-	a.trackers[key] = resolved
+	at.trackers[key] = resolved
 	return true
 }
 
-func (a *ARPTracker) UntrackQuery(ip net.IP) {
+func (at *ARPTracker) UntrackQuery(ip net.IP) {
 	key := IPv4ToInt(ip)
 
-	a.trackersMutex.Lock()
-	defer a.trackersMutex.Unlock()
+	at.trackersMutex.Lock()
+	defer at.trackersMutex.Unlock()
 
-	delete(a.trackers, key)
+	delete(at.trackers, key)
 }
 
-func (a *ARPTracker) Process(packet *PacketBuffer, processed chan *PacketBuffer) ARPResult {
+// XXX ARP packet encoding and decoding are done manually to avoid reflection overheads
+
+func (at *ARPTracker) GenerateQuery(packet *PacketBuffer, ip net.IP) error {
+	ip = ip.To4()
+	if ip == nil {
+		return fmt.Errorf("can only generate IPv4 ARP requests")
+	}
+
+	targetMAC := []byte{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}
+
+	// dest, src
+	buff := packet.Data
+	copy(buff[0:6], targetMAC)
+	copy(buff[6:12], at.localMAC)
+	// ethertype
+	buff[12] = 0x08
+	buff[13] = 0x06
+
+	// hardware type: ethernet
+	buff[14] = 0x00
+	buff[15] = 0x01
+	// protocol type: IPv4
+	buff[16] = 0x08
+	buff[17] = 0x00
+	// lengths
+	buff[18] = 0x06
+	buff[19] = 0x04
+	// opcode: who-has
+	buff[20] = 0x00
+	buff[21] = 0x01
+	// sender addresses
+	copy(buff[22:28], at.localMAC)
+	copy(buff[28:32], at.localIP)
+	// target addresses
+	copy(buff[32:38], targetMAC)
+	copy(buff[38:42], ip)
+
+	packet.Length = 42
+
+	return nil
+}
+
+func (at *ARPTracker) Process(packet *PacketBuffer, processed chan *PacketBuffer) ARPResult {
 	// XXX assumes frames have no 802.1q tagging
 	buff := packet.Data
 
@@ -101,23 +156,149 @@ func (a *ARPTracker) Process(packet *PacketBuffer, processed chan *PacketBuffer)
 		return NotARP
 	}
 
-	// TODO
+	// proto: IPv4, 6-byte MAC, 4-byte IP
+	if buff[16] != 0x08 || buff[17] != 0x00 || buff[18] != 0x06 || buff[19] != 0x04 {
+		return ARPUnsupported
+	}
+
+	// opcode
+	op1, op2 := buff[20], buff[21]
+	if op1 != 0x00 {
+		return ARPUnsupported
+	}
+
+	// request
+	if op2 == 0x01 {
+		log.Printf("Received ARP who-has")
+		return at.handleRequest(buff)
+	}
+
+	// response
+	if op2 == 0x02 {
+		log.Printf("Received ARP is-at")
+		at.control <- &atRequest{
+			arp:       packet,
+			processed: processed,
+		}
+		return ARPIsProcessing
+	}
+
+	// unsupported op
 	return ARPUnsupported
 }
 
-func (a *ARPTracker) service() {
+func (at *ARPTracker) handleRequest(buff []byte) ARPResult {
+	// check if it is for the local IP
+	targetIP := buff[38:42]
+	if !bytes.Equal(targetIP, at.localIP) {
+		// requests for other IPs are not supported
+		return ARPUnsupported
+	}
+	log.Printf("Responding to ARP request for IP %s", net.IP(targetIP))
+
+	// transform packet into response
+	buff[21] = 0x02
+
+	destMAC := buff[0:6]
+	srcMAC := buff[6:12]
+	copy(destMAC, srcMAC)
+	copy(srcMAC, at.localMAC)
+
+	senderMAC := buff[22:28]
+	senderIP := buff[28:32]
+	targetMAC := buff[32:38]
+	copy(targetIP, senderIP)
+	copy(targetMAC, senderMAC)
+	copy(senderMAC, at.localMAC)
+	copy(senderIP, at.localIP)
+
+	return ARPReply
+}
+
+func (at *ARPTracker) service() {
+	table := make(ARPTable)
+	listeners := make(map[chan ARPTable]interface{})
+
 	for {
-		req := <-a.control
+		req := <-at.control
 		if req == nil {
 			return
 		}
 
+		// process snapshot requests
+		snapshot := req.snapshot
+		if snapshot != nil {
+			snapshot <- table
+		}
+
+		// process listener requests
+		listener := req.listener
+		if listener != nil {
+			if req.add {
+				listeners[listener] = nil
+				listener <- table
+			} else {
+				delete(listeners, listener)
+			}
+		}
+
+		// process ARP responses
 		arp := req.arp
-		// TODO process ARP
-		req.processed <- arp
+		if arp != nil {
+			buff := arp.Data
+			senderMAC := make([]byte, 6) // explicit copy is necessary due to buffer reuse
+			copy(senderMAC, buff[22:28])
+			senderIP := buff[28:32]
+			log.Printf("ARP response: %s is at %s", net.IP(senderIP), net.HardwareAddr(senderMAC))
+
+			ipKey := IPv4ToInt(senderIP)
+			if at.isTracking(ipKey, senderMAC) {
+				// copy existing table and response into new table
+				newTable := make(ARPTable)
+				for k, v := range table {
+					newTable[k] = v
+				}
+				newTable[ipKey] = senderMAC
+
+				// fire off notifications for updated table
+				table = newTable
+				for k, _ := range listeners {
+					k <- table
+				}
+			}
+
+			req.processed <- arp
+		}
 	}
 }
 
+func (at *ARPTracker) isTracking(ipKey int, result []byte) bool {
+	at.trackersMutex.Lock()
+	defer at.trackersMutex.Unlock()
+
+	resolved, present := at.trackers[ipKey]
+	if present {
+		resolved <- result
+		return true
+	}
+	return false
+}
+
+// This method requires a 4-byte IP address to function properly.
+// Use ip.To4() if the IPv4 address may have been encoded with 16 bytes.
 func IPv4ToInt(ip net.IP) int {
 	return int(ip[0])<<24 | int(ip[1])<<16 | int(ip[2])<<8 | int(ip[3])
+}
+
+func IntToIPv4(ip int) net.IP {
+	a := []byte{byte(ip >> 24), byte(ip >> 16), byte(ip >> 8), byte(ip)}
+	return net.IP(a)
+}
+
+func (t ARPTable) StringMap() map[string]string {
+	sm := make(map[string]string)
+	for k, v := range t {
+		sm[IntToIPv4(k).String()] = net.HardwareAddr(v).String()
+	}
+	return sm
 }

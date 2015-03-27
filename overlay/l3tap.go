@@ -2,6 +2,7 @@ package overlay
 
 import (
 	"crypto/rand"
+	"fmt"
 	"log"
 	"net"
 	"time"
@@ -16,8 +17,9 @@ type L3Tap struct {
 
 	bridge *L3Bridge
 
-	free chan *PacketBuffer
-	out  chan *PacketBuffer
+	free       chan *PacketBuffer
+	outFrames  chan *PacketBuffer
+	outPackets chan *PacketBuffer
 
 	arpTracker *ARPTracker
 }
@@ -33,7 +35,8 @@ func NewL3Tap(gwIP net.IP, mtu uint16, bridge *L3Bridge) (*L3Tap, error) {
 	// TODO determine an appropriate number here
 	const numPackets = 2
 	free := make(chan *PacketBuffer, numPackets)
-	out := make(chan *PacketBuffer, numPackets)
+	outFrames := make(chan *PacketBuffer, numPackets)
+	outPackets := make(chan *PacketBuffer, numPackets)
 	for _, v := range NewPacketBuffers(numPackets, int(mtu)) {
 		free <- &v
 	}
@@ -44,8 +47,9 @@ func NewL3Tap(gwIP net.IP, mtu uint16, bridge *L3Bridge) (*L3Tap, error) {
 
 		bridge: bridge,
 
-		free: free,
-		out:  out,
+		free:       free,
+		outFrames:  outFrames,
+		outPackets: outPackets,
 	}, nil
 }
 
@@ -55,13 +59,76 @@ func (lt *L3Tap) Start(cli *cli.Listener) error {
 		return err
 	}
 
-	tracker := NewARPTracker(lt.gwIP, lt.gwMAC)
-	tracker.Start()
-	lt.arpTracker = tracker
+	arpTracker := NewARPTracker(lt.gwIP, lt.gwMAC)
+	arpTracker.Start()
+	lt.arpTracker = arpTracker
+
+	cli.Register("arp", "", "Shows current ARP table", 0, 0, lt.cliARPTable)
+	cli.Register("resolve", "", "Forces IP to MAC address resolution", 1, 1, lt.cliResolve)
 
 	go lt.service(tap, iface)
 
 	return nil
+}
+
+func (lt *L3Tap) cliARPTable(args ...string) (string, error) {
+	table := lt.arpTracker.Snapshot()
+	return fmt.Sprintf("ARP table: %s", mapValues(table.StringMap())), nil
+}
+
+func (lt *L3Tap) cliResolve(args ...string) (string, error) {
+	ipString := args[0]
+
+	ip := net.ParseIP(ipString)
+	if ip == nil {
+		return "", fmt.Errorf("invalid IP address: %s", ipString)
+	}
+
+	mac, err := lt.Resolve(ip)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%s is at %s", ip, mac), nil
+}
+
+func (lt *L3Tap) Resolve(ip net.IP) (net.HardwareAddr, error) {
+	ip = ip.To4()
+	if ip == nil {
+		return nil, fmt.Errorf("can only resolve IPv4 addresses")
+	}
+
+	arpTracker := lt.arpTracker
+
+	resolved := make(chan []byte, 1)
+	if !arpTracker.TrackQuery(ip, resolved) {
+		return nil, fmt.Errorf("already resolving %s", ip)
+	}
+	defer arpTracker.UntrackQuery(ip)
+
+	free := lt.free
+	outFrames := lt.outFrames
+
+	for i := 0; i < 3; i++ {
+		// grab a free packet
+		p := <-free
+		// generate the request
+		err := arpTracker.GenerateQuery(p, ip)
+		if err != nil {
+			return nil, err
+		}
+		// send the request
+		outFrames <- p
+		log.Printf("Sent ARP request for %s", ip)
+		// wait up to a second for the response
+		select {
+		case response := <-resolved:
+			return net.HardwareAddr(response), nil
+		case <-time.After(time.Second):
+			// resend
+		}
+	}
+
+	return nil, fmt.Errorf("failed to resolve %s", ip)
 }
 
 func (lt *L3Tap) createLinkedTap() (*taptun.Interface, *net.Interface, error) {
@@ -127,7 +194,7 @@ func (lt *L3Tap) tapReader(tap *taptun.Interface, done chan<- bool) {
 	}()
 
 	free := lt.free
-	out := lt.out
+	outFrames := lt.outFrames
 	arpTracker := lt.arpTracker
 
 	for {
@@ -147,9 +214,9 @@ func (lt *L3Tap) tapReader(tap *taptun.Interface, done chan<- bool) {
 		switch arpTracker.Process(p, free) {
 		case ARPReply:
 			// tracker responded to an ARP query; send to output
-			out <- p
+			outFrames <- p
 			continue
-		case ARPProcessing:
+		case ARPIsProcessing:
 			// tracker is processing and will return buffer when done
 			continue
 		case ARPUnsupported:
@@ -167,16 +234,40 @@ func (lt *L3Tap) tapReader(tap *taptun.Interface, done chan<- bool) {
 }
 
 func (lt *L3Tap) tapWriter(tap *taptun.Interface, done chan<- bool) {
+	var macChanges chan ARPTable
 	defer func() {
 		done <- true
+		if macChanges != nil {
+			lt.arpTracker.RemoveListener(macChanges)
+		}
 	}()
 
-	out := lt.out
+	var macTable ARPTable
+	macChanges = make(chan ARPTable, 8)
+	lt.arpTracker.AddListener(macChanges)
+
+	outFrames := lt.outFrames
+	outPackets := lt.outPackets
 	free := lt.free
 
 	for {
 		// grab next outgoing packet
-		p := <-out
+		var p *PacketBuffer
+		select {
+		case macTable = <-macChanges:
+			// continue with new MAC lookup table
+			continue
+		case p = <-outPackets:
+			if macTable == nil {
+				free <- p
+				continue
+			}
+			// TODO attach MAC addresses and send
+			free <- p
+			continue
+		case p = <-outFrames:
+			// send data normally
+		}
 
 		// write next outgoing packet
 		message := p.Data[:p.Length]
