@@ -3,15 +3,17 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"path"
 	"time"
 
 	"github.com/catalyzeio/shadowfax/cli"
+	"github.com/catalyzeio/shadowfax/dumblog"
 	"github.com/catalyzeio/shadowfax/overlay"
 	"github.com/catalyzeio/shadowfax/proto"
 )
+
+var log = dumblog.NewLogger("l3bridge")
 
 func fail(format string, args ...interface{}) {
 	fmt.Fprintf(os.Stderr, format, args...)
@@ -19,6 +21,7 @@ func fail(format string, args ...interface{}) {
 }
 
 func main() {
+	dumblog.AddFlags()
 	overlay.AddTenantFlags()
 	overlay.AddMTUFlag()
 	overlay.AddDirFlags()
@@ -30,7 +33,7 @@ func main() {
 	if err != nil {
 		fail("Invalid tenant config: %s\n", err)
 	}
-	log.Printf("Servicing tenant: %s, tenant ID: %s", tenant, tenantID)
+	log.Info("Servicing tenant: %s, tenant ID: %s", tenant, tenantID)
 
 	mtu, err := overlay.GetMTUFlag()
 	if err != nil {

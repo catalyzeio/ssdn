@@ -3,7 +3,6 @@ package overlay
 import (
 	"bytes"
 	"fmt"
-	"log"
 	"net"
 	"sync"
 )
@@ -180,13 +179,17 @@ func (at *ARPTracker) Process(packet *PacketBuffer, processed chan *PacketBuffer
 
 	// request
 	if op2 == 0x01 {
-		log.Printf("Received ARP who-has")
+		if log.IsTraceEnabled() {
+			log.Trace("Received ARP who-has")
+		}
 		return at.handleRequest(buff)
 	}
 
 	// response
 	if op2 == 0x02 {
-		log.Printf("Received ARP is-at")
+		if log.IsTraceEnabled() {
+			log.Trace("Received ARP is-at")
+		}
 		at.control <- &atRequest{
 			arp:       packet,
 			processed: processed,
@@ -205,7 +208,9 @@ func (at *ARPTracker) handleRequest(buff []byte) ARPResult {
 		// requests for other IPs are not supported
 		return ARPUnsupported
 	}
-	log.Printf("Responding to ARP request for IP %s", net.IP(targetIP))
+	if log.IsDebugEnabled() {
+		log.Debug("Responding to ARP request for IP %s", net.IP(targetIP))
+	}
 
 	// transform packet into response
 	buff[21] = 0x02
@@ -266,7 +271,9 @@ func (at *ARPTracker) service() {
 			senderMAC := make([]byte, 6) // explicit copy is necessary due to buffer reuse
 			copy(senderMAC, buff[22:28])
 			senderIP := buff[28:32]
-			log.Printf("ARP response: %s is at %s", net.IP(senderIP), net.HardwareAddr(senderMAC))
+			if log.IsDebugEnabled() {
+				log.Debug("ARP response: %s is at %s", net.IP(senderIP), net.HardwareAddr(senderMAC))
+			}
 
 			ipKey := IPv4ToInt(senderIP)
 			if at.isTracking(ipKey, senderMAC) {

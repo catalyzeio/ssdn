@@ -3,7 +3,6 @@ package overlay
 import (
 	"crypto/tls"
 	"fmt"
-	"log"
 	"net"
 	"strings"
 	"sync"
@@ -50,11 +49,11 @@ func (l *L2Listener) cliClients(args ...string) (string, error) {
 func (l *L2Listener) accept(listener net.Listener) {
 	defer listener.Close()
 
-	log.Printf("Listening on %s", listener.Addr())
+	log.Info("Listening on %s", listener.Addr())
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
-			log.Printf("Error accepting connections: %s", err)
+			log.Warn("Failed to accept incoming connections: %s", err)
 			return
 		}
 		go l.service(conn)
@@ -65,14 +64,14 @@ func (l *L2Listener) service(conn net.Conn) {
 	client := conn.RemoteAddr()
 	defer func() {
 		conn.Close()
-		log.Printf("Client disconnected: %s", conn.RemoteAddr())
+		log.Info("Client disconnected: %s", conn.RemoteAddr())
 	}()
 
-	log.Printf("Inbound connection: %s", client)
+	log.Info("Inbound connection: %s", client)
 
 	tap, err := NewL2Tap()
 	if err != nil {
-		log.Printf("Error creating tap: %s", err)
+		log.Warn("Failed to create tap: %s", err)
 		return
 	}
 	defer tap.Close()
@@ -80,7 +79,7 @@ func (l *L2Listener) service(conn net.Conn) {
 	tapName := tap.Name()
 	err = l.bridge.link(tapName)
 	if err != nil {
-		log.Printf("Error linking tap to bridge: %s", err)
+		log.Warn("Failed to link tap to bridge: %s", err)
 		return
 	}
 

@@ -2,7 +2,6 @@ package overlay
 
 import (
 	"fmt"
-	"log"
 	"strconv"
 	"sync"
 
@@ -48,7 +47,7 @@ func (b *L2Bridge) Start(cli *cli.Listener) error {
 	if err != nil {
 		return err
 	}
-	log.Printf("Created bridge %s", b.name)
+	log.Info("Created bridge %s", b.name)
 
 	// TODO restore existing state (bridge, veth pairs kept)
 	// TODO recover on reboots (bridge, veth pairs killed)

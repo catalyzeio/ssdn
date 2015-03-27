@@ -1,7 +1,5 @@
 package main
 
-// TODO per-package logging levels (glog?)
-
 import (
 	"bufio"
 	"flag"
@@ -10,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/catalyzeio/shadowfax/cli"
+	"github.com/catalyzeio/shadowfax/dumblog"
 	"github.com/catalyzeio/shadowfax/overlay"
 )
 
@@ -38,6 +37,7 @@ func check(resp *string, err error) {
 }
 
 func main() {
+	dumblog.AddFlags()
 	overlay.AddTenantFlags()
 	runDirFlag := flag.String("rundir", "/var/run/shadowfax", "server socket directory")
 	flag.Parse()

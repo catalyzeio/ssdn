@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"log"
 	"net"
 
 	"github.com/catalyzeio/taptun"
@@ -31,7 +30,7 @@ func NewL2Tap() (*L2Tap, error) {
 	}
 
 	name := tap.Name()
-	log.Printf("Created layer 2 tap %s", name)
+	log.Info("Created layer 2 tap %s", name)
 
 	return &L2Tap{
 		name: name,
@@ -44,6 +43,7 @@ func (lt *L2Tap) Name() string {
 }
 
 func (lt *L2Tap) Close() error {
+	log.Info("Closing layer 2 tap %s", lt.name)
 	return lt.tap.Close()
 }
 
@@ -52,7 +52,7 @@ func (lt *L2Tap) Forward(peer net.Conn) {
 
 	r, w, err := Handshake(peer, "SFL2 1.0")
 	if err != nil {
-		log.Printf("Error initializing connection to %s: %s", peer.RemoteAddr(), err)
+		log.Warn("Failed to initialize connection to %s: %s", peer.RemoteAddr(), err)
 		return
 	}
 
@@ -77,7 +77,7 @@ func (lt *L2Tap) connReader(r *bufio.Reader, done chan<- bool) {
 			return
 		}
 		if err != nil {
-			log.Printf("Error reading message header: %s", err)
+			log.Warn("Failed to read message header: %s", err)
 			return
 		}
 		// check message type
@@ -87,7 +87,7 @@ func (lt *L2Tap) connReader(r *bufio.Reader, done chan<- bool) {
 		message := msgBuffer[:len]
 		_, err = io.ReadFull(r, message)
 		if err != nil {
-			log.Printf("Error reading message: %s", err)
+			log.Warn("Failed to read message: %s", err)
 			return
 		}
 		// process message
@@ -95,7 +95,7 @@ func (lt *L2Tap) connReader(r *bufio.Reader, done chan<- bool) {
 			// forwarded packet; write to tap
 			_, err = lt.tap.Write(message)
 			if err != nil {
-				log.Printf("Error relaying message to tap: %s", err)
+				log.Warn("Failed to relay message to tap: %s", err)
 				return
 			}
 		} else {
@@ -116,7 +116,7 @@ func (lt *L2Tap) connWriter(w *bufio.Writer, done chan<- bool) {
 		// read whole packet from tap
 		len, err := lt.tap.Read(msgBuffer)
 		if err != nil {
-			log.Printf("Error reading from tap: %s", err)
+			log.Warn("Failed to read from tap: %s", err)
 			return
 		}
 		// send header with packet discriminator
@@ -124,19 +124,19 @@ func (lt *L2Tap) connWriter(w *bufio.Writer, done chan<- bool) {
 		header[1] = byte(len)
 		_, err = w.Write(header)
 		if err != nil {
-			log.Printf("Error writing message header: %s", err)
+			log.Warn("Failed to write message header: %s", err)
 			return
 		}
 		// send packet as message
 		message := msgBuffer[:len]
 		_, err = w.Write(message)
 		if err != nil {
-			log.Printf("Error writing message: %s", err)
+			log.Warn("Failed to write message: %s", err)
 			return
 		}
 		err = w.Flush()
 		if err != nil {
-			log.Printf("Error flushing message: %s", err)
+			log.Warn("Failed to flush message: %s", err)
 			return
 		}
 	}

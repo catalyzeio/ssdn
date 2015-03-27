@@ -3,7 +3,6 @@ package overlay
 import (
 	"crypto/rand"
 	"fmt"
-	"log"
 	"net"
 	"time"
 
@@ -30,7 +29,7 @@ func NewL3Tap(gwIP net.IP, bridge *L3Bridge) (*L3Tap, error) {
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("Virtual gateway: %s at %s", gwIP, net.HardwareAddr(gwMAC))
+	log.Info("Virtual gateway: %s at %s", gwIP, net.HardwareAddr(gwMAC))
 
 	// add just enough packets for local traffic (ARP, etc)
 	const numPackets = 16
@@ -118,7 +117,9 @@ func (lt *L3Tap) Resolve(ip net.IP) (net.HardwareAddr, error) {
 		}
 		// send the request
 		outFrames <- p
-		log.Printf("Sent ARP request for %s", ip)
+		if log.IsDebugEnabled() {
+			log.Debug("Sent ARP request for %s", ip)
+		}
 		// wait up to a second for the response
 		select {
 		case response := <-resolved:
@@ -132,7 +133,9 @@ func (lt *L3Tap) Resolve(ip net.IP) (net.HardwareAddr, error) {
 }
 
 func (lt *L3Tap) createLinkedTap() (*taptun.Interface, error) {
-	log.Printf("Creating new tap")
+	if log.IsDebugEnabled() {
+		log.Debug("Creating new tap")
+	}
 
 	tap, err := taptun.NewTAP(tapNameTemplate)
 	if err != nil {
@@ -140,7 +143,7 @@ func (lt *L3Tap) createLinkedTap() (*taptun.Interface, error) {
 	}
 
 	name := tap.Name()
-	log.Printf("Created layer 3 tap %s", name)
+	log.Info("Created layer 3 tap %s", name)
 
 	err = lt.bridge.link(name)
 	if err != nil {
@@ -162,7 +165,7 @@ func (lt *L3Tap) service(tap *taptun.Interface) {
 				tap = newTap
 				break
 			}
-			log.Printf("Error creating tap: %s", err)
+			log.Warn("Failed to create tap: %s", err)
 		}
 	}
 }
@@ -170,7 +173,7 @@ func (lt *L3Tap) service(tap *taptun.Interface) {
 func (lt *L3Tap) forward(tap *taptun.Interface) {
 	defer func() {
 		tap.Close()
-		log.Printf("Closed tap %s", tap.Name())
+		log.Info("Closed tap %s", tap.Name())
 	}()
 
 	done := make(chan bool, 2)
@@ -197,12 +200,14 @@ func (lt *L3Tap) tapReader(tap *taptun.Interface, done chan<- bool) {
 		// read whole packet from tap
 		n, err := tap.Read(p.Data)
 		if err != nil {
-			log.Printf("Error reading from tap: %s", err)
+			log.Warn("Failed to read from tap: %s", err)
 			// bail on error, but return packet to free queue first
 			free <- p
 			return
 		}
-		log.Printf("Read %d bytes", n)
+		if log.IsTraceEnabled() {
+			log.Trace("Read %d bytes", n)
+		}
 		p.Length = n
 
 		// process any ARP traffic
@@ -268,12 +273,14 @@ func (lt *L3Tap) tapWriter(tap *taptun.Interface, done chan<- bool) {
 		message := p.Data[:p.Length]
 		n, err := tap.Write(message)
 		if err != nil {
-			log.Printf("Error relaying message to tap: %s", err)
+			log.Warn("Failed to relay message to tap: %s", err)
 			// bail on error, but return packet to free queue first
 			free <- p
 			return
 		}
-		log.Printf("Wrote %d bytes", n)
+		if log.IsTraceEnabled() {
+			log.Trace("Wrote %d bytes", n)
+		}
 
 		// return packet to free queue
 		free <- p
