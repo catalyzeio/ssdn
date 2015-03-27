@@ -198,6 +198,8 @@ func (lt *L3Tap) tapReader(tap *taptun.Interface, done chan<- bool) {
 		n, err := tap.Read(p.Data)
 		if err != nil {
 			log.Printf("Error reading from tap: %s", err)
+			// bail on error, but return packet to free queue first
+			free <- p
 			return
 		}
 		log.Printf("Read %d bytes", n)
@@ -267,6 +269,8 @@ func (lt *L3Tap) tapWriter(tap *taptun.Interface, done chan<- bool) {
 		n, err := tap.Write(message)
 		if err != nil {
 			log.Printf("Error relaying message to tap: %s", err)
+			// bail on error, but return packet to free queue first
+			free <- p
 			return
 		}
 		log.Printf("Wrote %d bytes", n)
