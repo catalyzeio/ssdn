@@ -252,15 +252,14 @@ func (lt *L3Tap) tapWriter(tap *taptun.Interface, done chan<- bool) {
 			// continue with new MAC lookup table
 			continue
 		case p = <-outPackets:
-			if macTable == nil {
+			// attach MAC addresses based on destination IP
+			if macTable == nil || !macTable.SetDestinationMAC(p, lt.gwMAC) {
 				free <- p
 				continue
 			}
-			// TODO attach MAC addresses and send
-			free <- p
-			continue
+			// send adjusted frame
 		case p = <-outFrames:
-			// send data normally
+			// send frame as-is
 		}
 
 		// write next outgoing packet

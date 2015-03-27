@@ -111,6 +111,7 @@ func (at *ARPTracker) GenerateQuery(packet *PacketBuffer, ip net.IP) error {
 		return fmt.Errorf("can only generate IPv4 ARP requests")
 	}
 
+	// XXX assumes frames have no 802.1q tagging
 	targetMAC := []byte{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}
 
 	// dest, src
@@ -286,19 +287,41 @@ func (at *ARPTracker) isTracking(ipKey int, result []byte) bool {
 
 // This method requires a 4-byte IP address to function properly.
 // Use ip.To4() if the IPv4 address may have been encoded with 16 bytes.
-func IPv4ToInt(ip net.IP) int {
+func IPv4ToInt(ip []byte) int {
 	return int(ip[0])<<24 | int(ip[1])<<16 | int(ip[2])<<8 | int(ip[3])
 }
 
-func IntToIPv4(ip int) net.IP {
-	a := []byte{byte(ip >> 24), byte(ip >> 16), byte(ip >> 8), byte(ip)}
-	return net.IP(a)
+func IntToIPv4(ip int) []byte {
+	return []byte{byte(ip >> 24), byte(ip >> 16), byte(ip >> 8), byte(ip)}
+}
+
+func (t ARPTable) SetDestinationMAC(packet *PacketBuffer, srcMAC []byte) bool {
+	// XXX assumes frames have no 802.1q tagging
+	buff := packet.Data
+
+	// ignore non-IPv4 packets
+	if packet.Length < 34 || buff[12] != 0x08 || buff[13] != 0x00 {
+		return false
+	}
+
+	// look up destination MAC based on destination IP
+	destIP := buff[30:34]
+	key := IPv4ToInt(destIP)
+	destMAC, present := t[key]
+	if present {
+		copy(buff[0:6], destMAC)
+		copy(buff[6:12], srcMAC)
+		return true
+	}
+	return false
 }
 
 func (t ARPTable) StringMap() map[string]string {
 	sm := make(map[string]string)
 	for k, v := range t {
-		sm[IntToIPv4(k).String()] = net.HardwareAddr(v).String()
+		ip := net.IP(IntToIPv4(k))
+		mac := net.HardwareAddr(v)
+		sm[ip.String()] = mac.String()
 	}
 	return sm
 }
