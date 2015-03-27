@@ -296,6 +296,7 @@ func IPv4ToInt(ip []byte) int {
 	return int(ip[0])<<24 | int(ip[1])<<16 | int(ip[2])<<8 | int(ip[3])
 }
 
+// Reverse operation of IPv4ToInt.
 func IntToIPv4(ip int) []byte {
 	return []byte{byte(ip >> 24), byte(ip >> 16), byte(ip >> 8), byte(ip)}
 }
