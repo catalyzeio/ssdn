@@ -24,7 +24,7 @@ type L3Tap struct {
 	arpTracker *ARPTracker
 }
 
-func NewL3Tap(gwIP net.IP, mtu uint16, bridge *L3Bridge) (*L3Tap, error) {
+func NewL3Tap(gwIP net.IP, bridge *L3Bridge) (*L3Tap, error) {
 	var gwMAC []byte
 	gwMAC, err := RandomMAC()
 	if err != nil {
@@ -32,12 +32,12 @@ func NewL3Tap(gwIP net.IP, mtu uint16, bridge *L3Bridge) (*L3Tap, error) {
 	}
 	log.Printf("Virtual gateway: %s at %s", gwIP, net.HardwareAddr(gwMAC))
 
-	// TODO determine an appropriate number here
-	const numPackets = 2
+	// add just enough packets for local traffic (ARP, etc)
+	const numPackets = 16
 	free := make(chan *PacketBuffer, numPackets)
 	outFrames := make(chan *PacketBuffer, numPackets)
 	outPackets := make(chan *PacketBuffer, numPackets)
-	for _, v := range NewPacketBuffers(numPackets, int(mtu)) {
+	for _, v := range NewPacketBuffers(numPackets, MaxPacketSize) {
 		free <- &v
 	}
 
@@ -54,7 +54,7 @@ func NewL3Tap(gwIP net.IP, mtu uint16, bridge *L3Bridge) (*L3Tap, error) {
 }
 
 func (lt *L3Tap) Start(cli *cli.Listener) error {
-	tap, iface, err := lt.createLinkedTap()
+	tap, err := lt.createLinkedTap()
 	if err != nil {
 		return err
 	}
@@ -66,7 +66,7 @@ func (lt *L3Tap) Start(cli *cli.Listener) error {
 	cli.Register("arp", "", "Shows current ARP table", 0, 0, lt.cliARPTable)
 	cli.Register("resolve", "", "Forces IP to MAC address resolution", 1, 1, lt.cliResolve)
 
-	go lt.service(tap, iface)
+	go lt.service(tap)
 
 	return nil
 }
@@ -131,12 +131,12 @@ func (lt *L3Tap) Resolve(ip net.IP) (net.HardwareAddr, error) {
 	return nil, fmt.Errorf("failed to resolve %s", ip)
 }
 
-func (lt *L3Tap) createLinkedTap() (*taptun.Interface, *net.Interface, error) {
+func (lt *L3Tap) createLinkedTap() (*taptun.Interface, error) {
 	log.Printf("Creating new tap")
 
 	tap, err := taptun.NewTAP(tapNameTemplate)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	name := tap.Name()
@@ -145,28 +145,21 @@ func (lt *L3Tap) createLinkedTap() (*taptun.Interface, *net.Interface, error) {
 	err = lt.bridge.link(name)
 	if err != nil {
 		tap.Close()
-		return nil, nil, err
+		return nil, err
 	}
 
-	iface, err := net.InterfaceByName(name)
-	if err != nil {
-		tap.Close()
-		return nil, nil, err
-	}
-
-	return tap, iface, err
+	return tap, err
 }
 
-func (lt *L3Tap) service(tap *taptun.Interface, iface *net.Interface) {
+func (lt *L3Tap) service(tap *taptun.Interface) {
 	for {
-		lt.forward(tap, iface)
+		lt.forward(tap)
 
 		for {
 			time.Sleep(time.Second)
-			newTap, newIface, err := lt.createLinkedTap()
+			newTap, err := lt.createLinkedTap()
 			if err == nil {
 				tap = newTap
-				iface = newIface
 				break
 			}
 			log.Printf("Error creating tap: %s", err)
@@ -174,7 +167,7 @@ func (lt *L3Tap) service(tap *taptun.Interface, iface *net.Interface) {
 	}
 }
 
-func (lt *L3Tap) forward(tap *taptun.Interface, iface *net.Interface) {
+func (lt *L3Tap) forward(tap *taptun.Interface) {
 	defer func() {
 		tap.Close()
 		log.Printf("Closed tap %s", tap.Name())
