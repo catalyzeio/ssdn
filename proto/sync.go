@@ -3,7 +3,6 @@ package proto
 import (
 	"bufio"
 	"crypto/tls"
-	"log"
 	"net"
 	"time"
 )
@@ -108,7 +107,9 @@ func (c *SyncClient) connHandler(conn net.Conn, abort <-chan bool) error {
 
 func (dc *directCaller) SyncCall(reqMsg []byte) ([]byte, error) {
 	// send request
-	log.Printf(" -> %s", reqMsg)
+	if log.IsTraceEnabled() {
+		log.Trace("-> %s", reqMsg)
+	}
 	_, err := dc.conn.Write(append(reqMsg, separator))
 	if err != nil {
 		return nil, err
@@ -118,6 +119,8 @@ func (dc *directCaller) SyncCall(reqMsg []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	log.Printf(" <- %s", respMsg)
+	if log.IsTraceEnabled() {
+		log.Trace("<- %s", respMsg)
+	}
 	return respMsg, err
 }

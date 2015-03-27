@@ -4,7 +4,6 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"time"
 
@@ -131,7 +130,7 @@ func (reg *SauronClient) handshake(caller proto.SyncCaller) error {
 	if err != nil {
 		return err
 	}
-	log.Printf("Authenticated as %s", reg.Tenant)
+	log.Info("Authenticated as %s", reg.Tenant)
 
 	if reg.ads != nil {
 		req := message{
@@ -142,13 +141,14 @@ func (reg *SauronClient) handshake(caller proto.SyncCaller) error {
 		if err != nil {
 			return err
 		}
-		log.Printf("Advertised %v", reg.ads)
+		log.Info("Advertised %v", reg.ads)
 	}
 
 	return nil
 }
 
 func (reg *SauronClient) idle(caller proto.SyncCaller) error {
+	log.Debug("Sending ping")
 	_, err := call(caller, &message{Type: "ping"})
 	return err
 }

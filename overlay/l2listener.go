@@ -53,7 +53,7 @@ func (l *L2Listener) accept(listener net.Listener) {
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
-			log.Warn("Failed to accept incoming connections: %s", err)
+			log.Warn("Failed to accept incoming connection: %s", err)
 			return
 		}
 		go l.service(conn)

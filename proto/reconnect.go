@@ -3,7 +3,6 @@ package proto
 import (
 	"crypto/tls"
 	"fmt"
-	"log"
 	"math/rand"
 	"net"
 	"time"
@@ -63,7 +62,7 @@ func (c *ReconnectClient) run() {
 		if c.connect(target, initDelay) {
 			return
 		}
-		log.Printf("Reconnecting to %s", target)
+		log.Info("Reconnecting to %s", target)
 		initDelay = true
 	}
 }
@@ -81,19 +80,19 @@ func (c *ReconnectClient) connect(target string, initDelay bool) bool {
 	defer func() {
 		conn.Close()
 		abort <- true
-		log.Printf("Disconnected from %s", target)
+		log.Info("Disconnected from %s", target)
 	}()
-	log.Printf("Connected to %s", target)
+	log.Info("Connected to %s", target)
 
 	// set up connection
 	tcpConn, ok := conn.(*net.TCPConn)
 	if ok {
 		tcpConn.SetKeepAlive(true)
 		tcpConn.SetKeepAlivePeriod(15 * time.Second)
-		log.Printf("Enabled TCP keepalives on connection to %s", target)
+		log.Debug("Enabled TCP keepalives on connection to %s", target)
 	} else {
 		// XXX tls.Conn does not currently provide a way to set TCP keepalives on the underlying socket
-		log.Printf("Could not enable TCP keepalives on connection to %s", target)
+		log.Warn("Failed to enable TCP keepalives on connection to %s", target)
 	}
 
 	// run handler
@@ -102,7 +101,7 @@ func (c *ReconnectClient) connect(target string, initDelay bool) bool {
 		go func() {
 			err := c.Handler(conn, abort)
 			if err != nil {
-				log.Printf("Error in connection handler: %s", err)
+				log.Warn("Error in connection handler: %s", err)
 			}
 			finished <- true
 		}()
@@ -136,18 +135,18 @@ func (c *ReconnectClient) dial(target string, initDelay bool) net.Conn {
 		case cmsg := <-c.control:
 			switch cmsg {
 			case disconnect:
-				log.Printf("Not connected to %s; ignoring disconnection request", target)
+				log.Debug("Not connected to %s; ignoring disconnection request", target)
 				// XXX this causes an extra connection delay that is mostly harmless
 				continue
 			case stop:
-				log.Printf("Aborting connection with %s", target)
+				log.Debug("Aborting connection with %s", target)
 				return nil
 			}
 		case <-time.After(delay):
 			// continue connection attempts
 		}
 
-		log.Printf("Connecting to %s", target)
+		log.Debug("Connecting to %s", target)
 		var conn net.Conn
 		var err error
 		if c.config != nil {
@@ -165,6 +164,6 @@ func (c *ReconnectClient) dial(target string, initDelay bool) net.Conn {
 		if delay > maxReconnectDelay {
 			delay = maxReconnectDelay
 		}
-		log.Printf("Error connecting to %s: %s; retrying in %s", target, err, delay)
+		log.Warn("Failed to connect to %s: %s; retrying in %s", target, err, delay)
 	}
 }

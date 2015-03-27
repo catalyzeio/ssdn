@@ -2,7 +2,6 @@ package actions
 
 import (
 	"fmt"
-	"log"
 	"os/exec"
 	"path"
 )
@@ -65,7 +64,7 @@ func (a *Invoker) invoke(req *actionReq) {
 	if err != nil {
 		err = fmt.Errorf("{%s %s} failed (%s): %s", target, req.args, err, string(output))
 	} else {
-		log.Printf("Command {%s %s} succeeded: %s", target, req.args, string(output))
+		log.Debug("Command {%s %s} succeeded: %s", target, req.args, string(output))
 	}
 	req.result <- &actionResp{output, err}
 }

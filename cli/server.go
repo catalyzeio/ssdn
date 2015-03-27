@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"os"
 	"path"
@@ -65,7 +64,7 @@ func (c *Listener) Start() error {
 		if err != nil {
 			return err
 		}
-		log.Printf("Removed existing socket at %s", c.dsPath)
+		log.Warn("Removed existing socket at %s", c.dsPath)
 	}
 	// create new socket and start up listener
 	l, err := net.Listen("unix", c.dsPath)
@@ -87,19 +86,19 @@ func (c *Listener) listen(l net.Listener) {
 	for {
 		select {
 		case <-c.command:
-			log.Printf("CLI shutting down")
+			log.Info("Shutting down")
 			return
 		}
 	}
 }
 
 func (c *Listener) accept(l net.Listener) {
-	log.Printf("CLI accepting commands at %s", c.dsPath)
+	log.Info("Accepting commands at %s", c.dsPath)
 	c.start = time.Now()
 	for {
 		conn, err := l.Accept()
 		if err != nil {
-			log.Printf("Error accepting connection: %s", err)
+			log.Warn("Failed to accept connection: %s", err)
 			return
 		}
 		go c.service(conn)
@@ -116,10 +115,12 @@ func (c *Listener) service(conn net.Conn) {
 			return
 		}
 		if err != nil {
-			log.Printf("Error receiving request: %s", err)
+			log.Warn("Faild to receive request: %s", err)
 			return
 		}
-		log.Printf("CLI <- %s", request)
+		if log.IsDebugEnabled() {
+			log.Debug("<- %s", request)
+		}
 
 		args := strings.Fields(request)
 		response := ""
@@ -130,11 +131,13 @@ func (c *Listener) service(conn net.Conn) {
 			}
 		}
 		response = strings.Replace(response, string(delim), "; ", -1)
-		log.Printf("CLI -> %s", response)
+		if log.IsDebugEnabled() {
+			log.Debug("-> %s", response)
+		}
 
 		_, err = conn.Write(append([]byte(response), delim))
 		if err != nil {
-			log.Printf("Error sending response: %s", err)
+			log.Warn("Failed to send response: %s", err)
 			return
 		}
 	}
