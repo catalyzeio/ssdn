@@ -134,7 +134,6 @@ func (lt *L2Tap) connWriter(w *bufio.Writer, done chan<- bool) {
 			log.Printf("Error writing message: %s", err)
 			return
 		}
-		// TODO batch flush operations
 		err = w.Flush()
 		if err != nil {
 			log.Printf("Error flushing message: %s", err)
