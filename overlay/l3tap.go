@@ -220,7 +220,8 @@ func (lt *L3Tap) tapReader(tap *taptun.Interface, done chan<- bool) {
 			// tracker is processing and will return buffer when done
 			continue
 		case ARPUnsupported:
-			// ignore and continue
+			// ignore, return packet, and continue
+			free <- p
 			continue
 		case NotARP:
 			// process packet normally
