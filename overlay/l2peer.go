@@ -1,6 +1,7 @@
 package overlay
 
 import (
+	"bufio"
 	"crypto/tls"
 	"fmt"
 	"net"
@@ -46,4 +47,34 @@ func (p *L2Peer) connHandler(conn net.Conn, abort <-chan bool) error {
 	}
 	p.tap.Forward(r, w)
 	return nil
+}
+
+func L2Handshake(peer net.Conn) (*bufio.Reader, *bufio.Writer, error) {
+	return Handshake(peer, "SFL2 1.0")
+}
+
+func Handshake(peer net.Conn, hello string) (*bufio.Reader, *bufio.Writer, error) {
+	const delim = '\n'
+	message := hello + string(delim)
+
+	r := bufio.NewReaderSize(peer, bufSize)
+	w := bufio.NewWriterSize(peer, bufSize)
+
+	_, err := w.WriteString(message)
+	if err != nil {
+		return nil, nil, err
+	}
+	err = w.Flush()
+	if err != nil {
+		return nil, nil, err
+	}
+	resp, err := r.ReadString(delim)
+	if err != nil {
+		return nil, nil, err
+	}
+	if resp != message {
+		return nil, nil, fmt.Errorf("peer sent invalid handshake")
+	}
+
+	return r, w, nil
 }
