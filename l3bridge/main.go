@@ -71,6 +71,8 @@ func main() {
 
 	cli := cli.NewServer(runDir, tenant)
 
+	routes := overlay.NewRouteTracker()
+
 	bridge := overlay.NewL3Bridge(tenantID, mtu, path.Join(confDir, "l3bridge.d"))
 	err = bridge.Start(cli)
 	if err != nil {
@@ -86,10 +88,7 @@ func main() {
 		fail("Failed to start tap: %s\n", err)
 	}
 
-	router := overlay.NewL3Router()
-	router.Start()
-
-	peers := overlay.NewL3Peers(config, mtu)
+	peers := overlay.NewL3Peers(routes, config, mtu)
 	peers.Start(cli)
 
 	listener := overlay.NewL3Listener(listenAddress, config)

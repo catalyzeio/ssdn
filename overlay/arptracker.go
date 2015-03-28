@@ -228,8 +228,11 @@ func (at *ARPTracker) handleRequest(buff []byte) ARPResult {
 }
 
 func (at *ARPTracker) service() {
+	// copied and replaced when any changes are made
 	table := make(ARPTable)
 	listeners := make(map[chan ARPTable]interface{})
+
+	// TODO initialize ARP table with broadcast entries
 
 	for {
 		req := <-at.control

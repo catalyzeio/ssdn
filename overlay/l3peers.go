@@ -11,6 +11,7 @@ import (
 )
 
 type L3Peers struct {
+	routes *RouteTracker
 	config *tls.Config
 	mtu    uint16
 
@@ -18,8 +19,9 @@ type L3Peers struct {
 	peers      map[string]*L3Peer
 }
 
-func NewL3Peers(config *tls.Config, mtu uint16) *L3Peers {
+func NewL3Peers(routes *RouteTracker, config *tls.Config, mtu uint16) *L3Peers {
 	return &L3Peers{
+		routes: routes,
 		config: config,
 		mtu:    mtu,
 
@@ -117,10 +119,10 @@ func (lp *L3Peers) ListPeers() []string {
 	defer lp.peersMutex.Unlock()
 
 	l := make([]string, len(lp.peers))
-	i := 0
+	offset := 0
 	for k, _ := range lp.peers {
-		l[i] = k
-		i += 1
+		l[offset] = k
+		offset++
 	}
 	return l
 }
