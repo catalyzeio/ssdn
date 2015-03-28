@@ -5,6 +5,8 @@ VERSION=0.2.0-dev-0-${GIT_REV}
 deb: clean build
 	mkdir -p build/usr/sbin
 	cp -av l2link/l2link build/usr/sbin/
+	cp -av l3bridge/l3bridge build/usr/sbin/
+	cp -av l3direct/l3direct build/usr/sbin/
 	cp -av shadowfax build/usr/sbin/
 	cp -av dnetns build/usr/sbin/
 
@@ -23,10 +25,14 @@ deb: clean build
 build:
 	go build
 	cd l2link && go build
+	cd l3bridge && go build
+	cd l3direct && go build
 
 clean:
 	go clean
 	cd l2link && go clean
+	cd l3bridge && go clean
+	cd l3direct && go clean
 	rm -f *.deb
 	rm -rf build
 
