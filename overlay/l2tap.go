@@ -47,14 +47,8 @@ func (lt *L2Tap) Close() error {
 	return lt.tap.Close()
 }
 
-func (lt *L2Tap) Forward(peer net.Conn) {
+func (lt *L2Tap) Forward(r *bufio.Reader, w *bufio.Writer) {
 	done := make(chan bool, 2)
-
-	r, w, err := Handshake(peer, "SFL2 1.0")
-	if err != nil {
-		log.Warn("Failed to initialize connection to %s: %s", peer.RemoteAddr(), err)
-		return
-	}
 
 	go lt.connReader(r, done)
 	go lt.connWriter(w, done)
@@ -140,6 +134,10 @@ func (lt *L2Tap) connWriter(w *bufio.Writer, done chan<- bool) {
 			return
 		}
 	}
+}
+
+func L2Handshake(peer net.Conn) (*bufio.Reader, *bufio.Writer, error) {
+	return Handshake(peer, "SFL2 1.0")
 }
 
 func Handshake(peer net.Conn, hello string) (*bufio.Reader, *bufio.Writer, error) {

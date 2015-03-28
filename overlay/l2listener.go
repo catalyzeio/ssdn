@@ -69,6 +69,12 @@ func (l *L2Listener) service(conn net.Conn) {
 
 	log.Info("Inbound connection: %s", client)
 
+	r, w, err := L2Handshake(conn)
+	if err != nil {
+		log.Warn("Failed to initialize connection to %s: %s", conn.RemoteAddr(), err)
+		return
+	}
+
 	tap, err := NewL2Tap()
 	if err != nil {
 		log.Warn("Failed to create tap: %s", err)
@@ -86,7 +92,7 @@ func (l *L2Listener) service(conn net.Conn) {
 	l.clientConnected(client, tapName)
 	defer l.clientDisconnected(client)
 
-	tap.Forward(conn)
+	tap.Forward(r, w)
 }
 
 func (l *L2Listener) clientConnected(addr net.Addr, downlinkIface string) {

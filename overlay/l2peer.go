@@ -40,6 +40,10 @@ func (p *L2Peer) Name() string {
 }
 
 func (p *L2Peer) connHandler(conn net.Conn, abort <-chan bool) error {
-	p.tap.Forward(conn)
+	r, w, err := L2Handshake(conn)
+	if err != nil {
+		return err
+	}
+	p.tap.Forward(r, w)
 	return nil
 }
