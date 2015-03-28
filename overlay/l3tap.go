@@ -11,19 +11,22 @@ import (
 )
 
 type L3Tap struct {
+	Out PacketQueue
+
 	gwIP  net.IP
 	gwMAC net.HardwareAddr
 
 	bridge *L3Bridge
 
-	free       chan *PacketBuffer
-	outFrames  chan *PacketBuffer
-	outPackets chan *PacketBuffer
+	free PacketQueue
+
+	freeARP PacketQueue
+	outARP  PacketQueue
 
 	arpTracker *ARPTracker
 }
 
-func NewL3Tap(gwIP net.IP, bridge *L3Bridge) (*L3Tap, error) {
+func NewL3Tap(gwIP net.IP, mtu uint16, bridge *L3Bridge) (*L3Tap, error) {
 	var gwMAC []byte
 	gwMAC, err := RandomMAC()
 	if err != nil {
@@ -31,24 +34,26 @@ func NewL3Tap(gwIP net.IP, bridge *L3Bridge) (*L3Tap, error) {
 	}
 	log.Info("Virtual gateway: %s at %s", gwIP, net.HardwareAddr(gwMAC))
 
-	// add just enough packets for local traffic (ARP, etc)
-	const numPackets = 16
-	free := make(chan *PacketBuffer, numPackets)
-	outFrames := make(chan *PacketBuffer, numPackets)
-	outPackets := make(chan *PacketBuffer, numPackets)
-	for _, v := range NewPacketBuffers(numPackets, MaxPacketSize) {
-		free <- &v
-	}
+	const tapQueueSize = 1024
+	free := AllocatePacketQueue(tapQueueSize, int(mtu))
+	out := make(PacketQueue, tapQueueSize)
+
+	const arpQueueSize = 16
+	freeARP := AllocatePacketQueue(arpQueueSize, int(mtu))
+	outARP := make(PacketQueue, arpQueueSize)
 
 	return &L3Tap{
+		Out: out,
+
 		gwIP:  gwIP,
 		gwMAC: gwMAC,
 
 		bridge: bridge,
 
-		free:       free,
-		outFrames:  outFrames,
-		outPackets: outPackets,
+		free: free,
+
+		freeARP: freeARP,
+		outARP:  outARP,
 	}, nil
 }
 
@@ -104,19 +109,20 @@ func (lt *L3Tap) Resolve(ip net.IP) (net.HardwareAddr, error) {
 	}
 	defer arpTracker.UntrackQuery(ip)
 
-	free := lt.free
-	outFrames := lt.outFrames
+	freeARP := lt.freeARP
+	outARP := lt.outARP
 
 	for i := 0; i < 3; i++ {
 		// grab a free packet
-		p := <-free
+		p := <-freeARP
 		// generate the request
 		err := arpTracker.GenerateQuery(p, ip)
 		if err != nil {
+			p.Queue <- p
 			return nil, err
 		}
 		// send the request
-		outFrames <- p
+		outARP <- p
 		if log.IsDebugEnabled() {
 			log.Debug("Sent ARP request for %s", ip)
 		}
@@ -190,7 +196,7 @@ func (lt *L3Tap) tapReader(tap *taptun.Interface, done chan<- bool) {
 	}()
 
 	free := lt.free
-	outFrames := lt.outFrames
+	outARP := lt.outARP
 	arpTracker := lt.arpTracker
 
 	for {
@@ -201,8 +207,7 @@ func (lt *L3Tap) tapReader(tap *taptun.Interface, done chan<- bool) {
 		n, err := tap.Read(p.Data)
 		if err != nil {
 			log.Warn("Failed to read from tap: %s", err)
-			// bail on error, but return packet to free queue first
-			free <- p
+			p.Queue <- p
 			return
 		}
 		if log.IsTraceEnabled() {
@@ -211,26 +216,28 @@ func (lt *L3Tap) tapReader(tap *taptun.Interface, done chan<- bool) {
 		p.Length = n
 
 		// process any ARP traffic
-		switch arpTracker.Process(p, free) {
+		switch arpTracker.Process(p) {
 		case ARPReply:
 			// tracker responded to an ARP query; send to output
-			outFrames <- p
+			outARP <- p
 			continue
 		case ARPIsProcessing:
 			// tracker is processing and will return buffer when done
 			continue
 		case ARPUnsupported:
 			// ignore, return packet, and continue
-			free <- p
+			p.Queue <- p
 			continue
 		case NotARP:
 			// process packet normally
 		}
 
+		// TODO reply to ICMP traffic
+
 		// TODO packet routing
 
-		// return packet to free queue
-		free <- p
+		// return packet to its owner
+		p.Queue <- p
 	}
 }
 
@@ -247,9 +254,8 @@ func (lt *L3Tap) tapWriter(tap *taptun.Interface, done chan<- bool) {
 	macChanges = make(chan ARPTable, 8)
 	lt.arpTracker.AddListener(macChanges)
 
-	outFrames := lt.outFrames
-	outPackets := lt.outPackets
-	free := lt.free
+	out := lt.Out
+	outARP := lt.outARP
 
 	for {
 		// grab next outgoing packet
@@ -258,15 +264,15 @@ func (lt *L3Tap) tapWriter(tap *taptun.Interface, done chan<- bool) {
 		case macTable = <-macChanges:
 			// continue with new MAC lookup table
 			continue
-		case p = <-outPackets:
+		case p = <-out:
 			// attach MAC addresses based on destination IP
 			if macTable == nil || !macTable.SetDestinationMAC(p, lt.gwMAC) {
-				free <- p
+				p.Queue <- p
 				continue
 			}
 			// send adjusted frame
-		case p = <-outFrames:
-			// send frame as-is
+		case p = <-outARP:
+			// send ARP as-is
 		}
 
 		// write next outgoing packet
@@ -274,16 +280,15 @@ func (lt *L3Tap) tapWriter(tap *taptun.Interface, done chan<- bool) {
 		n, err := tap.Write(message)
 		if err != nil {
 			log.Warn("Failed to relay message to tap: %s", err)
-			// bail on error, but return packet to free queue first
-			free <- p
+			p.Queue <- p
 			return
 		}
 		if log.IsTraceEnabled() {
 			log.Trace("Wrote %d bytes", n)
 		}
 
-		// return packet to free queue
-		free <- p
+		// return packet to its owner
+		p.Queue <- p
 	}
 }
 

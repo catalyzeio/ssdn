@@ -37,8 +37,7 @@ type atRequest struct {
 	entryIP  []byte
 	entryMAC []byte
 
-	arp       *PacketBuffer
-	processed chan *PacketBuffer
+	arp *PacketBuffer
 }
 
 func NewARPTracker(localIP []byte, localMAC []byte) *ARPTracker {
@@ -155,11 +154,9 @@ func (at *ARPTracker) GenerateQuery(packet *PacketBuffer, ip net.IP) error {
 	return nil
 }
 
-func (at *ARPTracker) Process(packet *PacketBuffer, processed chan *PacketBuffer) ARPResult {
+func (at *ARPTracker) Process(packet *PacketBuffer) ARPResult {
 	// XXX assumes frames have no 802.1q tagging
 	buff := packet.Data
-
-	// TODO reply to ICMP traffic
 
 	// ignore non-ARP packets
 	if packet.Length < 42 || buff[12] != 0x08 || buff[13] != 0x06 {
@@ -191,8 +188,7 @@ func (at *ARPTracker) Process(packet *PacketBuffer, processed chan *PacketBuffer
 			log.Trace("Received ARP is-at")
 		}
 		at.control <- &atRequest{
-			arp:       packet,
-			processed: processed,
+			arp: packet,
 		}
 		return ARPIsProcessing
 	}
@@ -280,7 +276,7 @@ func (at *ARPTracker) service() {
 				table = table.modify(listeners, ipKey, senderMAC)
 			}
 
-			req.processed <- arp
+			arp.Queue <- arp
 		}
 	}
 }

@@ -77,7 +77,7 @@ func main() {
 		fail("Failed to start bridge: %s\n", err)
 	}
 
-	tap, err := overlay.NewL3Tap(gwIP, bridge)
+	tap, err := overlay.NewL3Tap(gwIP, mtu, bridge)
 	if err != nil {
 		fail("Failed to create tap: %s\n", err)
 	}
