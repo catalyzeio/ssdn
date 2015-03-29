@@ -4,7 +4,10 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strings"
 	"sync"
+
+	"github.com/catalyzeio/shadowfax/cli"
 )
 
 type IPv4Route struct {
@@ -78,6 +81,26 @@ func NewRouteTracker() *RouteTracker {
 		listeners: make(map[RouteListener]interface{}),
 		routes:    make([]IPv4Route, 0),
 	}
+}
+
+func (rt *RouteTracker) Start(cli *cli.Listener) {
+	cli.Register("routes", "", "List all available routes", 0, 0, rt.cliRoutes)
+}
+
+func (rt *RouteTracker) cliRoutes(args ...string) (string, error) {
+	routes := rt.Routes()
+	routeStrings := make([]string, len(routes))
+	for i, v := range routes {
+		routeStrings[i] = v.String()
+	}
+	return fmt.Sprintf("Routes: %s", strings.Join(routeStrings, ", ")), nil
+}
+
+func (rt *RouteTracker) Routes() []IPv4Route {
+	rt.mutex.Lock()
+	defer rt.mutex.Unlock()
+
+	return rt.routes
 }
 
 func (rt *RouteTracker) AddListener(listener RouteListener) {

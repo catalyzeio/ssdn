@@ -75,6 +75,7 @@ func main() {
 	cli := cli.NewServer(runDir, tenant)
 
 	routes := overlay.NewRouteTracker()
+	routes.Start(cli)
 
 	bridge := overlay.NewL3Bridge(tenantID, mtu, path.Join(confDir, "l3bridge.d"))
 	err = bridge.Start(cli)
