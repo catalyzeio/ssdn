@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"net"
 	"os"
 	"path"
 	"time"
@@ -25,22 +24,35 @@ func main() {
 	dumblog.AddFlags()
 	overlay.AddTenantFlags()
 	overlay.AddMTUFlag()
+	overlay.AddNetworkFlag()
+	overlay.AddSubnetFlags()
 	overlay.AddDirFlags()
 	proto.AddListenFlags(true)
 	proto.AddTLSFlags()
-	gwIPFlag := flag.String("gateway", "192.168.0.254", "virtual gateway IP address")
 	flag.Parse()
 
 	tenant, tenantID, err := overlay.GetTenantFlags()
 	if err != nil {
 		fail("Invalid tenant config: %s\n", err)
 	}
-	log.Info("Servicing tenant: %s, tenant ID: %s\n", tenant, tenantID)
+	log.Info("Servicing tenant: %s, tenant ID: %s", tenant, tenantID)
 
 	mtu, err := overlay.GetMTUFlag()
 	if err != nil {
 		fail("Invalid MTU config: %s\n", err)
 	}
+
+	network, err := overlay.GetNetworkFlag()
+	if err != nil {
+		fail("Invalid network config: %s\n", err)
+	}
+	log.Info("Overlay network: %s", network)
+
+	tapRoute, gwIP, err := overlay.GetSubnetFlags()
+	if err != nil {
+		fail("Invalid subnet config: %s\n", err)
+	}
+	log.Info("Local subnet: %s", tapRoute)
 
 	runDir, confDir, err := overlay.GetDirFlags()
 	if err != nil {
@@ -60,15 +72,6 @@ func main() {
 		fail("Invalid TLS config: %s\n", err)
 	}
 
-	gwIP := net.ParseIP(*gwIPFlag)
-	if gwIP == nil {
-		fail("Invalid gateway IP address: %s\n", *gwIPFlag)
-	}
-	gwIP = gwIP.To4()
-	if gwIP == nil {
-		fail("Gateway IP must be an IPv4 address: %s\n", *gwIPFlag)
-	}
-
 	cli := cli.NewServer(runDir, tenant)
 
 	routes := overlay.NewRouteTracker()
@@ -83,6 +86,10 @@ func main() {
 	if err != nil {
 		fail("Failed to create tap: %s\n", err)
 	}
+
+	tapRoute.Queue = tap.Out
+	routes.AddRoute(*tapRoute)
+
 	err = tap.Start(cli)
 	if err != nil {
 		fail("Failed to start tap: %s\n", err)

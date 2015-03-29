@@ -1,6 +1,8 @@
 package overlay
 
 import (
+	"fmt"
+	"net"
 	"sync"
 )
 
@@ -8,7 +10,30 @@ type IPv4Route struct {
 	Network uint32
 	Mask    uint32
 
-	Out PacketQueue
+	Queue PacketQueue
+}
+
+func NewIPv4Route(network *net.IPNet) (*IPv4Route, error) {
+	ip := network.IP.To4()
+	if ip == nil {
+		return nil, fmt.Errorf("network must be IPv4")
+	}
+
+	_, bits := network.Mask.Size()
+	if bits != 32 {
+		return nil, fmt.Errorf("netmask must be IPv4")
+	}
+
+	return &IPv4Route{
+		Network: IPv4ToInt(ip),
+		Mask:    IPv4ToInt(network.Mask),
+	}, nil
+}
+
+func (r IPv4Route) String() string {
+	mask := net.IPMask(IntToIPv4(r.Mask))
+	maskBits, _ := mask.Size()
+	return fmt.Sprintf("%s/%d", net.IP(IntToIPv4(r.Network)), maskBits)
 }
 
 type RouteListener chan []IPv4Route
