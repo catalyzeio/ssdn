@@ -10,13 +10,16 @@ import (
 )
 
 type L3Peer struct {
-	Out PacketQueue
+	subnet *IPv4Route
+	routes *RouteTracker
 
-	free   PacketQueue
 	client *proto.ReconnectClient
+
+	free PacketQueue
+	out  PacketQueue
 }
 
-func NewL3Peer(addr *proto.Address, config *tls.Config, mtu uint16) (*L3Peer, error) {
+func NewL3Peer(subnet *IPv4Route, routes *RouteTracker, addr *proto.Address, config *tls.Config, mtu uint16) (*L3Peer, error) {
 	if !addr.TLS() {
 		config = nil
 	} else if config == nil {
@@ -28,9 +31,11 @@ func NewL3Peer(addr *proto.Address, config *tls.Config, mtu uint16) (*L3Peer, er
 	out := make(PacketQueue, peerQueueSize)
 
 	p := L3Peer{
-		Out: out,
+		subnet: subnet,
+		routes: routes,
 
 		free: free,
+		out:  out,
 	}
 	p.client = proto.NewClient(p.connHandler, addr.Host(), addr.Port(), config)
 	return &p, nil
@@ -45,18 +50,34 @@ func (p *L3Peer) Stop() {
 }
 
 func (p *L3Peer) connHandler(conn net.Conn, abort <-chan bool) error {
-	r, w, err := L3Handshake(conn)
+	r, w, route, err := L3Handshake(p.subnet, conn)
 	if err != nil {
 		return err
 	}
+
 	// TODO
-	_ = r
-	_ = w
+	_, _, _ = r, w, route
+
 	return nil
 }
 
-func L3Handshake(peer net.Conn) (*bufio.Reader, *bufio.Writer, error) {
+func L3Handshake(subnet *IPv4Route, peer net.Conn) (*bufio.Reader, *bufio.Writer, *IPv4Route, error) {
+	// basic handshake
 	r, w, err := Handshake(peer, "SFL3 1.0")
-	// TODO exchange subnets
-	return r, w, err
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	// exchange subnets
+	err = subnet.Write(w)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	route, err := ReadIPv4Route(r)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	log.Info("Subnet %s is at %s", route, peer.RemoteAddr())
+
+	return r, w, route, nil
 }

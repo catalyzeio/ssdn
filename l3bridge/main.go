@@ -48,11 +48,11 @@ func main() {
 	}
 	log.Info("Overlay network: %s", network)
 
-	tapRoute, gwIP, err := overlay.GetSubnetFlags()
+	subnet, gwIP, err := overlay.GetSubnetFlags()
 	if err != nil {
 		fail("Invalid subnet config: %s\n", err)
 	}
-	log.Info("Local subnet: %s", tapRoute)
+	log.Info("Local subnet: %s", subnet)
 
 	runDir, confDir, err := overlay.GetDirFlags()
 	if err != nil {
@@ -87,18 +87,15 @@ func main() {
 		fail("Failed to create tap: %s\n", err)
 	}
 
-	tapRoute.Queue = tap.Out
-	routes.AddRoute(*tapRoute)
-
 	err = tap.Start(cli)
 	if err != nil {
 		fail("Failed to start tap: %s\n", err)
 	}
 
-	peers := overlay.NewL3Peers(routes, config, mtu)
+	peers := overlay.NewL3Peers(subnet, routes, config, mtu)
 	peers.Start(cli)
 
-	listener := overlay.NewL3Listener(listenAddress, config)
+	listener := overlay.NewL3Listener(subnet, routes, listenAddress, config)
 	err = listener.Start(cli)
 	if err != nil {
 		fail("Failed to start listener: %s\n", err)

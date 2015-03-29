@@ -11,7 +11,9 @@ import (
 )
 
 type L3Peers struct {
+	subnet *IPv4Route
 	routes *RouteTracker
+
 	config *tls.Config
 	mtu    uint16
 
@@ -19,9 +21,11 @@ type L3Peers struct {
 	peers      map[string]*L3Peer
 }
 
-func NewL3Peers(routes *RouteTracker, config *tls.Config, mtu uint16) *L3Peers {
+func NewL3Peers(subnet *IPv4Route, routes *RouteTracker, config *tls.Config, mtu uint16) *L3Peers {
 	return &L3Peers{
+		subnet: subnet,
 		routes: routes,
+
 		config: config,
 		mtu:    mtu,
 
@@ -51,7 +55,7 @@ func (lp *L3Peers) AddPeer(url string) error {
 		return err
 	}
 
-	peer, err := NewL3Peer(addr, lp.config, lp.mtu)
+	peer, err := NewL3Peer(lp.subnet, lp.routes, addr, lp.config, lp.mtu)
 	if err != nil {
 		return err
 	}

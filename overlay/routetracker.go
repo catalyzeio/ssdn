@@ -2,6 +2,7 @@ package overlay
 
 import (
 	"fmt"
+	"io"
 	"net"
 	"sync"
 )
@@ -30,7 +31,33 @@ func NewIPv4Route(network *net.IPNet) (*IPv4Route, error) {
 	}, nil
 }
 
-func (r IPv4Route) String() string {
+func (r *IPv4Route) Write(w io.Writer) error {
+	_, err := w.Write(IntToIPv4(r.Network))
+	if err != nil {
+		return err
+	}
+	_, err = w.Write(IntToIPv4(r.Mask))
+	return err
+}
+
+func ReadIPv4Route(r io.Reader) (*IPv4Route, error) {
+	netBytes := make([]byte, 4)
+	_, err := io.ReadFull(r, netBytes)
+	if err != nil {
+		return nil, err
+	}
+	netMask := make([]byte, 4)
+	_, err = io.ReadFull(r, netMask)
+	if err != nil {
+		return nil, err
+	}
+	return &IPv4Route{
+		Network: IPv4ToInt(netBytes),
+		Mask:    IPv4ToInt(netMask),
+	}, nil
+}
+
+func (r *IPv4Route) String() string {
 	mask := net.IPMask(IntToIPv4(r.Mask))
 	maskBits, _ := mask.Size()
 	return fmt.Sprintf("%s/%d", net.IP(IntToIPv4(r.Network)), maskBits)
