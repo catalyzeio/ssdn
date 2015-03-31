@@ -60,7 +60,7 @@ func main() {
 	}
 
 	listenAddress, err := proto.GetListenAddress()
-	if listenAddress == nil {
+	if err == nil && listenAddress == nil {
 		err = fmt.Errorf("-listen is required")
 	}
 	if err != nil {
