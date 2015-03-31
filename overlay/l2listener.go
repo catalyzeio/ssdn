@@ -16,8 +16,8 @@ type L2Listener struct {
 	config  *tls.Config
 	bridge  *L2Bridge
 
-	clientsMutex sync.Mutex
-	clients      map[string]string
+	downlinksMutex sync.Mutex
+	downlinks      map[string]string
 }
 
 func NewL2Listener(address *proto.Address, config *tls.Config, bridge *L2Bridge) *L2Listener {
@@ -26,7 +26,7 @@ func NewL2Listener(address *proto.Address, config *tls.Config, bridge *L2Bridge)
 		config:  config,
 		bridge:  bridge,
 
-		clients: make(map[string]string),
+		downlinks: make(map[string]string),
 	}
 }
 
@@ -37,13 +37,13 @@ func (l *L2Listener) Start(cli *cli.Listener) error {
 	}
 	go l.accept(listener)
 
-	cli.Register("clients", "", "List all active clients", 0, 0, l.cliClients)
+	cli.Register("downlinks", "", "List all active downlinks", 0, 0, l.cliDownlinks)
 
 	return nil
 }
 
-func (l *L2Listener) cliClients(args ...string) (string, error) {
-	return l.listClients(), nil
+func (l *L2Listener) cliDownlinks(args ...string) (string, error) {
+	return l.listDownlinks(), nil
 }
 
 func (l *L2Listener) accept(listener net.Listener) {
@@ -61,17 +61,17 @@ func (l *L2Listener) accept(listener net.Listener) {
 }
 
 func (l *L2Listener) service(conn net.Conn) {
-	client := conn.RemoteAddr()
+	remoteAddr := conn.RemoteAddr()
 	defer func() {
 		conn.Close()
-		log.Info("Client disconnected: %s", conn.RemoteAddr())
+		log.Info("Downlink disconnected: %s", remoteAddr)
 	}()
 
-	log.Info("Inbound connection: %s", client)
+	log.Info("Inbound connection: %s", remoteAddr)
 
 	r, w, err := L2Handshake(conn)
 	if err != nil {
-		log.Warn("Failed to initialize connection to %s: %s", conn.RemoteAddr(), err)
+		log.Warn("Failed to initialize connection to %s: %s", remoteAddr, err)
 		return
 	}
 
@@ -89,31 +89,31 @@ func (l *L2Listener) service(conn net.Conn) {
 		return
 	}
 
-	l.clientConnected(client, tapName)
-	defer l.clientDisconnected(client)
+	l.downlinkConnected(remoteAddr, tapName)
+	defer l.downlinkDisconnected(remoteAddr)
 
 	tap.Forward(r, w)
 }
 
-func (l *L2Listener) clientConnected(addr net.Addr, downlinkIface string) {
-	l.clientsMutex.Lock()
-	defer l.clientsMutex.Unlock()
+func (l *L2Listener) downlinkConnected(addr net.Addr, tapName string) {
+	l.downlinksMutex.Lock()
+	defer l.downlinksMutex.Unlock()
 
-	l.clients[addr.String()] = downlinkIface
+	l.downlinks[addr.String()] = tapName
 }
 
-func (l *L2Listener) clientDisconnected(addr net.Addr) {
-	l.clientsMutex.Lock()
-	defer l.clientsMutex.Unlock()
+func (l *L2Listener) downlinkDisconnected(addr net.Addr) {
+	l.downlinksMutex.Lock()
+	defer l.downlinksMutex.Unlock()
 
-	delete(l.clients, addr.String())
+	delete(l.downlinks, addr.String())
 }
 
-func (l *L2Listener) listClients() string {
-	l.clientsMutex.Lock()
-	defer l.clientsMutex.Unlock()
+func (l *L2Listener) listDownlinks() string {
+	l.downlinksMutex.Lock()
+	defer l.downlinksMutex.Unlock()
 
-	return fmt.Sprintf("Clients: %s", mapValues(l.clients))
+	return fmt.Sprintf("Downlinks: %s", mapValues(l.downlinks))
 }
 
 func mapValues(m map[string]string) string {

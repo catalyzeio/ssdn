@@ -63,8 +63,8 @@ func main() {
 		fail("Failed to start bridge: %s\n", err)
 	}
 
-	peers := overlay.NewL2Peers(config, bridge)
-	peers.Start(cli)
+	uplinks := overlay.NewL2Uplinks(config, bridge)
+	uplinks.Start(cli)
 
 	if listenAddress != nil {
 		listener := overlay.NewL2Listener(listenAddress, config, bridge)
