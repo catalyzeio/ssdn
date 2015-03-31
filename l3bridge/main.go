@@ -93,7 +93,7 @@ func main() {
 		fail("Failed to start tap: %s\n", err)
 	}
 
-	peers := overlay.NewL3Peers(subnet, routes, config, mtu)
+	peers := overlay.NewL3Peers(listenAddress.PublicString(), subnet, routes, config, mtu)
 	peers.Start(cli)
 
 	listener := overlay.NewL3Listener(subnet, routes, listenAddress, config)

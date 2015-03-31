@@ -2,24 +2,25 @@ package overlay
 
 import (
 	"bufio"
-	"crypto/tls"
 	"fmt"
 	"net"
+	"time"
 
 	"github.com/catalyzeio/shadowfax/proto"
 )
 
 type L3Peer struct {
-	subnet *IPv4Route
-	routes *RouteTracker
+	peers *L3Peers
 
-	client *proto.ReconnectClient
+	remoteURL string
+	client    *proto.ReconnectClient
 
 	free PacketQueue
 	out  PacketQueue
 }
 
-func NewL3Peer(subnet *IPv4Route, routes *RouteTracker, addr *proto.Address, config *tls.Config, mtu uint16) (*L3Peer, error) {
+func NewL3Peer(peers *L3Peers, remoteURL string, addr *proto.Address) (*L3Peer, error) {
+	config := peers.config
 	if !addr.TLS() {
 		config = nil
 	} else if config == nil {
@@ -27,12 +28,13 @@ func NewL3Peer(subnet *IPv4Route, routes *RouteTracker, addr *proto.Address, con
 	}
 
 	const peerQueueSize = 1024
-	free := AllocatePacketQueue(peerQueueSize, int(mtu))
+	free := AllocatePacketQueue(peerQueueSize, int(peers.mtu))
 	out := make(PacketQueue, peerQueueSize)
 
 	p := L3Peer{
-		subnet: subnet,
-		routes: routes,
+		peers: peers,
+
+		remoteURL: remoteURL,
 
 		free: free,
 		out:  out,
@@ -50,34 +52,72 @@ func (p *L3Peer) Stop() {
 }
 
 func (p *L3Peer) connHandler(conn net.Conn, abort <-chan bool) error {
-	r, w, route, err := L3Handshake(p.subnet, conn)
+	// basic handshake
+	r, w, err := L3Handshake(conn)
 	if err != nil {
 		return err
 	}
 
-	// TODO
-	_, _, _ = r, w, route
+	// send local URL and subnet
+	peers := p.peers
 
-	return nil
-}
-
-func L3Handshake(subnet *IPv4Route, peer net.Conn) (*bufio.Reader, *bufio.Writer, *IPv4Route, error) {
-	// basic handshake
-	r, w, err := Handshake(peer, "SFL3 1.0")
+	localURL := peers.localURL
+	const urlDelim = '\n'
+	_, err = w.WriteString(localURL + string(urlDelim))
 	if err != nil {
-		return nil, nil, nil, err
+		return err
 	}
-
-	// exchange subnets
+	subnet := peers.subnet
 	err = subnet.Write(w)
 	if err != nil {
-		return nil, nil, nil, err
+		return err
 	}
-	route, err := ReadIPv4Route(r)
+	err = w.Flush()
 	if err != nil {
-		return nil, nil, nil, err
+		return err
 	}
-	log.Info("Subnet %s is at %s", route, peer.RemoteAddr())
 
-	return r, w, route, nil
+	// read peer URL and subnet
+	remoteURL, err := r.ReadString(urlDelim)
+	if err != nil {
+		return err
+	}
+	remoteURL = remoteURL[:len(remoteURL)-1] // chop off delim
+	remoteSubnet, err := ReadIPv4Route(r)
+	if err != nil {
+		return err
+	}
+	log.Info("Connected to peer %s, subnet %s", remoteURL, remoteSubnet)
+
+	// ignore connections to self
+	if remoteURL == localURL {
+		log.Warn("Dropping redundant connection to self")
+		err := peers.DeletePeer(p.remoteURL)
+		if err != nil {
+			log.Warn("Failed to prune connection to self: %s", err)
+			p.Stop()
+		}
+		return nil
+	}
+
+	// update peer registration if remote responded with different public address
+	if p.remoteURL != remoteURL {
+		log.Info("Peer at %s is actually %s", p.remoteURL, remoteURL)
+		err := peers.UpdatePeer(p.remoteURL, remoteURL, p)
+		if err != nil {
+			log.Warn("Failed to update connection URL: %s", err)
+			p.Stop()
+			return nil
+		}
+	}
+
+	// TODO
+	for {
+		_, _ = remoteURL, remoteSubnet
+		time.Sleep(time.Hour)
+	}
+}
+
+func L3Handshake(peer net.Conn) (*bufio.Reader, *bufio.Writer, error) {
+	return Handshake(peer, "SFL3 1.0")
 }
