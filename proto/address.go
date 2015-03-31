@@ -6,22 +6,26 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"os"
 	"strconv"
 )
 
 type Address struct {
-	ip   net.IP
-	port uint16
-	tls  bool
+	ip       net.IP
+	publicIP net.IP
+	port     uint16
+	tls      bool
 }
 
 var listenFlag *bool
 var addressFlag *string
+var publicAddressFlag *string
 var portFlag *int
 
 func AddListenFlags(defaultValue bool) {
 	listenFlag = flag.Bool("listen", defaultValue, "whether to listen for incoming connections")
 	addressFlag = flag.String("address", "0.0.0.0", "listen address")
+	publicAddressFlag = flag.String("public", "", "public address to advertise")
 	portFlag = flag.Int("port", 0, "listen port")
 }
 
@@ -44,14 +48,46 @@ func GetListenAddress() (*Address, error) {
 		return nil, fmt.Errorf("invalid port value: %d", port)
 	}
 
+	publicAddress := *publicAddressFlag
+	if len(publicAddress) == 0 {
+		publicAddress = address
+	}
+	publicIP := net.ParseIP(publicAddress)
+	if publicIP == nil {
+		return nil, fmt.Errorf("invalid public address: %s", address)
+	}
+	if publicIP.IsUnspecified() {
+		guessedIP, err := guessPublicIP()
+		if err != nil {
+			return nil, err
+		}
+		publicIP = guessedIP
+	}
+
 	return &Address{
-		ip:   ip,
-		port: uint16(port),
-		tls:  *useTLSFlag,
+		ip:       ip,
+		publicIP: publicIP,
+		port:     uint16(port),
+		tls:      *useTLSFlag,
 	}, nil
 }
 
-// TODO get public address
+func guessPublicIP() (net.IP, error) {
+	hostname, err := os.Hostname()
+	if err != nil {
+		return nil, fmt.Errorf("could not determine hostname (%s); -public is required", err)
+	}
+	hostAddr, err := net.ResolveIPAddr("ip4", hostname)
+	if err != nil {
+		return nil, fmt.Errorf("could not resolve hostname (%s); -public is required", err)
+	}
+	hostIP := hostAddr.IP
+	if hostIP.IsLoopback() {
+		return nil, fmt.Errorf("could not detect public address; -public is required")
+	}
+	log.Info("Derived public IP: %s", hostIP)
+	return hostIP, nil
+}
 
 func ParseAddress(addressURL string) (*Address, error) {
 	u, err := url.Parse(addressURL)
@@ -112,10 +148,18 @@ func (a *Address) TLS() bool {
 	return a.tls
 }
 
+func (a *Address) PublicString() string {
+	return a.urlString(a.publicIP)
+}
+
 func (a *Address) String() string {
+	return a.urlString(a.ip)
+}
+
+func (a *Address) urlString(ip net.IP) string {
 	proto := "tcp"
 	if a.tls {
 		proto = "tcp"
 	}
-	return fmt.Sprintf("%s://%s:%d", proto, a.ip, a.port)
+	return fmt.Sprintf("%s://%s:%d", proto, ip, a.port)
 }
