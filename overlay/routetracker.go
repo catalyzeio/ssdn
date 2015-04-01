@@ -201,6 +201,31 @@ func (rt *RouteTracker) removeRoute(route *IPv4Route) (map[RouteListener]interfa
 	return rt.listeners, newRoutes
 }
 
+func RoutePacket(destIP uint32, p *PacketBuffer, routes RouteList, listener RouteListener) RouteList {
+	latestRoutes := routes
+
+updateRoutes:
+	for {
+		select {
+		case latestRoutes = <-listener:
+		default:
+			break updateRoutes
+		}
+	}
+
+	if latestRoutes != nil {
+		for _, r := range routes {
+			if destIP&r.Mask == r.Network {
+				r.Queue <- p
+				return latestRoutes
+			}
+		}
+	}
+
+	p.Queue <- p
+	return latestRoutes
+}
+
 // TODO replace with atomic pointer?
 func notifyRouteListeners(listeners map[RouteListener]interface{}, routes RouteList) {
 	if listeners != nil {

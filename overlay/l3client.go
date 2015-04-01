@@ -14,12 +14,12 @@ type L3Client struct {
 	remoteURL string
 	client    *proto.ReconnectClient
 
-	free PacketQueue
-	out  PacketQueue
+	peerConn *L3Conn
 }
 
 const (
-	urlDelim = '\n'
+	urlDelim      = '\n'
+	peerQueueSize = 1024
 )
 
 func NewL3Client(peers *L3Peers, remoteURL string, addr *proto.Address) (*L3Client, error) {
@@ -30,7 +30,6 @@ func NewL3Client(peers *L3Peers, remoteURL string, addr *proto.Address) (*L3Clie
 		return nil, fmt.Errorf("peer %s requires TLS configuration", addr)
 	}
 
-	const peerQueueSize = 1024
 	free := AllocatePacketQueue(peerQueueSize, int(peers.mtu))
 	out := make(PacketQueue, peerQueueSize)
 
@@ -39,8 +38,7 @@ func NewL3Client(peers *L3Peers, remoteURL string, addr *proto.Address) (*L3Clie
 
 		remoteURL: remoteURL,
 
-		free: free,
-		out:  out,
+		peerConn: NewL3ConnWithQueues(peers, nil, free, out),
 	}
 	p.client = proto.NewClient(p.connHandler, addr.Host(), addr.Port(), config)
 	return &p, nil
@@ -92,6 +90,7 @@ func (p *L3Client) connHandler(conn net.Conn, abort <-chan bool) error {
 			p.Stop()
 			return nil
 		}
+		p.remoteURL = remoteURL
 	}
 
 	// send local URL and subnet
@@ -100,9 +99,8 @@ func (p *L3Client) connHandler(conn net.Conn, abort <-chan bool) error {
 		return err
 	}
 
-	// service the connection
-	peerConn := NewL3Conn(remoteURL, remoteSubnet, peers)
-	peerConn.Route(r, w)
+	// kick off packet forwarding
+	p.peerConn.Forward(remoteSubnet, r, w)
 
 	return nil
 }

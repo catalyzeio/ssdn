@@ -23,10 +23,11 @@ type L3Tap struct {
 	freeARP PacketQueue
 	outARP  PacketQueue
 
+	routes     *RouteTracker
 	arpTracker *ARPTracker
 }
 
-func NewL3Tap(gwIP net.IP, mtu uint16, bridge *L3Bridge) (*L3Tap, error) {
+func NewL3Tap(gwIP net.IP, mtu uint16, bridge *L3Bridge, routes *RouteTracker) (*L3Tap, error) {
 	var gwMAC []byte
 	gwMAC, err := RandomMAC()
 	if err != nil {
@@ -54,6 +55,8 @@ func NewL3Tap(gwIP net.IP, mtu uint16, bridge *L3Bridge) (*L3Tap, error) {
 
 		freeARP: freeARP,
 		outARP:  outARP,
+
+		routes: routes,
 	}, nil
 }
 
@@ -200,6 +203,13 @@ func (lt *L3Tap) tapReader(tap *taptun.Interface, done chan<- bool) {
 	outARP := lt.outARP
 	arpTracker := lt.arpTracker
 
+	routes := lt.routes
+	routeChanges := make(RouteListener, 8)
+	routes.AddListener(routeChanges)
+	defer routes.RemoveListener(routeChanges)
+
+	var routeTable RouteList
+
 	for {
 		// grab a free packet
 		p := <-free
@@ -235,10 +245,19 @@ func (lt *L3Tap) tapReader(tap *taptun.Interface, done chan<- bool) {
 
 		// TODO reply to ICMP traffic
 
-		// TODO packet routing
+		// XXX assumes frames have no 802.1q tagging
 
-		// return packet to its owner
-		p.Queue <- p
+		// ignore non-IPv4 packets
+		buff := p.Data
+		if p.Length < 34 || buff[12] != 0x08 || buff[13] != 0x00 {
+			p.Queue <- p
+			continue
+		}
+
+		// route packet based on destination IP
+		destIP := buff[30:34]
+		key := IPv4ToInt(destIP)
+		routeTable = RoutePacket(key, p, routeTable, routeChanges)
 	}
 }
 
@@ -299,6 +318,7 @@ func RandomMAC() (net.HardwareAddr, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	// clear multicast and set local assignment bits
 	address[0] &= 0xFE
 	address[0] |= 0x02
