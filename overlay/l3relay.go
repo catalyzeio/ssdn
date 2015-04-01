@@ -9,7 +9,7 @@ import (
 // If the return value is non-nil, the packet will be returned to its queue.
 type InboundHandler func(packet *PacketBuffer) error
 
-type L3Conn struct {
+type L3Relay struct {
 	peers *L3Peers
 
 	handler InboundHandler
@@ -23,51 +23,51 @@ const (
 	ipPayloadOffset = 14
 )
 
-func NewL3Conn(peers *L3Peers, handler InboundHandler) *L3Conn {
+func NewL3Relay(peers *L3Peers) *L3Relay {
 	free := AllocatePacketQueue(peerQueueSize, int(peers.mtu))
 	out := make(PacketQueue, peerQueueSize)
 
-	return NewL3ConnWithQueues(peers, handler, free, out)
+	return NewL3RelayWithQueues(peers, free, out)
 }
 
-func NewL3ConnWithQueues(peers *L3Peers, handler InboundHandler, free, out PacketQueue) *L3Conn {
-	return &L3Conn{
+func NewL3RelayWithQueues(peers *L3Peers, free, out PacketQueue) *L3Relay {
+	return &L3Relay{
 		peers: peers,
-
-		handler: handler,
 
 		free: free,
 		out:  out,
 	}
 }
 
-func (c *L3Conn) Stop() {
+func (rl *L3Relay) Stop() {
 	// TODO
 }
 
-func (c *L3Conn) Forward(remoteSubnet *IPv4Route, r *bufio.Reader, w *bufio.Writer) {
-	routes := c.peers.routes
-	remoteSubnet.Queue = c.out
+func (rl *L3Relay) Forward(remoteSubnet *IPv4Route, r *bufio.Reader, w *bufio.Writer) {
+	routes := rl.peers.routes
+	remoteSubnet.Queue = rl.out
 	routes.AddRoute(remoteSubnet)
 	defer routes.RemoveRoute(remoteSubnet)
 
 	done := make(chan bool, 2)
 
-	go c.connReader(r, done)
-	go c.connWriter(w, done)
+	go rl.connReader(r, done)
+	go rl.connWriter(w, done)
 
 	<-done
 }
 
-func (c *L3Conn) connReader(r *bufio.Reader, done chan<- bool) {
+func (rl *L3Relay) connReader(r *bufio.Reader, done chan<- bool) {
 	defer func() {
 		done <- true
 	}()
 
-	free := c.free
+	free := rl.free
 	header := make([]byte, 2)
-	mtu := int(c.peers.mtu)
-	handler := c.handler
+
+	peers := rl.peers
+	mtu := int(peers.mtu)
+	handler := peers.handler
 
 	for {
 		// grab packet
@@ -131,12 +131,12 @@ func (c *L3Conn) connReader(r *bufio.Reader, done chan<- bool) {
 	}
 }
 
-func (c *L3Conn) connWriter(w *bufio.Writer, done chan<- bool) {
+func (rl *L3Relay) connWriter(w *bufio.Writer, done chan<- bool) {
 	defer func() {
 		done <- true
 	}()
 
-	out := c.out
+	out := rl.out
 	header := make([]byte, 2)
 
 	for {

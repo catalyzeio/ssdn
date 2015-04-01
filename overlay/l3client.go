@@ -14,7 +14,7 @@ type L3Client struct {
 	remoteURL string
 	client    *proto.ReconnectClient
 
-	peerConn *L3Conn
+	relay *L3Relay
 }
 
 const (
@@ -38,7 +38,7 @@ func NewL3Client(peers *L3Peers, remoteURL string, addr *proto.Address) (*L3Clie
 
 		remoteURL: remoteURL,
 
-		peerConn: NewL3ConnWithQueues(peers, nil, free, out),
+		relay: NewL3RelayWithQueues(peers, free, out),
 	}
 	p.client = proto.NewClient(p.connHandler, addr.Host(), addr.Port(), config)
 	return &p, nil
@@ -100,7 +100,7 @@ func (p *L3Client) connHandler(conn net.Conn, abort <-chan bool) error {
 	}
 
 	// kick off packet forwarding
-	p.peerConn.Forward(remoteSubnet, r, w)
+	p.relay.Forward(remoteSubnet, r, w)
 
 	return nil
 }

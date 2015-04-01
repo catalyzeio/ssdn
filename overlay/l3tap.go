@@ -11,14 +11,13 @@ import (
 )
 
 type L3Tap struct {
-	Out PacketQueue
-
 	gwIP  net.IP
 	gwMAC net.HardwareAddr
 
 	bridge *L3Bridge
 
 	free PacketQueue
+	out  PacketQueue
 
 	freeARP PacketQueue
 	outARP  PacketQueue
@@ -44,14 +43,13 @@ func NewL3Tap(gwIP net.IP, mtu uint16, bridge *L3Bridge, routes *RouteTracker) (
 	outARP := make(PacketQueue, arpQueueSize)
 
 	return &L3Tap{
-		Out: out,
-
 		gwIP:  gwIP,
 		gwMAC: gwMAC,
 
 		bridge: bridge,
 
 		free: free,
+		out:  out,
 
 		freeARP: freeARP,
 		outARP:  outARP,
@@ -139,6 +137,11 @@ func (lt *L3Tap) Resolve(ip net.IP) (net.HardwareAddr, error) {
 	}
 
 	return nil, fmt.Errorf("failed to resolve %s", ip)
+}
+
+func (lt *L3Tap) InboundHandler(packet *PacketBuffer) error {
+	lt.out <- packet
+	return nil
 }
 
 func (lt *L3Tap) createLinkedTap() (*taptun.Interface, error) {
@@ -274,7 +277,7 @@ func (lt *L3Tap) tapWriter(tap *taptun.Interface, done chan<- bool) {
 	macChanges = make(chan ARPTable, 8)
 	lt.arpTracker.AddListener(macChanges)
 
-	out := lt.Out
+	out := lt.out
 	outARP := lt.outARP
 
 	for {

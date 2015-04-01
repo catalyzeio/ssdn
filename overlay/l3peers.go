@@ -22,11 +22,13 @@ type L3Peers struct {
 	config *tls.Config
 	mtu    uint16
 
+	handler InboundHandler
+
 	peersMutex sync.Mutex
 	peers      map[string]L3Peer
 }
 
-func NewL3Peers(localURL string, subnet *IPv4Route, routes *RouteTracker, config *tls.Config, mtu uint16) *L3Peers {
+func NewL3Peers(localURL string, subnet *IPv4Route, routes *RouteTracker, config *tls.Config, mtu uint16, handler InboundHandler) *L3Peers {
 	return &L3Peers{
 		localURL: localURL,
 		subnet:   subnet,
@@ -34,6 +36,8 @@ func NewL3Peers(localURL string, subnet *IPv4Route, routes *RouteTracker, config
 
 		config: config,
 		mtu:    mtu,
+
+		handler: handler,
 
 		peers: make(map[string]L3Peer),
 	}
