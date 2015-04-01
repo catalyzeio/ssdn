@@ -72,9 +72,11 @@ func (lt *L2Tap) connReader(r *bufio.Reader, done chan<- bool) {
 			log.Warn("Failed to read message header: %s", err)
 			return
 		}
+
 		// check message type
 		discriminator := int(header[0] >> 7)
 		len := int(header[0])&0x7F<<8 | int(header[1])
+
 		// read message
 		message := msgBuffer[:len]
 		_, err = io.ReadFull(r, message)
@@ -82,6 +84,7 @@ func (lt *L2Tap) connReader(r *bufio.Reader, done chan<- bool) {
 			log.Warn("Failed to read message: %s", err)
 			return
 		}
+
 		// process message
 		if discriminator == 0 {
 			// forwarded packet; write to tap
@@ -111,6 +114,7 @@ func (lt *L2Tap) connWriter(w *bufio.Writer, done chan<- bool) {
 			log.Warn("Failed to read from tap: %s", err)
 			return
 		}
+
 		// send header with packet discriminator
 		header[0] = byte(len >> 8 & 0x7F)
 		header[1] = byte(len)
@@ -119,6 +123,7 @@ func (lt *L2Tap) connWriter(w *bufio.Writer, done chan<- bool) {
 			log.Warn("Failed to write message header: %s", err)
 			return
 		}
+
 		// send packet as message
 		message := msgBuffer[:len]
 		_, err = w.Write(message)
@@ -126,6 +131,8 @@ func (lt *L2Tap) connWriter(w *bufio.Writer, done chan<- bool) {
 			log.Warn("Failed to write message: %s", err)
 			return
 		}
+
+		// flush queued outgoing data
 		err = w.Flush()
 		if err != nil {
 			log.Warn("Failed to flush message: %s", err)
