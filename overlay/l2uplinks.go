@@ -48,7 +48,7 @@ func (lp *L2Uplinks) AddUplink(url string) error {
 		return err
 	}
 
-	// verify new uplink before creating client/tap
+	// verify no existing uplink before creating client/tap
 	err = lp.addUplink(url, nil)
 	if err != nil {
 		return err

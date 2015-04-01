@@ -96,7 +96,7 @@ func main() {
 	peers := overlay.NewL3Peers(listenAddress.PublicString(), subnet, routes, config, mtu)
 	peers.Start(cli)
 
-	listener := overlay.NewL3Listener(subnet, routes, listenAddress, config)
+	listener := overlay.NewL3Listener(peers, listenAddress, config)
 	err = listener.Start(cli)
 	if err != nil {
 		fail("Failed to start listener: %s\n", err)

@@ -73,7 +73,7 @@ func Handshake(conn net.Conn, hello string) (*bufio.Reader, *bufio.Writer, error
 		return nil, nil, err
 	}
 	if resp != message {
-		return nil, nil, fmt.Errorf("remote sent invalid handshake")
+		return nil, nil, fmt.Errorf("remote at %s sent invalid handshake", conn.RemoteAddr())
 	}
 
 	return r, w, nil

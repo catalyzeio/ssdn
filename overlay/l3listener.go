@@ -9,17 +9,15 @@ import (
 )
 
 type L3Listener struct {
-	subnet *IPv4Route
-	routes *RouteTracker
+	peers *L3Peers
 
 	address *proto.Address
 	config  *tls.Config
 }
 
-func NewL3Listener(subnet *IPv4Route, routes *RouteTracker, address *proto.Address, config *tls.Config) *L3Listener {
+func NewL3Listener(peers *L3Peers, address *proto.Address, config *tls.Config) *L3Listener {
 	return &L3Listener{
-		subnet: subnet,
-		routes: routes,
+		peers: peers,
 
 		address: address,
 		config:  config,
@@ -45,12 +43,49 @@ func (l *L3Listener) accept(listener net.Listener) {
 			log.Warn("Failed to accept incoming connection: %s", err)
 			return
 		}
-		go l.service(conn)
+		go l.initialize(conn)
 	}
 }
 
-func (l *L3Listener) service(conn net.Conn) {
-	defer conn.Close()
+func (l *L3Listener) initialize(conn net.Conn) {
+	remoteAddr := conn.RemoteAddr()
+	defer func() {
+		conn.Close()
+		log.Info("Peer disconnected: %s", remoteAddr)
+	}()
 
-	// TODO
+	peers := l.peers
+	localURL := peers.localURL
+	subnet := peers.subnet
+
+	// basic handshake
+	r, w, err := L3Handshake(conn)
+	if err != nil {
+		log.Warn("Failed to initialize connection to %s: %s", remoteAddr, err)
+		return
+	}
+
+	// send local URL and subnet
+	err = WriteL3PeerInfo(localURL, subnet, r, w)
+	if err != nil {
+		log.Warn("Failed to send peer information to %s: %s", remoteAddr, err)
+		return
+	}
+
+	// read peer URL and subnet
+	remoteURL, remoteSubnet, err := ReadL3PeerInfo(r, w)
+	if err != nil {
+		log.Warn("Failed to read peer information from %s: %s", remoteAddr, err)
+		return
+	}
+	log.Info("Inbound connection: peer %s, subnet %s", remoteURL, remoteSubnet)
+
+	// register connection for this peer
+	peerConn := NewL3Conn(remoteURL, remoteSubnet, peers)
+
+	peers.AddInboundPeer(remoteURL, peerConn)
+	defer peers.DeletePeer(remoteURL, peerConn)
+
+	// service connection
+	peerConn.Route(r, w)
 }
