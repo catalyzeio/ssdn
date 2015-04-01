@@ -201,6 +201,7 @@ func (rt *RouteTracker) removeRoute(route *IPv4Route) (map[RouteListener]interfa
 	return rt.listeners, newRoutes
 }
 
+// TODO replace with atomic pointer?
 func notifyRouteListeners(listeners map[RouteListener]interface{}, routes RouteList) {
 	if listeners != nil {
 		for listener, _ := range listeners {

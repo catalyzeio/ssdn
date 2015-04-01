@@ -338,6 +338,7 @@ func (t ARPTable) StringMap() map[string]string {
 	return sm
 }
 
+// TODO replace with atomic pointer?
 func (t ARPTable) modify(listeners map[chan ARPTable]interface{}, newKey uint32, newMAC []byte) ARPTable {
 	// copy existing table and response into new table
 	newTable := make(ARPTable)
