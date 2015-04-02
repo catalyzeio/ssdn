@@ -49,6 +49,8 @@ func (rl *L3Relay) Forward(remoteSubnet *IPv4Route, r *bufio.Reader, w *bufio.Wr
 	routes.AddRoute(remoteSubnet)
 	defer routes.RemoveRoute(remoteSubnet)
 
+	// TODO send periodic pings to keep connection alive
+
 	done := make(chan bool, 2)
 
 	go rl.connReader(r, done)
