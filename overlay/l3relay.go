@@ -115,7 +115,7 @@ func (rl *L3Relay) connReader(r *bufio.Reader, done chan<- bool) {
 		if discriminator == 0 {
 			// forwarded IPv4 packet
 			p.Length = ipPayloadOffset + len
-			buff[12] = 0x80
+			buff[12] = 0x08
 			buff[13] = 0x00
 			if handler != nil {
 				// send to handler
