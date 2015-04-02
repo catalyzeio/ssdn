@@ -214,7 +214,7 @@ updateRoutes:
 	}
 
 	if latestRoutes != nil {
-		for _, r := range routes {
+		for _, r := range latestRoutes {
 			if destIP&r.Mask == r.Network {
 				r.Queue <- p
 				return latestRoutes
