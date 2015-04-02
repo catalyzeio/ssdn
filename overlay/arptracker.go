@@ -308,17 +308,25 @@ func IntToIPv4(ip uint32) []byte {
 }
 
 func (t ARPTable) SetDestinationMAC(packet *PacketBuffer, srcMAC []byte) bool {
+	trace := log.IsTraceEnabled()
+
 	// XXX assumes frames have no 802.1q tagging
 	buff := packet.Data
 
 	// ignore non-IPv4 packets
 	if packet.Length < 34 || buff[12] != 0x08 || buff[13] != 0x00 {
+		if trace {
+			log.Trace("Cannot set destination MAC for non-IPv4 packet")
+		}
 		return false
 	}
 
 	// look up destination MAC based on destination IP
 	destIP := buff[30:34]
 	key := IPv4ToInt(destIP)
+	if trace {
+		log.Trace("Looking up destination MAC for %s/%d", net.IP(destIP), key)
+	}
 	destMAC, present := t[key]
 	if present {
 		copy(buff[0:6], destMAC)

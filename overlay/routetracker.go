@@ -202,12 +202,17 @@ func (rt *RouteTracker) removeRoute(route *IPv4Route) (map[RouteListener]interfa
 }
 
 func RoutePacket(destIP uint32, p *PacketBuffer, routes RouteList, listener RouteListener) RouteList {
+	trace := log.IsTraceEnabled()
+
 	latestRoutes := routes
 
 updateRoutes:
 	for {
 		select {
 		case latestRoutes = <-listener:
+			if trace {
+				log.Trace("Updated routing table: %s", latestRoutes)
+			}
 		default:
 			break updateRoutes
 		}
@@ -216,12 +221,18 @@ updateRoutes:
 	if latestRoutes != nil {
 		for _, r := range latestRoutes {
 			if destIP&r.Mask == r.Network {
+				if trace {
+					log.Trace("Found match for destination IP %d", destIP)
+				}
 				r.Queue <- p
 				return latestRoutes
 			}
 		}
 	}
 
+	if trace {
+		log.Trace("No match for destination IP %d", destIP)
+	}
 	p.Queue <- p
 	return latestRoutes
 }

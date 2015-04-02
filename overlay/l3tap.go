@@ -202,6 +202,8 @@ func (lt *L3Tap) tapReader(tap *taptun.Interface, done chan<- bool) {
 		done <- true
 	}()
 
+	trace := log.IsTraceEnabled()
+
 	free := lt.free
 	outARP := lt.outARP
 	arpTracker := lt.arpTracker
@@ -224,7 +226,7 @@ func (lt *L3Tap) tapReader(tap *taptun.Interface, done chan<- bool) {
 			p.Queue <- p
 			return
 		}
-		if log.IsTraceEnabled() {
+		if trace {
 			log.Trace("Read %d bytes", n)
 		}
 		p.Length = n
@@ -253,6 +255,9 @@ func (lt *L3Tap) tapReader(tap *taptun.Interface, done chan<- bool) {
 		// ignore non-IPv4 packets
 		buff := p.Data
 		if p.Length < 34 || buff[12] != 0x08 || buff[13] != 0x00 {
+			if trace {
+				log.Trace("Dropped non-IPv4 packet")
+			}
 			p.Queue <- p
 			continue
 		}
@@ -260,6 +265,9 @@ func (lt *L3Tap) tapReader(tap *taptun.Interface, done chan<- bool) {
 		// route packet based on destination IP
 		destIP := buff[30:34]
 		key := IPv4ToInt(destIP)
+		if trace {
+			log.Trace("Routing to destination IP %s/%d", net.IP(destIP), key)
+		}
 		routeTable = RoutePacket(key, p, routeTable, routeChanges)
 	}
 }
@@ -272,6 +280,8 @@ func (lt *L3Tap) tapWriter(tap *taptun.Interface, done chan<- bool) {
 			lt.arpTracker.RemoveListener(macChanges)
 		}
 	}()
+
+	trace := log.IsTraceEnabled()
 
 	var macTable ARPTable
 	macChanges = make(chan ARPTable, 8)
@@ -286,10 +296,16 @@ func (lt *L3Tap) tapWriter(tap *taptun.Interface, done chan<- bool) {
 		select {
 		case macTable = <-macChanges:
 			// continue with new MAC lookup table
+			if trace {
+				log.Trace("New ARP table: %s", mapValues(macTable.StringMap()))
+			}
 			continue
 		case p = <-out:
 			// attach MAC addresses based on destination IP
 			if macTable == nil || !macTable.SetDestinationMAC(p, lt.gwMAC) {
+				if trace {
+					log.Trace("ARP table failed to resolve packet destination")
+				}
 				p.Queue <- p
 				continue
 			}
@@ -306,7 +322,7 @@ func (lt *L3Tap) tapWriter(tap *taptun.Interface, done chan<- bool) {
 			p.Queue <- p
 			return
 		}
-		if log.IsTraceEnabled() {
+		if trace {
 			log.Trace("Wrote %d bytes", n)
 		}
 

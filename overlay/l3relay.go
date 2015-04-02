@@ -62,6 +62,8 @@ func (rl *L3Relay) connReader(r *bufio.Reader, done chan<- bool) {
 		done <- true
 	}()
 
+	trace := log.IsTraceEnabled()
+
 	free := rl.free
 	header := make([]byte, 2)
 
@@ -105,6 +107,9 @@ func (rl *L3Relay) connReader(r *bufio.Reader, done chan<- bool) {
 			p.Queue <- p
 			return
 		}
+		if trace {
+			log.Trace("Read inbound message of size %d", len)
+		}
 
 		// process message
 		if discriminator == 0 {
@@ -135,6 +140,8 @@ func (rl *L3Relay) connWriter(w *bufio.Writer, done chan<- bool) {
 	defer func() {
 		done <- true
 	}()
+
+	trace := log.IsTraceEnabled()
 
 	out := rl.out
 	header := make([]byte, 2)
@@ -171,6 +178,9 @@ func (rl *L3Relay) connWriter(w *bufio.Writer, done chan<- bool) {
 			log.Warn("Failed to flush message: %s", err)
 			p.Queue <- p
 			return
+		}
+		if trace {
+			log.Trace("Sent outbound message of size %d", len)
 		}
 
 		p.Queue <- p
