@@ -18,8 +18,7 @@ type L3Client struct {
 }
 
 const (
-	urlDelim      = '\n'
-	peerQueueSize = 1024
+	urlDelim = '\n'
 )
 
 func NewL3Client(peers *L3Peers, remoteURL string, addr *proto.Address) (*L3Client, error) {
@@ -30,8 +29,8 @@ func NewL3Client(peers *L3Peers, remoteURL string, addr *proto.Address) (*L3Clie
 		return nil, fmt.Errorf("peer %s requires TLS configuration", addr)
 	}
 
-	free := AllocatePacketQueue(peerQueueSize, ethernetHeaderSize+int(peers.mtu))
-	out := make(PacketQueue, peerQueueSize)
+	free := AllocatePacketQueue(tapQueueSize, ethernetHeaderSize+int(peers.mtu))
+	out := make(PacketQueue, tapQueueSize)
 
 	p := L3Client{
 		peers: peers,

@@ -26,6 +26,10 @@ type L3Tap struct {
 	arpTracker *ARPTracker
 }
 
+const (
+	tapQueueSize = 256
+)
+
 func NewL3Tap(gwIP net.IP, mtu uint16, bridge *L3Bridge, routes *RouteTracker) (*L3Tap, error) {
 	var gwMAC []byte
 	gwMAC, err := RandomMAC()
@@ -34,7 +38,6 @@ func NewL3Tap(gwIP net.IP, mtu uint16, bridge *L3Bridge, routes *RouteTracker) (
 	}
 	log.Info("Virtual gateway: %s at %s", gwIP, net.HardwareAddr(gwMAC))
 
-	const tapQueueSize = 1024
 	free := AllocatePacketQueue(tapQueueSize, ethernetHeaderSize+int(mtu))
 	out := make(PacketQueue, tapQueueSize)
 

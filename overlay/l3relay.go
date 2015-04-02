@@ -24,8 +24,8 @@ const (
 )
 
 func NewL3Relay(peers *L3Peers) *L3Relay {
-	free := AllocatePacketQueue(peerQueueSize, ethernetHeaderSize+int(peers.mtu))
-	out := make(PacketQueue, peerQueueSize)
+	free := AllocatePacketQueue(tapQueueSize, ethernetHeaderSize+int(peers.mtu))
+	out := make(PacketQueue, tapQueueSize)
 
 	return NewL3RelayWithQueues(peers, free, out)
 }
