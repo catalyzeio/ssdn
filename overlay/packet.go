@@ -9,8 +9,8 @@ type PacketBuffer struct {
 	Queue PacketQueue
 }
 
-func NewPacketBuffer(n int) *PacketBuffer {
-	return &PacketBuffer{Data: make([]byte, n)}
+func NewPacketBuffer(packetSize int) *PacketBuffer {
+	return &PacketBuffer{Data: make([]byte, packetSize)}
 }
 
 func AllocatePacketQueue(numPackets int, packetSize int) PacketQueue {
