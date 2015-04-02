@@ -16,9 +16,9 @@ func NewPacketBuffer(packetSize int) *PacketBuffer {
 func AllocatePacketQueue(numPackets int, packetSize int) PacketQueue {
 	queue := make(PacketQueue, numPackets)
 	for i := 0; i < numPackets; i++ {
-		pkt := NewPacketBuffer(packetSize)
-		pkt.Queue = queue
-		queue <- pkt
+		buffer := NewPacketBuffer(packetSize)
+		buffer.Queue = queue
+		queue <- buffer
 	}
 	return queue
 }
