@@ -35,11 +35,11 @@ func NewL3Tap(gwIP net.IP, mtu uint16, bridge *L3Bridge, routes *RouteTracker) (
 	log.Info("Virtual gateway: %s at %s", gwIP, net.HardwareAddr(gwMAC))
 
 	const tapQueueSize = 1024
-	free := AllocatePacketQueue(tapQueueSize, int(mtu))
+	free := AllocatePacketQueue(tapQueueSize, ethernetHeaderSize+int(mtu))
 	out := make(PacketQueue, tapQueueSize)
 
 	const arpQueueSize = 16
-	freeARP := AllocatePacketQueue(arpQueueSize, int(mtu))
+	freeARP := AllocatePacketQueue(arpQueueSize, ethernetHeaderSize+int(mtu))
 	outARP := make(PacketQueue, arpQueueSize)
 
 	return &L3Tap{

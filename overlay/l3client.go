@@ -30,7 +30,7 @@ func NewL3Client(peers *L3Peers, remoteURL string, addr *proto.Address) (*L3Clie
 		return nil, fmt.Errorf("peer %s requires TLS configuration", addr)
 	}
 
-	free := AllocatePacketQueue(peerQueueSize, int(peers.mtu))
+	free := AllocatePacketQueue(peerQueueSize, ethernetHeaderSize+int(peers.mtu))
 	out := make(PacketQueue, peerQueueSize)
 
 	p := L3Client{

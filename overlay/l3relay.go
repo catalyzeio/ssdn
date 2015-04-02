@@ -20,11 +20,11 @@ type L3Relay struct {
 
 const (
 	// XXX assumes frames have no 802.1q tagging
-	ipPayloadOffset = 14
+	ethernetHeaderSize = 14
 )
 
 func NewL3Relay(peers *L3Peers) *L3Relay {
-	free := AllocatePacketQueue(peerQueueSize, int(peers.mtu))
+	free := AllocatePacketQueue(peerQueueSize, ethernetHeaderSize+int(peers.mtu))
 	out := make(PacketQueue, peerQueueSize)
 
 	return NewL3RelayWithQueues(peers, free, out)
@@ -93,14 +93,14 @@ func (rl *L3Relay) connReader(r *bufio.Reader, done chan<- bool) {
 		len := int(header[0])&0x7F<<8 | int(header[1])
 
 		// bail if packet length is too large for local MTU
-		if ipPayloadOffset+len > mtu {
+		if len > mtu {
 			log.Warn("Incoming message is too large: %d", len)
 			p.Queue <- p
 			return
 		}
 
-		// read message
-		message := buff[ipPayloadOffset : ipPayloadOffset+len]
+		// read message (skipping ethernet header)
+		message := buff[ethernetHeaderSize : ethernetHeaderSize+len]
 		_, err = io.ReadFull(r, message)
 		if err != nil {
 			log.Warn("Failed to read message: %s", err)
@@ -114,7 +114,7 @@ func (rl *L3Relay) connReader(r *bufio.Reader, done chan<- bool) {
 		// process message
 		if discriminator == 0 {
 			// forwarded IPv4 packet
-			p.Length = ipPayloadOffset + len
+			p.Length = ethernetHeaderSize + len
 			buff[12] = 0x08
 			buff[13] = 0x00
 			if handler != nil {
@@ -150,7 +150,7 @@ func (rl *L3Relay) connWriter(w *bufio.Writer, done chan<- bool) {
 		// grab next outgoing packet
 		p := <-out
 
-		len := p.Length - ipPayloadOffset
+		len := p.Length - ethernetHeaderSize
 		buff := p.Data
 
 		// send header with packet discriminator
@@ -163,8 +163,8 @@ func (rl *L3Relay) connWriter(w *bufio.Writer, done chan<- bool) {
 			return
 		}
 
-		// send packet as message
-		message := buff[ipPayloadOffset : ipPayloadOffset+len]
+		// send packet (skipping ethernet header) as message
+		message := buff[ethernetHeaderSize:p.Length]
 		_, err = w.Write(message)
 		if err != nil {
 			log.Warn("Failed to write message: %s", err)

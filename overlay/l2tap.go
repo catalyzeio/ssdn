@@ -60,7 +60,7 @@ func (lt *L2Tap) connReader(r *bufio.Reader, done chan<- bool) {
 	}()
 
 	header := make([]byte, 2)
-	msgBuffer := make([]byte, MaxPacketSize)
+	msgBuffer := make([]byte, ethernetHeaderSize+MaxPacketSize)
 
 	for {
 		// read header
@@ -105,7 +105,7 @@ func (lt *L2Tap) connWriter(w *bufio.Writer, done chan<- bool) {
 	}()
 
 	header := make([]byte, 2)
-	msgBuffer := make([]byte, MaxPacketSize)
+	msgBuffer := make([]byte, ethernetHeaderSize+MaxPacketSize)
 
 	for {
 		// read whole packet from tap
