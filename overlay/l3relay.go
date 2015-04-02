@@ -100,7 +100,7 @@ func (rl *L3Relay) connReader(r *bufio.Reader, done chan<- bool) {
 		}
 
 		// read message
-		message := buff[ipPayloadOffset:len]
+		message := buff[ipPayloadOffset : ipPayloadOffset+len]
 		_, err = io.ReadFull(r, message)
 		if err != nil {
 			log.Warn("Failed to read message: %s", err)
@@ -164,7 +164,7 @@ func (rl *L3Relay) connWriter(w *bufio.Writer, done chan<- bool) {
 		}
 
 		// send packet as message
-		message := buff[ipPayloadOffset:len]
+		message := buff[ipPayloadOffset : ipPayloadOffset+len]
 		_, err = w.Write(message)
 		if err != nil {
 			log.Warn("Failed to write message: %s", err)
