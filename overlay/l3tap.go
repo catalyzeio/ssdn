@@ -210,13 +210,7 @@ func (lt *L3Tap) tapReader(tap *taptun.Interface, done chan<- bool) {
 	free := lt.free
 	outARP := lt.outARP
 	arpTracker := lt.arpTracker
-
 	routes := lt.routes
-	routeChanges := make(RouteListener, 8)
-	routes.AddListener(routeChanges)
-	defer routes.RemoveListener(routeChanges)
-
-	var routeTable RouteList
 
 	for {
 		// grab a free packet
@@ -230,7 +224,7 @@ func (lt *L3Tap) tapReader(tap *taptun.Interface, done chan<- bool) {
 			return
 		}
 		if trace {
-			log.Trace("Read %d bytes", n)
+			log.Trace("Read %d bytes from tap", n)
 		}
 		p.Length = n
 
@@ -268,10 +262,7 @@ func (lt *L3Tap) tapReader(tap *taptun.Interface, done chan<- bool) {
 		// route packet based on destination IP
 		destIP := buff[30:34]
 		key := IPv4ToInt(destIP)
-		if trace {
-			log.Trace("Routing to destination IP %s/%d", net.IP(destIP), key)
-		}
-		routeTable = RoutePacket(key, p, routeTable, routeChanges)
+		routes.RoutePacket(key, p)
 	}
 }
 

@@ -6,7 +6,8 @@ import (
 	"net"
 	"sort"
 	"strings"
-	"sync"
+	"sync/atomic"
+	"unsafe"
 
 	"github.com/catalyzeio/shadowfax/cli"
 )
@@ -69,20 +70,14 @@ func (r *IPv4Route) String() string {
 
 type RouteList []*IPv4Route
 
-type RouteListener chan RouteList
-
 type RouteTracker struct {
-	mutex sync.Mutex
-	// Registered listeners. Copied and replaced when any modifications are made.
-	listeners map[RouteListener]interface{}
-	// Registered routes. Copied and replaced when any modifications are made.
-	routes RouteList
+	list unsafe.Pointer // *RouteList
 }
 
 func NewRouteTracker() *RouteTracker {
+	emptyList := make(RouteList, 0)
 	return &RouteTracker{
-		listeners: make(map[RouteListener]interface{}),
-		routes:    make(RouteList, 0),
+		list: unsafe.Pointer(&emptyList),
 	}
 }
 
@@ -91,7 +86,7 @@ func (rt *RouteTracker) Start(cli *cli.Listener) {
 }
 
 func (rt *RouteTracker) cliRoutes(args ...string) (string, error) {
-	routes := rt.Routes()
+	routes := rt.Get()
 	routeStrings := make([]string, len(routes))
 	for i, v := range routes {
 		routeStrings[i] = v.String()
@@ -99,47 +94,10 @@ func (rt *RouteTracker) cliRoutes(args ...string) (string, error) {
 	return fmt.Sprintf("Routes: %s", strings.Join(routeStrings, ", ")), nil
 }
 
-func (rt *RouteTracker) Routes() RouteList {
-	rt.mutex.Lock()
-	defer rt.mutex.Unlock()
-
-	return rt.routes
-}
-
-func (rt *RouteTracker) AddListener(listener RouteListener) {
-	listener <- rt.addListener(listener)
-}
-
-func (rt *RouteTracker) addListener(listener RouteListener) RouteList {
-	rt.mutex.Lock()
-	defer rt.mutex.Unlock()
-
-	newListeners := make(map[RouteListener]interface{}, len(rt.listeners)+1)
-	for k, v := range rt.listeners {
-		newListeners[k] = v
-	}
-	newListeners[listener] = nil
-
-	rt.listeners = newListeners
-	return rt.routes
-}
-
-func (rt *RouteTracker) RemoveListener(listener RouteListener) {
-	rt.mutex.Lock()
-	defer rt.mutex.Unlock()
-
-	newListeners := make(map[RouteListener]interface{}, len(rt.listeners)-1)
-	for k, v := range rt.listeners {
-		if k != listener {
-			newListeners[k] = v
-		}
-	}
-
-	rt.listeners = newListeners
-}
-
-func (rt *RouteTracker) AddRoute(route *IPv4Route) {
-	notifyRouteListeners(rt.addRoute(route))
+func (rt *RouteTracker) Get() RouteList {
+	pointer := &rt.list
+	p := (*RouteList)(atomic.LoadPointer(pointer))
+	return *p
 }
 
 type ByMask RouteList
@@ -148,85 +106,88 @@ func (m ByMask) Len() int           { return len(m) }
 func (m ByMask) Swap(i, j int)      { m[i], m[j] = m[j], m[i] }
 func (m ByMask) Less(i, j int) bool { return ^m[i].Mask < ^m[j].Mask }
 
-func (rt *RouteTracker) addRoute(route *IPv4Route) (map[RouteListener]interface{}, RouteList) {
-	rt.mutex.Lock()
-	defer rt.mutex.Unlock()
+func (rt *RouteTracker) Add(route *IPv4Route) {
+	pointer := &rt.list
+	for {
+		// grab current list
+		old := atomic.LoadPointer(pointer)
+		current := (*RouteList)(old)
 
-	oldRoutes := rt.routes
+		// add new entry to list
+		oldRoutes := *current
 
-	newLen := len(oldRoutes) + 1
-	newRoutes := make(RouteList, newLen)
-	copy(newRoutes, oldRoutes)
-	newRoutes[newLen-1] = route
+		newLen := len(oldRoutes) + 1
+		newRoutes := make(RouteList, newLen)
+		copy(newRoutes, oldRoutes)
+		newRoutes[newLen-1] = route
 
-	// sort routes by netmask for longest-prefix matching
-	sort.Sort(ByMask(newRoutes))
+		// sort routes by netmask for longest-prefix matching
+		sort.Sort(ByMask(newRoutes))
 
-	rt.routes = newRoutes
-	return rt.listeners, newRoutes
-}
-
-func (rt *RouteTracker) RemoveRoute(route *IPv4Route) {
-	notifyRouteListeners(rt.removeRoute(route))
-}
-
-func (rt *RouteTracker) removeRoute(route *IPv4Route) (map[RouteListener]interface{}, RouteList) {
-	rt.mutex.Lock()
-	defer rt.mutex.Unlock()
-
-	oldRoutes := rt.routes
-
-	match := -1
-	for i, v := range oldRoutes {
-		if route == v {
-			match = i
-			break
+		// replace current list with new list
+		new := unsafe.Pointer(&newRoutes)
+		if atomic.CompareAndSwapPointer(pointer, old, new) {
+			if log.IsDebugEnabled() {
+				log.Debug("Updated routing table: %s", newRoutes)
+			}
+			return
 		}
 	}
-	if match < 0 {
-		return nil, nil
-	}
-
-	newLen := len(oldRoutes) - 1
-	newRoutes := make(RouteList, newLen)
-	offset := 0
-	for i, v := range oldRoutes {
-		if i != match {
-			newRoutes[offset] = v
-			offset++
-		}
-	}
-
-	rt.routes = newRoutes
-	return rt.listeners, newRoutes
 }
 
-func RoutePacket(destIP uint32, p *PacketBuffer, routes RouteList, listener RouteListener) RouteList {
+func (rt *RouteTracker) Remove(route *IPv4Route) {
+	pointer := &rt.list
+	for {
+		// grab current list
+		old := atomic.LoadPointer(pointer)
+		current := (*RouteList)(old)
+
+		// look up position in existing list (bail if not in list)
+		oldRoutes := *current
+
+		match := -1
+		for i, v := range oldRoutes {
+			if route == v {
+				match = i
+				break
+			}
+		}
+		if match < 0 {
+			return
+		}
+
+		// create new list, skipping matched position
+		newLen := len(oldRoutes) - 1
+		newRoutes := make(RouteList, newLen)
+		offset := 0
+		for i, v := range oldRoutes {
+			if i != match {
+				newRoutes[offset] = v
+				offset++
+			}
+		}
+
+		// replace current list with new list
+		new := unsafe.Pointer(&newRoutes)
+		if atomic.CompareAndSwapPointer(pointer, old, new) {
+			if log.IsDebugEnabled() {
+				log.Debug("Updated routing table: %s", newRoutes)
+			}
+			return
+		}
+	}
+}
+
+func (rt *RouteTracker) RoutePacket(destIP uint32, p *PacketBuffer) {
 	trace := log.IsTraceEnabled()
 
-	latestRoutes := routes
-
-updateRoutes:
-	for {
-		select {
-		case latestRoutes = <-listener:
+	for _, r := range rt.Get() {
+		if destIP&r.Mask == r.Network {
 			if trace {
-				log.Trace("Updated routing table: %s", latestRoutes)
+				log.Trace("Found match for destination IP %d", destIP)
 			}
-		default:
-			break updateRoutes
-		}
-	}
-
-	if latestRoutes != nil {
-		for _, r := range latestRoutes {
-			if destIP&r.Mask == r.Network {
-				if trace {
-					log.Trace("Found match for destination IP %d", destIP)
-				}
-				r.Queue <- p
-				return latestRoutes
-			}
+			r.Queue <- p
+			return
 		}
 	}
 
@@ -234,14 +195,4 @@ updateRoutes:
 		log.Trace("No match for destination IP %d", destIP)
 	}
 	p.Queue <- p
-	return latestRoutes
-}
-
-// TODO replace with atomic pointer?
-func notifyRouteListeners(listeners map[RouteListener]interface{}, routes RouteList) {
-	if listeners != nil {
-		for listener, _ := range listeners {
-			listener <- routes
-		}
-	}
 }

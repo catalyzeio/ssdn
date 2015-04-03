@@ -46,8 +46,8 @@ func (rl *L3Relay) Stop() {
 func (rl *L3Relay) Forward(remoteSubnet *IPv4Route, r *bufio.Reader, w *bufio.Writer) {
 	routes := rl.peers.routes
 	remoteSubnet.Queue = rl.out
-	routes.AddRoute(remoteSubnet)
-	defer routes.RemoveRoute(remoteSubnet)
+	routes.Add(remoteSubnet)
+	defer routes.Remove(remoteSubnet)
 
 	// TODO send periodic pings to keep connection alive
 
