@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net"
 	"sync"
+	"sync/atomic"
+	"unsafe"
 )
 
 type ARPResult int
@@ -18,6 +20,16 @@ const (
 
 type ARPTable map[uint32][]byte
 
+func (t ARPTable) StringMap() map[string]string {
+	sm := make(map[string]string)
+	for k, v := range t {
+		ip := net.IP(IntToIPv4(k))
+		mac := net.HardwareAddr(v)
+		sm[ip.String()] = mac.String()
+	}
+	return sm
+}
+
 type ARPTracker struct {
 	localIP  []byte
 	localMAC []byte
@@ -25,27 +37,26 @@ type ARPTracker struct {
 	trackersMutex sync.Mutex
 	trackers      map[uint32]chan []byte
 
+	table unsafe.Pointer // *ARPTable
+
 	control chan *atRequest
 }
 
 type atRequest struct {
-	snapshot chan ARPTable
-
-	listener chan ARPTable
-	add      bool
-
-	entryIP  []byte
-	entryMAC []byte
-
 	arp *PacketBuffer
 }
 
 func NewARPTracker(localIP []byte, localMAC []byte) *ARPTracker {
+	initTable := make(ARPTable)
+	// TODO initialize ARP table with broadcast entries
+
 	return &ARPTracker{
 		localIP:  localIP,
 		localMAC: localMAC,
 
 		trackers: make(map[uint32]chan []byte),
+
+		table: unsafe.Pointer(&initTable),
 
 		control: make(chan *atRequest),
 	}
@@ -59,33 +70,14 @@ func (at *ARPTracker) Stop() {
 	at.control <- nil
 }
 
-func (at *ARPTracker) Snapshot() ARPTable {
-	snapshot := make(chan ARPTable, 1)
-	at.control <- &atRequest{
-		snapshot: snapshot,
-	}
-	return <-snapshot
+func (at *ARPTracker) Get() ARPTable {
+	pointer := &at.table
+	p := (*ARPTable)(atomic.LoadPointer(pointer))
+	return *p
 }
 
-func (at *ARPTracker) AddListener(listener chan ARPTable) {
-	at.control <- &atRequest{
-		listener: listener,
-		add:      true,
-	}
-}
-
-func (at *ARPTracker) RemoveListener(listener chan ARPTable) {
-	at.control <- &atRequest{
-		listener: listener,
-		add:      false,
-	}
-}
-
-func (at *ARPTracker) Seed(ip net.IP, mac []byte) {
-	at.control <- &atRequest{
-		entryIP:  ip,
-		entryMAC: mac,
-	}
+func (at *ARPTracker) Add(ip net.IP, mac []byte) {
+	at.set(IPv4ToInt(ip), mac)
 }
 
 func (at *ARPTracker) TrackQuery(ip net.IP, resolved chan []byte) bool {
@@ -152,6 +144,39 @@ func (at *ARPTracker) GenerateQuery(packet *PacketBuffer, ip net.IP) error {
 	packet.Length = 42
 
 	return nil
+}
+
+func (at *ARPTracker) SetDestinationMAC(packet *PacketBuffer, srcMAC []byte) bool {
+	trace := log.IsTraceEnabled()
+
+	// XXX assumes frames have no 802.1q tagging
+	buff := packet.Data
+
+	// ignore non-IPv4 packets
+	if packet.Length < 34 || buff[12] != 0x08 || buff[13] != 0x00 {
+		if trace {
+			log.Trace("Cannot set destination MAC for non-IPv4 packet")
+		}
+		return false
+	}
+
+	// look up destination MAC based on destination IP
+	destIP := buff[30:34]
+	key := IPv4ToInt(destIP)
+	destMAC, present := at.Get()[key]
+	if present {
+		copy(buff[0:6], destMAC)
+		copy(buff[6:12], srcMAC)
+		if trace {
+			log.Trace("Destination MAC for %s: %s", net.IP(destIP), net.HardwareAddr(destMAC))
+		}
+		return true
+	}
+
+	if trace {
+		log.Trace("Failed to resolve destination MAC for %s", net.IP(destIP))
+	}
+	return false
 }
 
 func (at *ARPTracker) Process(packet *PacketBuffer) ARPResult {
@@ -228,42 +253,12 @@ func (at *ARPTracker) handleRequest(buff []byte) ARPResult {
 }
 
 func (at *ARPTracker) service() {
-	// copied and replaced when any changes are made
-	table := make(ARPTable)
-	listeners := make(map[chan ARPTable]interface{})
-
-	// TODO initialize ARP table with broadcast entries
-
 	for {
 		req := <-at.control
 		if req == nil {
 			return
 		}
 
-		// process snapshot requests
-		snapshot := req.snapshot
-		if snapshot != nil {
-			snapshot <- table
-		}
-
-		// process listener requests
-		listener := req.listener
-		if listener != nil {
-			if req.add {
-				listeners[listener] = nil
-				listener <- table
-			} else {
-				delete(listeners, listener)
-			}
-		}
-
-		// process seed requests
-		entryIP := req.entryIP
-		if entryIP != nil {
-			table = table.modify(listeners, IPv4ToInt(entryIP), req.entryMAC)
-		}
-
-		// process ARP responses
 		arp := req.arp
 		if arp != nil {
 			buff := arp.Data
@@ -276,7 +271,7 @@ func (at *ARPTracker) service() {
 
 			ipKey := IPv4ToInt(senderIP)
 			if at.isTracking(ipKey, senderMAC) {
-				table = table.modify(listeners, ipKey, senderMAC)
+				at.set(ipKey, senderMAC)
 			}
 
 			arp.Queue <- arp
@@ -296,6 +291,33 @@ func (at *ARPTracker) isTracking(ipKey uint32, result []byte) bool {
 	return false
 }
 
+func (at *ARPTracker) set(ipKey uint32, mac []byte) {
+	pointer := &at.table
+	for {
+		// grab current table
+		old := atomic.LoadPointer(pointer)
+		current := (*ARPTable)(old)
+
+		// copy existing table into new table and add entry
+		oldTable := *current
+
+		newTable := make(ARPTable)
+		for k, v := range oldTable {
+			newTable[k] = v
+		}
+		newTable[ipKey] = mac
+
+		// replace current table with new table
+		new := unsafe.Pointer(&newTable)
+		if atomic.CompareAndSwapPointer(pointer, old, new) {
+			if log.IsDebugEnabled() {
+				log.Debug("New ARP table: %s", mapValues(newTable.StringMap()))
+			}
+			return
+		}
+	}
+}
+
 // This method requires a 4-byte IP address to function properly.
 // Use ip.To4() if the IPv4 address may have been encoded with 16 bytes.
 func IPv4ToInt(ip []byte) uint32 {
@@ -305,59 +327,4 @@ func IPv4ToInt(ip []byte) uint32 {
 // Reverse operation of IPv4ToInt.
 func IntToIPv4(ip uint32) []byte {
 	return []byte{byte(ip >> 24), byte(ip >> 16), byte(ip >> 8), byte(ip)}
-}
-
-func (t ARPTable) SetDestinationMAC(packet *PacketBuffer, srcMAC []byte) bool {
-	trace := log.IsTraceEnabled()
-
-	// XXX assumes frames have no 802.1q tagging
-	buff := packet.Data
-
-	// ignore non-IPv4 packets
-	if packet.Length < 34 || buff[12] != 0x08 || buff[13] != 0x00 {
-		if trace {
-			log.Trace("Cannot set destination MAC for non-IPv4 packet")
-		}
-		return false
-	}
-
-	// look up destination MAC based on destination IP
-	destIP := buff[30:34]
-	key := IPv4ToInt(destIP)
-	if trace {
-		log.Trace("Looking up destination MAC for %s/%d", net.IP(destIP), key)
-	}
-	destMAC, present := t[key]
-	if present {
-		copy(buff[0:6], destMAC)
-		copy(buff[6:12], srcMAC)
-		return true
-	}
-	return false
-}
-
-func (t ARPTable) StringMap() map[string]string {
-	sm := make(map[string]string)
-	for k, v := range t {
-		ip := net.IP(IntToIPv4(k))
-		mac := net.HardwareAddr(v)
-		sm[ip.String()] = mac.String()
-	}
-	return sm
-}
-
-// TODO replace with atomic pointer?
-func (t ARPTable) modify(listeners map[chan ARPTable]interface{}, newKey uint32, newMAC []byte) ARPTable {
-	// copy existing table and response into new table
-	newTable := make(ARPTable)
-	for k, v := range t {
-		newTable[k] = v
-	}
-	newTable[newKey] = newMAC
-
-	// fire off notifications for updated table
-	for k, _ := range listeners {
-		k <- newTable
-	}
-	return newTable
 }

@@ -80,7 +80,7 @@ func (lt *L3Tap) Start(cli *cli.Listener) error {
 }
 
 func (lt *L3Tap) cliARPTable(args ...string) (string, error) {
-	table := lt.arpTracker.Snapshot()
+	table := lt.arpTracker.Get()
 	return fmt.Sprintf("ARP table: %s", mapValues(table.StringMap())), nil
 }
 
@@ -276,20 +276,13 @@ func (lt *L3Tap) tapReader(tap *taptun.Interface, done chan<- bool) {
 }
 
 func (lt *L3Tap) tapWriter(tap *taptun.Interface, done chan<- bool) {
-	var macChanges chan ARPTable
 	defer func() {
 		done <- true
-		if macChanges != nil {
-			lt.arpTracker.RemoveListener(macChanges)
-		}
 	}()
 
 	trace := log.IsTraceEnabled()
 
-	var macTable ARPTable
-	macChanges = make(chan ARPTable, 8)
-	lt.arpTracker.AddListener(macChanges)
-
+	arpTracker := lt.arpTracker
 	out := lt.out
 	outARP := lt.outARP
 
@@ -297,18 +290,9 @@ func (lt *L3Tap) tapWriter(tap *taptun.Interface, done chan<- bool) {
 		// grab next outgoing packet
 		var p *PacketBuffer
 		select {
-		case macTable = <-macChanges:
-			// continue with new MAC lookup table
-			if trace {
-				log.Trace("New ARP table: %s", mapValues(macTable.StringMap()))
-			}
-			continue
 		case p = <-out:
 			// attach MAC addresses based on destination IP
-			if macTable == nil || !macTable.SetDestinationMAC(p, lt.gwMAC) {
-				if trace {
-					log.Trace("ARP table failed to resolve packet destination")
-				}
+			if !arpTracker.SetDestinationMAC(p, lt.gwMAC) {
 				p.Queue <- p
 				continue
 			}
@@ -326,7 +310,7 @@ func (lt *L3Tap) tapWriter(tap *taptun.Interface, done chan<- bool) {
 			return
 		}
 		if trace {
-			log.Trace("Wrote %d bytes", n)
+			log.Trace("Wrote %d bytes to tap", n)
 		}
 
 		// return packet to its owner
