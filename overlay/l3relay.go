@@ -47,7 +47,7 @@ func (rl *L3Relay) Stop() {
 	rl.control <- struct{}{}
 }
 
-func (rl *L3Relay) Forward(remoteSubnet *IPv4Route, r *bufio.Reader, w *bufio.Writer) {
+func (rl *L3Relay) Forward(remoteSubnet *IPv4Route, r *bufio.Reader, w *bufio.Writer, abort <-chan struct{}) {
 	routes := rl.peers.routes
 	remoteSubnet.Queue = rl.out
 	routes.Add(remoteSubnet)
@@ -62,6 +62,8 @@ func (rl *L3Relay) Forward(remoteSubnet *IPv4Route, r *bufio.Reader, w *bufio.Wr
 
 	for {
 		select {
+		case <-abort:
+			return
 		case <-done:
 			return
 		case <-rl.control:

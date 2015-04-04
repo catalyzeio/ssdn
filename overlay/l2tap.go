@@ -45,13 +45,20 @@ func (lt *L2Tap) Close() error {
 	return lt.tap.Close()
 }
 
-func (lt *L2Tap) Forward(r *bufio.Reader, w *bufio.Writer) {
+func (lt *L2Tap) Forward(r *bufio.Reader, w *bufio.Writer, abort <-chan struct{}) {
 	done := make(chan struct{}, 2)
 
 	go lt.connReader(r, done)
 	go lt.connWriter(w, done)
 
-	<-done
+	for {
+		select {
+		case <-abort:
+			return
+		case <-done:
+			return
+		}
+	}
 }
 
 func (lt *L2Tap) connReader(r *bufio.Reader, done chan<- struct{}) {

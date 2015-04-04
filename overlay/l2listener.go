@@ -92,7 +92,7 @@ func (l *L2Listener) service(conn net.Conn) {
 	l.downlinkConnected(remoteAddr, tapName)
 	defer l.downlinkDisconnected(remoteAddr)
 
-	tap.Forward(r, w)
+	tap.Forward(r, w, nil)
 }
 
 func (l *L2Listener) downlinkConnected(addr net.Addr, tapName string) {

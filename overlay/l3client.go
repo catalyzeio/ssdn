@@ -99,7 +99,7 @@ func (p *L3Client) connHandler(conn net.Conn, abort <-chan struct{}) error {
 	}
 
 	// kick off packet forwarding
-	p.relay.Forward(remoteSubnet, r, w)
+	p.relay.Forward(remoteSubnet, r, w, abort)
 
 	return nil
 }

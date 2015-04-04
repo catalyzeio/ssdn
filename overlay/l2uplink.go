@@ -45,7 +45,7 @@ func (u *L2Uplink) connHandler(conn net.Conn, abort <-chan struct{}) error {
 	if err != nil {
 		return err
 	}
-	u.tap.Forward(r, w)
+	u.tap.Forward(r, w, abort)
 	return nil
 }
 
