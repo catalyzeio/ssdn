@@ -185,7 +185,7 @@ func (lp *L3Peers) ListPeers() []string {
 
 	l := make([]string, len(lp.peers))
 	offset := 0
-	for k, _ := range lp.peers {
+	for k := range lp.peers {
 		l[offset] = k
 		offset++
 	}
