@@ -41,72 +41,78 @@ const (
 )
 
 func NewServer(baseDir, name string) *Listener {
-	c := Listener{
+	s := Listener{
 		dsPath:   path.Join(baseDir, name),
 		handlers: make(map[string]*entry),
 		control:  make(chan struct{}),
 	}
-	c.Register("uptime", "", "Displays process uptime", 0, 0, c.uptime)
-	c.Register("help", "[command]", "Shows help on available commands", 0, 1, c.help)
-	return &c
+	s.Register("uptime", "", "Displays process uptime", 0, 0, s.uptime)
+	s.Register("help", "[command]", "Shows help on available commands", 0, 1, s.help)
+	return &s
 }
 
-func (c *Listener) Register(command, usage, description string, minArgs, maxArgs int, handler Handler) {
-	c.handlers[command] = &entry{command, usage, description, minArgs, maxArgs, handler}
+func (s *Listener) Register(command, usage, description string, minArgs, maxArgs int, handler Handler) {
+	s.handlers[command] = &entry{command, usage, description, minArgs, maxArgs, handler}
 }
 
-func (c *Listener) Start() error {
-	// remove any existing domain socket
-	_, err := os.Stat(c.dsPath)
+func (s *Listener) Start() error {
+	// check for existing domain socket
+	_, err := os.Stat(s.dsPath)
 	if err == nil {
-		// TODO bail if existing socket is live
-		err := os.Remove(c.dsPath)
+		// check if existing socket is live
+		conn, err := net.Dial("unix", s.dsPath)
+		if err == nil {
+			conn.Close()
+			return fmt.Errorf("%s exists and is accepting connections; is there another instance running?", s.dsPath)
+		}
+		// remove the existing domain socket
+		err = os.Remove(s.dsPath)
 		if err != nil {
 			return err
 		}
-		log.Warn("Removed existing socket at %s", c.dsPath)
+		log.Warn("Removed existing socket at %s", s.dsPath)
 	}
 	// create new socket and start up listener
-	l, err := net.Listen("unix", c.dsPath)
+	l, err := net.Listen("unix", s.dsPath)
 	if err != nil {
 		return err
 	}
-	go c.listen(l)
+	go s.listen(l)
 	return nil
 }
 
-func (c *Listener) Stop() {
-	c.control <- struct{}{}
+func (s *Listener) Stop() {
+	s.control <- struct{}{}
 }
 
-func (c *Listener) listen(l net.Listener) {
+func (s *Listener) listen(l net.Listener) {
 	defer l.Close()
 
-	go c.accept(l)
+	go s.accept(l)
 
 	for {
 		select {
-		case <-c.control:
+		case <-s.control:
 			log.Info("Shutting down")
 			return
 		}
 	}
 }
 
-func (c *Listener) accept(l net.Listener) {
-	log.Info("Accepting commands at %s", c.dsPath)
-	c.start = time.Now()
+func (s *Listener) accept(l net.Listener) {
+	log.Info("Accepting commands at %s", s.dsPath)
+	s.start = time.Now()
 	for {
 		conn, err := l.Accept()
 		if err != nil {
 			log.Warn("Failed to accept connection: %s", err)
 			return
 		}
-		go c.service(conn)
+		go s.service(conn)
 	}
 }
 
-func (c *Listener) service(conn net.Conn) {
+func (s *Listener) service(conn net.Conn) {
 	defer conn.Close()
 
 	r := bufio.NewReaderSize(conn, bufSize)
@@ -126,7 +132,7 @@ func (c *Listener) service(conn net.Conn) {
 		args := strings.Fields(request)
 		response := ""
 		if len(args) > 0 {
-			response, err = c.dispatch(args[0], args[1:])
+			response, err = s.dispatch(args[0], args[1:])
 			if err != nil {
 				response = ErrorPrefix + err.Error()
 			}
@@ -144,8 +150,8 @@ func (c *Listener) service(conn net.Conn) {
 	}
 }
 
-func (c *Listener) dispatch(cmd string, args []string) (string, error) {
-	entry, err := c.disambiguate(cmd)
+func (s *Listener) dispatch(cmd string, args []string) (string, error) {
+	entry, err := s.disambiguate(cmd)
 	if err != nil {
 		return "", err
 	}
@@ -157,14 +163,14 @@ func (c *Listener) dispatch(cmd string, args []string) (string, error) {
 	return entry.handler(args...)
 }
 
-func (c *Listener) disambiguate(cmd string) (*entry, error) {
-	match, present := c.handlers[cmd]
+func (s *Listener) disambiguate(cmd string) (*entry, error) {
+	match, present := s.handlers[cmd]
 	if present {
 		return match, nil
 	}
 
 	var candidate *entry
-	for _, e := range c.handlers {
+	for _, e := range s.handlers {
 		if strings.HasPrefix(e.command, cmd) {
 			if candidate != nil {
 				return nil, fmt.Errorf("ambiguous command '%s'", cmd)
@@ -178,13 +184,13 @@ func (c *Listener) disambiguate(cmd string) (*entry, error) {
 	return candidate, nil
 }
 
-func (c *Listener) uptime(args ...string) (string, error) {
-	return time.Now().Sub(c.start).String(), nil
+func (s *Listener) uptime(args ...string) (string, error) {
+	return time.Now().Sub(s.start).String(), nil
 }
 
-func (c *Listener) help(args ...string) (string, error) {
+func (s *Listener) help(args ...string) (string, error) {
 	if len(args) > 0 {
-		entry, err := c.disambiguate(args[0])
+		entry, err := s.disambiguate(args[0])
 		if err != nil {
 			return "", err
 		}
@@ -196,7 +202,7 @@ func (c *Listener) help(args ...string) (string, error) {
 	}
 
 	msg := []string{"Available commands:"}
-	for k := range c.handlers {
+	for k := range s.handlers {
 		msg = append(msg, k)
 	}
 	sort.Strings(msg[1:])
