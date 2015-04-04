@@ -3,6 +3,7 @@ package overlay
 import (
 	"bufio"
 	"io"
+	"time"
 )
 
 // Handler for inbound packets.
@@ -17,10 +18,14 @@ type L3Relay struct {
 	free PacketQueue
 	out  PacketQueue
 
+	ping chan struct{}
+
 	control chan struct{}
 }
 
 const (
+	pingInterval = 60 * time.Second
+
 	// XXX assumes frames have no 802.1q tagging
 	ethernetHeaderSize = 14
 )
@@ -39,6 +44,8 @@ func NewL3RelayWithQueues(peers *L3Peers, free, out PacketQueue) *L3Relay {
 		free: free,
 		out:  out,
 
+		ping: make(chan struct{}, 1),
+
 		control: make(chan struct{}, 1),
 	}
 }
@@ -53,8 +60,6 @@ func (rl *L3Relay) Forward(remoteSubnet *IPv4Route, r *bufio.Reader, w *bufio.Wr
 	routes.Add(remoteSubnet)
 	defer routes.Remove(remoteSubnet)
 
-	// TODO send periodic pings to keep connection alive
-
 	done := make(chan struct{}, 2)
 
 	go rl.connReader(r, done)
@@ -68,6 +73,8 @@ func (rl *L3Relay) Forward(remoteSubnet *IPv4Route, r *bufio.Reader, w *bufio.Wr
 			return
 		case <-rl.control:
 			return
+		case <-time.After(pingInterval):
+			rl.ping <- struct{}{}
 		}
 	}
 }
@@ -136,7 +143,7 @@ func (rl *L3Relay) connReader(r *bufio.Reader, done chan<- struct{}) {
 				// send to handler
 				err = handler(p)
 				if err != nil {
-					log.Warn("Failed to process incoming message: %s", err)
+					log.Warn("Failed to process incoming packet message: %s", err)
 					p.Queue <- p
 					return
 				}
@@ -146,6 +153,9 @@ func (rl *L3Relay) connReader(r *bufio.Reader, done chan<- struct{}) {
 			}
 		} else {
 			// control message; ignore for now
+			if trace {
+				log.Trace("Received control message")
+			}
 			p.Queue <- p
 		}
 	}
@@ -158,12 +168,40 @@ func (rl *L3Relay) connWriter(w *bufio.Writer, done chan<- struct{}) {
 
 	trace := log.IsTraceEnabled()
 
+	ping := rl.ping
 	out := rl.out
 	header := make([]byte, 2)
 
 	for {
 		// grab next outgoing packet
-		p := <-out
+		var p *PacketBuffer
+		select {
+		case <-ping:
+			// send header with control discriminator
+			header[0] = 0x80
+			header[1] = 0x01
+			_, err := w.Write(header)
+			if err != nil {
+				log.Warn("Failed to write control message header: %s", err)
+				return
+			}
+			err = w.WriteByte(0)
+			if err != nil {
+				log.Warn("Failed to write control message: %s", err)
+				return
+			}
+			err = w.Flush()
+			if err != nil {
+				log.Warn("Failed to flush control message: %s", err)
+				return
+			}
+			if trace {
+				log.Trace("Sent ping control message")
+			}
+			continue
+		case p = <-out:
+			break
+		}
 
 		len := p.Length - ethernetHeaderSize
 		buff := p.Data
@@ -173,7 +211,7 @@ func (rl *L3Relay) connWriter(w *bufio.Writer, done chan<- struct{}) {
 		header[1] = byte(len)
 		_, err := w.Write(header)
 		if err != nil {
-			log.Warn("Failed to write message header: %s", err)
+			log.Warn("Failed to write packet message header: %s", err)
 			p.Queue <- p
 			return
 		}
@@ -182,7 +220,7 @@ func (rl *L3Relay) connWriter(w *bufio.Writer, done chan<- struct{}) {
 		message := buff[ethernetHeaderSize:p.Length]
 		_, err = w.Write(message)
 		if err != nil {
-			log.Warn("Failed to write message: %s", err)
+			log.Warn("Failed to write packet message: %s", err)
 			p.Queue <- p
 			return
 		}
@@ -190,12 +228,12 @@ func (rl *L3Relay) connWriter(w *bufio.Writer, done chan<- struct{}) {
 		// flush queued outgoing data
 		err = w.Flush()
 		if err != nil {
-			log.Warn("Failed to flush message: %s", err)
+			log.Warn("Failed to flush packet message: %s", err)
 			p.Queue <- p
 			return
 		}
 		if trace {
-			log.Trace("Sent outbound message of size %d", len)
+			log.Trace("Sent outbound packet message of size %d", len)
 		}
 
 		p.Queue <- p
