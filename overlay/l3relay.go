@@ -16,6 +16,8 @@ type L3Relay struct {
 
 	free PacketQueue
 	out  PacketQueue
+
+	control chan struct{}
 }
 
 const (
@@ -36,11 +38,13 @@ func NewL3RelayWithQueues(peers *L3Peers, free, out PacketQueue) *L3Relay {
 
 		free: free,
 		out:  out,
+
+		control: make(chan struct{}, 1),
 	}
 }
 
 func (rl *L3Relay) Stop() {
-	// TODO
+	rl.control <- struct{}{}
 }
 
 func (rl *L3Relay) Forward(remoteSubnet *IPv4Route, r *bufio.Reader, w *bufio.Writer) {
@@ -59,6 +63,8 @@ func (rl *L3Relay) Forward(remoteSubnet *IPv4Route, r *bufio.Reader, w *bufio.Wr
 	for {
 		select {
 		case <-done:
+			return
+		case <-rl.control:
 			return
 		}
 	}
