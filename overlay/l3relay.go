@@ -51,17 +51,22 @@ func (rl *L3Relay) Forward(remoteSubnet *IPv4Route, r *bufio.Reader, w *bufio.Wr
 
 	// TODO send periodic pings to keep connection alive
 
-	done := make(chan bool, 2)
+	done := make(chan struct{}, 2)
 
 	go rl.connReader(r, done)
 	go rl.connWriter(w, done)
 
-	<-done
+	for {
+		select {
+		case <-done:
+			return
+		}
+	}
 }
 
-func (rl *L3Relay) connReader(r *bufio.Reader, done chan<- bool) {
+func (rl *L3Relay) connReader(r *bufio.Reader, done chan<- struct{}) {
 	defer func() {
-		done <- true
+		done <- struct{}{}
 	}()
 
 	trace := log.IsTraceEnabled()
@@ -138,9 +143,9 @@ func (rl *L3Relay) connReader(r *bufio.Reader, done chan<- bool) {
 	}
 }
 
-func (rl *L3Relay) connWriter(w *bufio.Writer, done chan<- bool) {
+func (rl *L3Relay) connWriter(w *bufio.Writer, done chan<- struct{}) {
 	defer func() {
-		done <- true
+		done <- struct{}{}
 	}()
 
 	trace := log.IsTraceEnabled()

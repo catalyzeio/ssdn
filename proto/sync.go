@@ -68,7 +68,7 @@ func (c *SyncClient) SyncCall(msg []byte) ([]byte, error) {
 	return resp.msg, resp.err
 }
 
-func (c *SyncClient) connHandler(conn net.Conn, abort <-chan bool) error {
+func (c *SyncClient) connHandler(conn net.Conn, abort <-chan struct{}) error {
 	r := bufio.NewReaderSize(conn, bufSize)
 
 	dc := directCaller{conn, r}

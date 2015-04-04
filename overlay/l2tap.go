@@ -46,7 +46,7 @@ func (lt *L2Tap) Close() error {
 }
 
 func (lt *L2Tap) Forward(r *bufio.Reader, w *bufio.Writer) {
-	done := make(chan bool, 2)
+	done := make(chan struct{}, 2)
 
 	go lt.connReader(r, done)
 	go lt.connWriter(w, done)
@@ -54,9 +54,9 @@ func (lt *L2Tap) Forward(r *bufio.Reader, w *bufio.Writer) {
 	<-done
 }
 
-func (lt *L2Tap) connReader(r *bufio.Reader, done chan<- bool) {
+func (lt *L2Tap) connReader(r *bufio.Reader, done chan<- struct{}) {
 	defer func() {
-		done <- true
+		done <- struct{}{}
 	}()
 
 	header := make([]byte, 2)
@@ -99,9 +99,9 @@ func (lt *L2Tap) connReader(r *bufio.Reader, done chan<- bool) {
 	}
 }
 
-func (lt *L2Tap) connWriter(w *bufio.Writer, done chan<- bool) {
+func (lt *L2Tap) connWriter(w *bufio.Writer, done chan<- struct{}) {
 	defer func() {
-		done <- true
+		done <- struct{}{}
 	}()
 
 	header := make([]byte, 2)

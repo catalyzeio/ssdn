@@ -40,7 +40,7 @@ func (u *L2Uplink) Name() string {
 	return u.tap.Name()
 }
 
-func (u *L2Uplink) connHandler(conn net.Conn, abort <-chan bool) error {
+func (u *L2Uplink) connHandler(conn net.Conn, abort <-chan struct{}) error {
 	r, w, err := L2Handshake(conn)
 	if err != nil {
 		return err

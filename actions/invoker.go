@@ -9,7 +9,7 @@ import (
 type Invoker struct {
 	dir      string
 	requests chan *actionReq
-	command  chan bool
+	command  chan struct{}
 }
 
 type actionReq struct {
@@ -27,7 +27,7 @@ func NewInvoker(dir string) *Invoker {
 	return &Invoker{
 		dir:      dir,
 		requests: make(chan *actionReq),
-		command:  make(chan bool),
+		command:  make(chan struct{}),
 	}
 }
 
@@ -36,7 +36,7 @@ func (a *Invoker) Start() {
 }
 
 func (a *Invoker) Stop() {
-	a.command <- true
+	a.command <- struct{}{}
 }
 
 func (a *Invoker) Execute(action string, args ...string) ([]byte, error) {
@@ -49,10 +49,10 @@ func (a *Invoker) Execute(action string, args ...string) ([]byte, error) {
 func (a *Invoker) run() {
 	for {
 		select {
-		case <-a.command:
-			return
 		case req := <-a.requests:
 			a.invoke(req)
+		case <-a.command:
+			return
 		}
 	}
 }

@@ -51,7 +51,7 @@ func (p *L3Client) Stop() {
 	p.client.Stop()
 }
 
-func (p *L3Client) connHandler(conn net.Conn, abort <-chan bool) error {
+func (p *L3Client) connHandler(conn net.Conn, abort <-chan struct{}) error {
 	peers := p.peers
 	localURL := peers.localURL
 	subnet := peers.subnet

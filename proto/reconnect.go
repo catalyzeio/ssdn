@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-type ConnHandler func(conn net.Conn, abort <-chan bool) error
+type ConnHandler func(conn net.Conn, abort <-chan struct{}) error
 
 type ReconnectClient struct {
 	Handler ConnHandler
@@ -68,7 +68,7 @@ func (c *ReconnectClient) run() {
 }
 
 func (c *ReconnectClient) connect(target string, initDelay bool) bool {
-	abort := make(chan bool, 1)
+	abort := make(chan struct{}, 1)
 
 	// connect to remote host
 	conn := c.dial(target, initDelay)
@@ -79,7 +79,7 @@ func (c *ReconnectClient) connect(target string, initDelay bool) bool {
 	// schedule cleanup
 	defer func() {
 		conn.Close()
-		abort <- true
+		abort <- struct{}{}
 		log.Info("Disconnected from %s", target)
 	}()
 	log.Info("Connected to %s", target)
@@ -96,14 +96,14 @@ func (c *ReconnectClient) connect(target string, initDelay bool) bool {
 	}
 
 	// run handler
-	finished := make(chan bool, 1)
+	finished := make(chan struct{}, 1)
 	if c.Handler != nil {
 		go func() {
 			err := c.Handler(conn, abort)
 			if err != nil {
 				log.Warn("Error in connection handler: %s", err)
 			}
-			finished <- true
+			finished <- struct{}{}
 		}()
 	}
 

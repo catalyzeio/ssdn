@@ -23,7 +23,7 @@ type Listener struct {
 	handlers map[string]*entry
 
 	start   time.Time
-	command chan bool
+	control chan struct{}
 }
 
 type entry struct {
@@ -44,7 +44,7 @@ func NewServer(baseDir, name string) *Listener {
 	c := Listener{
 		dsPath:   path.Join(baseDir, name),
 		handlers: make(map[string]*entry),
-		command:  make(chan bool),
+		control:  make(chan struct{}),
 	}
 	c.Register("uptime", "", "Displays process uptime", 0, 0, c.uptime)
 	c.Register("help", "[command]", "Shows help on available commands", 0, 1, c.help)
@@ -76,16 +76,17 @@ func (c *Listener) Start() error {
 }
 
 func (c *Listener) Stop() {
-	c.command <- true
+	c.control <- struct{}{}
 }
 
 func (c *Listener) listen(l net.Listener) {
 	defer l.Close()
 
 	go c.accept(l)
+
 	for {
 		select {
-		case <-c.command:
+		case <-c.control:
 			log.Info("Shutting down")
 			return
 		}

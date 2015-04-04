@@ -192,7 +192,7 @@ func (lt *L3Tap) forward(tap *taptun.Interface) {
 		log.Info("Closed tap %s", tap.Name())
 	}()
 
-	done := make(chan bool, 2)
+	done := make(chan struct{}, 2)
 
 	go lt.tapReader(tap, done)
 	go lt.tapWriter(tap, done)
@@ -200,9 +200,9 @@ func (lt *L3Tap) forward(tap *taptun.Interface) {
 	<-done
 }
 
-func (lt *L3Tap) tapReader(tap *taptun.Interface, done chan<- bool) {
+func (lt *L3Tap) tapReader(tap *taptun.Interface, done chan<- struct{}) {
 	defer func() {
-		done <- true
+		done <- struct{}{}
 	}()
 
 	trace := log.IsTraceEnabled()
@@ -266,9 +266,9 @@ func (lt *L3Tap) tapReader(tap *taptun.Interface, done chan<- bool) {
 	}
 }
 
-func (lt *L3Tap) tapWriter(tap *taptun.Interface, done chan<- bool) {
+func (lt *L3Tap) tapWriter(tap *taptun.Interface, done chan<- struct{}) {
 	defer func() {
-		done <- true
+		done <- struct{}{}
 	}()
 
 	trace := log.IsTraceEnabled()
