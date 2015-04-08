@@ -1,12 +1,12 @@
 #!/bin/bash -e
+source $(dirname -- "$0")/../utils.bash
 
 if [ "$#" -ne 2 ]; then
-	echo "Usage: $0 [bridge] [localif]"
-	exit 1
+    echo "Usage: $0 [bridge] [localif]"
+    exit 1
 fi
 
 bname=$1
 localif=$2
 
-brctl delif ${bname} ${localif} || echo Failed to remove ${localif} from ${bname}
-ip link del ${localif} type veth
+del_veth_pair ${bname} ${localif}

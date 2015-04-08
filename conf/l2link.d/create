@@ -1,12 +1,11 @@
 #!/bin/bash -e
+source $(dirname -- "$0")/../utils.bash
 
 if [ "$#" -ne 1 ]; then
-	echo "Usage: $0 [bridge]"
-	exit 1
+    echo "Usage: $0 [bridge]"
+    exit 1
 fi
 
 bname=$1
 
-brctl addbr ${bname} || true
-brctl stp ${bname} on
-ip link set ${bname} up
+create_bridge ${bname} on

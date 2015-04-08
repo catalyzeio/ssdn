@@ -1,12 +1,10 @@
 #!/bin/bash -e
+source $(dirname -- "$0")/../utils.bash
 
 if [ "$#" -ne 5 ]; then
-	echo "Usage: $0 [bridge] [mtu] [container] [localif] [containerif]"
-	exit 1
+    echo "Usage: $0 [bridge] [mtu] [container] [localif] [containerif]"
+    exit 1
 fi
-
-NSDIR=/var/run/netns
-DOCKER=$(command -v docker.io || command -v docker)
 
 bname=$1
 mtu=$2
@@ -14,32 +12,14 @@ container=$3
 localif=$4
 containerif=$5
 
-# grab container network namespace from docker
-nspid=$(${DOCKER} inspect -f '{{ .State.Pid }}' ${container})
+# set up NS link
+link_netns ${container}
 
-# create veth pair
-tempif=${localif}c
-ip link add name ${localif} type veth peer name ${tempif}
-
-# add local interface to bridge
-ip link set ${localif} mtu ${mtu}
-brctl addif ${bname} ${localif} || (
-	echo Failed to add ${localif} to ${bname}
-	ip link del ${localif} type veth
-	exit 1
-)
-ip link set ${localif} up
-
-# set up netns container link
-if [ ! -d ${NSDIR} ]; then
-	mkdir -p ${NSDIR}
-fi
-cd ${NSDIR}
-if [ ! -f ${container} ]; then
-	rm -f ${container}
-	ln -s /proc/${nspid}/ns/net ${container}
-fi
+# create veth pair and add to bridge
+tempif=$(bridge_veth_pair ${bname} ${mtu} ${localif})
 
 # add remote interface to container
 ip link set ${tempif} netns ${container}
-ip netns exec ${container} ip link set ${tempif} up mtu ${mtu} name ${containerif}
+ip netns exec ${container} \
+   ip link set ${tempif} up \
+   mtu ${mtu} name ${containerif} \
