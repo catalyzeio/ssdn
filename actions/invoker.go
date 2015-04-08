@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os/exec"
 	"path"
+	"time"
 )
 
 type Invoker struct {
@@ -58,13 +59,21 @@ func (a *Invoker) run() {
 }
 
 func (a *Invoker) invoke(req *actionReq) {
+	start := time.Now()
+
 	target := path.Join(a.dir, req.action)
 	cmd := exec.Command(target, req.args...)
 	output, err := cmd.CombinedOutput()
+
+	duration := time.Now().Sub(start)
+
 	if err != nil {
-		err = fmt.Errorf("{%s %s} failed (%s): %s", target, req.args, err, string(output))
+		err = fmt.Errorf("{%s %s} failed in %s (%s): %s", target, req.args, duration, err, string(output))
 	} else {
-		log.Debug("Command {%s %s} succeeded: %s", target, req.args, string(output))
+		if log.IsDebugEnabled() {
+			log.Debug("Command {%s %s} succeeded in %s: %s", target, req.args, duration, string(output))
+		}
 	}
+
 	req.result <- &actionResp{output, err}
 }
