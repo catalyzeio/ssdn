@@ -89,7 +89,9 @@ func (c *ReconnectClient) connect(target string, initDelay bool) bool {
 	if ok {
 		tcpConn.SetKeepAlive(true)
 		tcpConn.SetKeepAlivePeriod(15 * time.Second)
-		log.Debug("Enabled TCP keepalives on connection to %s", target)
+		if log.IsDebugEnabled() {
+			log.Debug("Enabled TCP keepalives on connection to %s", target)
+		}
 	} else {
 		// XXX tls.Conn does not currently provide a way to set TCP keepalives on the underlying socket
 		log.Warn("Failed to enable TCP keepalives on connection to %s", target)
@@ -135,18 +137,24 @@ func (c *ReconnectClient) dial(target string, initDelay bool) net.Conn {
 		case cmsg := <-c.control:
 			switch cmsg {
 			case disconnect:
-				log.Debug("Not connected to %s; ignoring disconnection request", target)
+				if log.IsDebugEnabled() {
+					log.Debug("Not connected to %s; ignoring disconnection request", target)
+				}
 				// XXX this causes an extra connection delay that is mostly harmless
 				continue
 			case stop:
-				log.Debug("Aborting connection with %s", target)
+				if log.IsDebugEnabled() {
+					log.Debug("Aborting connection with %s", target)
+				}
 				return nil
 			}
 		case <-time.After(delay):
 			// continue connection attempts
 		}
 
-		log.Debug("Connecting to %s", target)
+		if log.IsDebugEnabled() {
+			log.Debug("Connecting to %s", target)
+		}
 		var conn net.Conn
 		var err error
 		if c.config != nil {

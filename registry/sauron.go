@@ -148,7 +148,9 @@ func (reg *SauronClient) handshake(caller proto.SyncCaller) error {
 }
 
 func (reg *SauronClient) idle(caller proto.SyncCaller) error {
-	log.Debug("Sending ping")
+	if log.IsDebugEnabled() {
+		log.Debug("Sending ping")
+	}
 	_, err := call(caller, &message{Type: "ping"})
 	return err
 }
