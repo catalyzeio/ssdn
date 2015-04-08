@@ -76,10 +76,6 @@ func (at *ARPTracker) Get() ARPTable {
 	return *p
 }
 
-func (at *ARPTracker) Add(ip net.IP, mac []byte) {
-	at.set(IPv4ToInt(ip), mac)
-}
-
 func (at *ARPTracker) TrackQuery(ip net.IP, resolved chan []byte) bool {
 	key := IPv4ToInt(ip)
 
@@ -306,6 +302,34 @@ func (at *ARPTracker) set(ipKey uint32, mac []byte) {
 			newTable[k] = v
 		}
 		newTable[ipKey] = mac
+
+		// replace current table with new table
+		new := unsafe.Pointer(&newTable)
+		if atomic.CompareAndSwapPointer(pointer, old, new) {
+			if log.IsDebugEnabled() {
+				log.Debug("New ARP table: %s", mapValues(newTable.StringMap()))
+			}
+			return
+		}
+	}
+}
+
+func (at *ARPTracker) unset(ipKey uint32) {
+	pointer := &at.table
+	for {
+		// grab current table
+		old := atomic.LoadPointer(pointer)
+		current := (*ARPTable)(old)
+
+		// copy existing table into new table and skip entry
+		oldTable := *current
+
+		newTable := make(ARPTable)
+		for k, v := range oldTable {
+			if k != ipKey {
+				newTable[k] = v
+			}
+		}
 
 		// replace current table with new table
 		new := unsafe.Pointer(&newTable)

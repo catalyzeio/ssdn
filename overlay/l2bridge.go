@@ -58,11 +58,12 @@ func (b *L2Bridge) Start(cli *cli.Listener) error {
 func (b *L2Bridge) cliAttach(args ...string) (string, error) {
 	container := args[0]
 
-	localIface, err := b.associate(localL2IfaceTemplate, container)
+	localIface, err := b.associate(container)
 	if err != nil {
 		return "", err
 	}
-	_, err = b.invoker.Execute("attach", b.name, b.mtu, container, localIface, containerIface)
+	_, err = b.invoker.Execute("attach", b.name, b.mtu, container,
+		localIface, containerIface)
 	if err != nil {
 		return "", err
 	}
@@ -70,7 +71,7 @@ func (b *L2Bridge) cliAttach(args ...string) (string, error) {
 	return fmt.Sprintf("Attached to %s", container), nil
 }
 
-func (b *L2Bridge) associate(ifaceTemplate string, container string) (string, error) {
+func (b *L2Bridge) associate(container string) (string, error) {
 	b.connMutex.Lock()
 	defer b.connMutex.Unlock()
 
@@ -80,7 +81,7 @@ func (b *L2Bridge) associate(ifaceTemplate string, container string) (string, er
 	}
 	i := b.ifIndex
 	b.ifIndex++
-	localIface := fmt.Sprintf(ifaceTemplate, b.name, i)
+	localIface := fmt.Sprintf(localL2IfaceTemplate, b.name, i)
 	b.connections[container] = localIface
 	return localIface, nil
 }

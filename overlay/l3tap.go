@@ -99,6 +99,14 @@ func (lt *L3Tap) cliResolve(args ...string) (string, error) {
 	return fmt.Sprintf("%s is at %s", ip, mac), nil
 }
 
+func (lt *L3Tap) SeedMAC(ip uint32, mac net.HardwareAddr) {
+	lt.arpTracker.set(ip, mac)
+}
+
+func (lt *L3Tap) UnseedMAC(ip uint32) {
+	lt.arpTracker.unset(ip)
+}
+
 func (lt *L3Tap) Resolve(ip net.IP) (net.HardwareAddr, error) {
 	ip = ip.To4()
 	if ip == nil {
