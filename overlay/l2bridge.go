@@ -10,9 +10,8 @@ import (
 )
 
 type L2Bridge struct {
-	name   string
-	mtu    uint16
-	mtuStr string
+	name string
+	mtu  string
 
 	invoker *actions.Invoker
 
@@ -22,22 +21,19 @@ type L2Bridge struct {
 }
 
 const (
-	localIfaceTemplate = "sf2.%s.%d"
-	containerIface     = "eth1"
+	localL2IfaceTemplate = "sf2.%s.%d"
+	containerIface       = "eth1"
 )
 
 func NewL2Bridge(name string, mtu uint16, actionsDir string) *L2Bridge {
-	b := L2Bridge{
-		name:   name,
-		mtu:    mtu,
-		mtuStr: strconv.Itoa(int(mtu)),
+	return &L2Bridge{
+		name: name,
+		mtu:  strconv.Itoa(int(mtu)),
 
 		invoker: actions.NewInvoker(actionsDir),
 
 		connections: make(map[string]string),
 	}
-
-	return &b
 }
 
 func (b *L2Bridge) Start(cli *cli.Listener) error {
@@ -62,18 +58,19 @@ func (b *L2Bridge) Start(cli *cli.Listener) error {
 func (b *L2Bridge) cliAttach(args ...string) (string, error) {
 	container := args[0]
 
-	localIface, err := b.attach(container)
+	localIface, err := b.associate(localL2IfaceTemplate, container)
 	if err != nil {
 		return "", err
 	}
-	_, err = b.invoker.Execute("attach", b.name, b.mtuStr, container, localIface, containerIface)
+	_, err = b.invoker.Execute("attach", b.name, b.mtu, container, localIface, containerIface)
 	if err != nil {
 		return "", err
 	}
+
 	return fmt.Sprintf("Attached to %s", container), nil
 }
 
-func (b *L2Bridge) attach(container string) (string, error) {
+func (b *L2Bridge) associate(ifaceTemplate string, container string) (string, error) {
 	b.connMutex.Lock()
 	defer b.connMutex.Unlock()
 
@@ -83,16 +80,15 @@ func (b *L2Bridge) attach(container string) (string, error) {
 	}
 	i := b.ifIndex
 	b.ifIndex++
-	localIface := fmt.Sprintf(localIfaceTemplate, b.name, i)
+	localIface := fmt.Sprintf(ifaceTemplate, b.name, i)
 	b.connections[container] = localIface
 	return localIface, nil
 }
 
 func (b *L2Bridge) cliDetach(args ...string) (string, error) {
 	container := args[0]
-	_ = container
 
-	localIface, err := b.detach(container)
+	localIface, err := b.unassociate(container)
 	if err != nil {
 		return "", err
 	}
@@ -103,7 +99,7 @@ func (b *L2Bridge) cliDetach(args ...string) (string, error) {
 	return fmt.Sprintf("Detached from %s", container), nil
 }
 
-func (b *L2Bridge) detach(container string) (string, error) {
+func (b *L2Bridge) unassociate(container string) (string, error) {
 	b.connMutex.Lock()
 	defer b.connMutex.Unlock()
 
@@ -127,6 +123,6 @@ func (b *L2Bridge) listConnections() string {
 }
 
 func (b *L2Bridge) link(tapName string) error {
-	_, err := b.invoker.Execute("link", b.name, b.mtuStr, tapName)
+	_, err := b.invoker.Execute("link", b.name, b.mtu, tapName)
 	return err
 }

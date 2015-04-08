@@ -77,15 +77,18 @@ func main() {
 	routes := overlay.NewRouteTracker()
 	routes.Start(cli)
 
-	bridge := overlay.NewL3Bridge(tenantID, mtu, path.Join(confDir, "l3bridge.d"))
-	err = bridge.Start(cli)
-	if err != nil {
-		fail("Failed to start bridge: %s\n", err)
-	}
+	pool := overlay.NewIPPool(network, subnet, gwIP)
+
+	bridge := overlay.NewL3Bridge(tenantID, mtu, path.Join(confDir, "l3bridge.d"), pool)
 
 	tap, err := overlay.NewL3Tap(gwIP, mtu, bridge, routes)
 	if err != nil {
 		fail("Failed to create tap: %s\n", err)
+	}
+
+	err = bridge.Start(cli, tap)
+	if err != nil {
+		fail("Failed to start bridge: %s\n", err)
 	}
 
 	err = tap.Start(cli)
