@@ -159,7 +159,7 @@ func (a *Address) String() string {
 func (a *Address) urlString(ip net.IP) string {
 	proto := "tcp"
 	if a.tls {
-		proto = "tcp"
+		proto = "tcps"
 	}
 	return fmt.Sprintf("%s://%s:%d", proto, ip, a.port)
 }
