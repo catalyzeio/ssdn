@@ -144,7 +144,8 @@ func (t *L3Tuns) listConnections() string {
 func mapL3TunInterfaces(m map[string]*L3Tun) string {
 	var entries []string
 	for k, v := range m {
-		entries = append(entries, fmt.Sprintf("%s (%s)", k, v.ip))
+		ip := net.IP(IntToIPv4(v.ip))
+		entries = append(entries, fmt.Sprintf("%s (%s)", k, ip))
 	}
 	return strings.Join(entries, ", ")
 }
