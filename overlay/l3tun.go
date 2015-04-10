@@ -120,7 +120,7 @@ func (t *L3Tun) forward(tun *taptun.Interface) bool {
 }
 
 // XXX The packet buffers below leave space for an Ethernet frame, even though
-// tun devices do not include layer 2 framing. The additional (emtpy) offsets
+// tun devices do not include layer 2 framing. The additional (empty) offsets
 // are for compatibility with the existing L3Relay code.
 
 func (t *L3Tun) tunReader(tun *taptun.Interface, done chan<- struct{}) {
@@ -138,8 +138,8 @@ func (t *L3Tun) tunReader(tun *taptun.Interface, done chan<- struct{}) {
 		p := <-free
 
 		// read whole packet from tun (skipping ethernet header)
-		data := p.Data[ethernetHeaderSize:]
-		n, err := tun.Read(data)
+		buff := p.Data
+		n, err := tun.Read(buff[ethernetHeaderSize:])
 		if err != nil {
 			log.Warn("Failed to read from tun: %s", err)
 			p.Queue <- p
@@ -148,7 +148,10 @@ func (t *L3Tun) tunReader(tun *taptun.Interface, done chan<- struct{}) {
 		if trace {
 			log.Trace("Read %d bytes from tun", n)
 		}
-		p.Length = n + ethernetHeaderSize
+		// set length to indicate a blank MAC frame with an IPv4 ethertype
+		p.Length = ethernetHeaderSize + n
+		buff[12] = 0x08
+		buff[13] = 0x00
 
 		// route packet to its destination queue
 		routes.RoutePacket(p)
