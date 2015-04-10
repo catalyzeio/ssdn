@@ -175,12 +175,12 @@ func (at *ARPTracker) SetDestinationMAC(packet *PacketBuffer, srcMAC []byte) boo
 	return false
 }
 
-func (at *ARPTracker) Process(packet *PacketBuffer) ARPResult {
+func (at *ARPTracker) Process(p *PacketBuffer) ARPResult {
 	// XXX assumes frames have no 802.1q tagging
-	buff := packet.Data
+	buff := p.Data
 
 	// ignore non-ARP packets
-	if packet.Length < 42 || buff[12] != 0x08 || buff[13] != 0x06 {
+	if p.Length < 42 || buff[12] != 0x08 || buff[13] != 0x06 {
 		return NotARP
 	}
 
@@ -209,7 +209,7 @@ func (at *ARPTracker) Process(packet *PacketBuffer) ARPResult {
 			log.Trace("Received ARP is-at")
 		}
 		at.control <- &atRequest{
-			arp: packet,
+			arp: p,
 		}
 		return ARPIsProcessing
 	}
