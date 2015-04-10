@@ -141,6 +141,10 @@ func (t *L3Tun) tunReader(tun *taptun.Interface, done chan<- struct{}) {
 		// grab a free packet
 		p := <-free
 
+		// XXX On some Linux kernel versions, the following read call will stay
+		// blocked even if the underlying tun file descriptor is closed. The call
+		// will eventually return the next time a packet is written to the interface.
+
 		// read whole packet from tun (skipping ethernet header)
 		buff := p.Data
 		n, err := tun.Read(buff[ethernetHeaderSize:])
@@ -152,6 +156,7 @@ func (t *L3Tun) tunReader(tun *taptun.Interface, done chan<- struct{}) {
 		if trace {
 			log.Trace("Read %d bytes from tun", n)
 		}
+
 		// set length to indicate a blank MAC frame with an IPv4 ethertype
 		p.Length = ethernetHeaderSize + n
 		buff[12] = 0x08
