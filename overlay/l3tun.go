@@ -78,7 +78,9 @@ func (t *L3Tun) createTun() (*taptun.Interface, error) {
 
 func (t *L3Tun) service(tun *taptun.Interface) {
 	for {
-		t.forward(tun)
+		if !t.forward(tun) {
+			return
+		}
 
 		for {
 			time.Sleep(time.Second)
@@ -92,7 +94,7 @@ func (t *L3Tun) service(tun *taptun.Interface) {
 	}
 }
 
-func (t *L3Tun) forward(tun *taptun.Interface) {
+func (t *L3Tun) forward(tun *taptun.Interface) bool {
 	defer func() {
 		tun.Close()
 		log.Info("Closed tun %s", tun.Name())
@@ -110,9 +112,9 @@ func (t *L3Tun) forward(tun *taptun.Interface) {
 	for {
 		select {
 		case <-done:
-			return
+			return true
 		case <-t.control:
-			return
+			return false
 		}
 	}
 }
