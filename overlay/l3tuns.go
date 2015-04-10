@@ -3,6 +3,7 @@ package overlay
 import (
 	"fmt"
 	"net"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -154,7 +155,8 @@ func mapL3TunInterfaces(m map[string]*L3Tun) string {
 }
 
 func (t *L3Tuns) inject(container string, iface string, ip uint32) error {
-	_, err := t.invoker.Execute("inject", container, iface, containerIface,
+	mtu := strconv.Itoa(int(t.mtu))
+	_, err := t.invoker.Execute("inject", mtu, container, iface, containerIface,
 		FormatIPWithMask(ip, t.network.Mask))
 	return err
 }

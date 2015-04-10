@@ -1,0 +1,26 @@
+#!/bin/bash -e
+source $(dirname -- "$0")/../utils.bash
+
+if [ "$#" -ne 5 ]; then
+    echo "Usage: $0 [mtu] [container] [localif] [containerif] [ip/netmask]"
+    exit 1
+fi
+
+mtu=$1
+container=$2
+localif=$3
+containerif=$4
+ip=$5
+
+# set up NS link
+link_netns ${container}
+
+# add remote interface to container
+ip link set ${localif} netns ${container}
+ip netns exec ${container} \
+   ip link set ${localif} up \
+   mtu ${mtu} name ${containerif}
+
+# set IP for container
+ip netns exec ${container} \
+   ip addr replace ${ip} dev ${containerif}
