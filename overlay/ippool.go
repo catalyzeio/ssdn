@@ -7,9 +7,7 @@ import (
 )
 
 type IPPool struct {
-	network *net.IPNet
-	subnet  *IPv4Route
-	gwIP    net.IP
+	subnet *IPv4Route
 
 	start uint32
 	end   uint32
@@ -19,23 +17,18 @@ type IPPool struct {
 	used  map[uint32]struct{}
 }
 
-func NewIPPool(network *net.IPNet, subnet *IPv4Route, gwIP net.IP) *IPPool {
+func NewIPPool(subnet *IPv4Route) *IPPool {
 	start := subnet.Network&subnet.Mask + 1
 	end := subnet.Network | ^subnet.Mask - 1
 
-	used := make(map[uint32]struct{})
-	used[IPv4ToInt(gwIP)] = struct{}{}
-
 	return &IPPool{
-		network: network,
-		subnet:  subnet,
-		gwIP:    gwIP,
+		subnet: subnet,
 
 		start: start,
 		end:   end,
 
 		next: start,
-		used: used,
+		used: make(map[uint32]struct{}),
 	}
 }
 
@@ -63,7 +56,20 @@ func (p *IPPool) Next() (uint32, error) {
 		current = next
 	}
 
-	return 0, fmt.Errorf("No more IP addresses available")
+	return 0, fmt.Errorf("no more IP addresses available")
+}
+
+func (p *IPPool) Acquire(ip net.IP) error {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+
+	key := IPv4ToInt(ip)
+	_, present := p.used[key]
+	if present {
+		return fmt.Errorf("already allocated IP %s", ip)
+	}
+	p.used[key] = struct{}{}
+	return nil
 }
 
 func (p *IPPool) Free(ip uint32) {
@@ -74,15 +80,13 @@ func (p *IPPool) Free(ip uint32) {
 }
 
 func (p *IPPool) FormatIP(ip uint32) string {
-	ipString := net.IP(IntToIPv4(ip)).String()
-	maskString := net.IP(IntToIPv4(p.subnet.Mask)).String()
-	return ipString + "/" + maskString
+	return FormatIPWithMask(ip, net.IPMask(IntToIPv4(p.subnet.Mask)))
 }
 
-func (p *IPPool) FormatNetwork() string {
-	return p.network.String()
-}
-
-func (p *IPPool) FormatGatewayIP() string {
-	return p.gwIP.String()
+func FormatIPWithMask(ip uint32, mask net.IPMask) string {
+	net := net.IPNet{
+		IP:   net.IP(IntToIPv4(ip)),
+		Mask: mask,
+	}
+	return net.String()
 }

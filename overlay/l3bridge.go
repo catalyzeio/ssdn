@@ -17,8 +17,11 @@ type L3Bridge struct {
 
 	invoker *actions.Invoker
 
-	pool *IPPool
-	tap  *L3Tap
+	network *net.IPNet
+	pool    *IPPool
+	gwIP    net.IP
+
+	tap *L3Tap
 
 	connMutex   sync.Mutex
 	connections map[string]*l3Interface
@@ -36,16 +39,18 @@ const (
 	localL3IfaceTemplate = "sf3.%s.%d"
 )
 
-func NewL3Bridge(name string, mtu uint16, actionsDir string, pool *IPPool) *L3Bridge {
+func NewL3Bridge(name string, mtu uint16, actionsDir string, network *net.IPNet, pool *IPPool, gwIP net.IP) *L3Bridge {
 	return &L3Bridge{
 		name: name,
 		mtu:  strconv.Itoa(int(mtu)),
 
 		invoker: actions.NewInvoker(actionsDir),
 
-		connections: make(map[string]*l3Interface),
+		network: network,
+		pool:    pool,
+		gwIP:    gwIP,
 
-		pool: pool,
+		connections: make(map[string]*l3Interface),
 	}
 }
 
@@ -98,7 +103,7 @@ func (b *L3Bridge) cliAttach(args ...string) (string, error) {
 	_, err = b.invoker.Execute("attach", b.name, b.mtu, container,
 		iface.localIface, containerIface,
 		pool.FormatIP(nextIP), mac.String(),
-		pool.FormatNetwork(), pool.FormatGatewayIP())
+		b.network.String(), b.gwIP.String())
 	if err != nil {
 		pool.Free(nextIP)
 		return "", err
@@ -171,10 +176,10 @@ func (b *L3Bridge) listConnections() string {
 	b.connMutex.Lock()
 	defer b.connMutex.Unlock()
 
-	return fmt.Sprintf("Connections: %s", mapInterfaces(b.connections))
+	return fmt.Sprintf("Connections: %s", mapL3BridgeInterfaces(b.connections))
 }
 
-func mapInterfaces(m map[string]*l3Interface) string {
+func mapL3BridgeInterfaces(m map[string]*l3Interface) string {
 	var entries []string
 	for k, v := range m {
 		ip := net.IP(IntToIPv4(v.containerIP))
