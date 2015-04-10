@@ -32,27 +32,27 @@ func NewL3Client(peers *L3Peers, remoteURL string, addr *proto.Address) (*L3Clie
 	free := AllocatePacketQueue(tapQueueSize, ethernetHeaderSize+int(peers.mtu))
 	out := make(PacketQueue, tapQueueSize)
 
-	p := L3Client{
+	c := L3Client{
 		peers: peers,
 
 		remoteURL: remoteURL,
 
 		relay: NewL3RelayWithQueues(peers, free, out),
 	}
-	p.client = proto.NewClient(p.connHandler, addr.Host(), addr.Port(), config)
-	return &p, nil
+	c.client = proto.NewClient(c.connHandler, addr.Host(), addr.Port(), config)
+	return &c, nil
 }
 
-func (p *L3Client) Start() {
-	p.client.Start()
+func (c *L3Client) Start() {
+	c.client.Start()
 }
 
-func (p *L3Client) Stop() {
-	p.client.Stop()
+func (c *L3Client) Stop() {
+	c.client.Stop()
 }
 
-func (p *L3Client) connHandler(conn net.Conn, abort <-chan struct{}) error {
-	peers := p.peers
+func (c *L3Client) connHandler(conn net.Conn, abort <-chan struct{}) error {
+	peers := c.peers
 	localURL := peers.localURL
 	subnet := peers.subnet
 
@@ -72,24 +72,24 @@ func (p *L3Client) connHandler(conn net.Conn, abort <-chan struct{}) error {
 	// ignore connections to self
 	if remoteURL == localURL {
 		log.Warn("Dropping redundant connection to self")
-		err := peers.DeletePeer(p.remoteURL, p)
+		err := peers.DeletePeer(c.remoteURL, c)
 		if err != nil {
 			log.Warn("Failed to prune connection to self: %s", err)
-			p.Stop()
+			c.Stop()
 		}
 		return nil
 	}
 
 	// update peer registration if remote responded with different public address
-	if p.remoteURL != remoteURL {
-		log.Info("Peer at %s is actually %s", p.remoteURL, remoteURL)
-		err := peers.UpdatePeer(p.remoteURL, remoteURL, p)
+	if c.remoteURL != remoteURL {
+		log.Info("Peer at %s is actually %s", c.remoteURL, remoteURL)
+		err := peers.UpdatePeer(c.remoteURL, remoteURL, c)
 		if err != nil {
 			log.Warn("Failed to update connection URL: %s", err)
-			p.Stop()
+			c.Stop()
 			return nil
 		}
-		p.remoteURL = remoteURL
+		c.remoteURL = remoteURL
 	}
 
 	// send local URL and subnet
@@ -99,7 +99,7 @@ func (p *L3Client) connHandler(conn net.Conn, abort <-chan struct{}) error {
 	}
 
 	// kick off packet forwarding
-	p.relay.Forward(remoteSubnet, r, w, abort)
+	c.relay.Forward(remoteSubnet, r, w, abort)
 
 	return nil
 }

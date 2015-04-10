@@ -43,40 +43,40 @@ func NewL3Peers(localURL string, subnet *IPv4Route, routes *RouteTracker, config
 	}
 }
 
-func (lp *L3Peers) Start(cli *cli.Listener) {
-	cli.Register("addpeer", "[proto://host:port]", "Adds a peer at the specified address", 1, 1, lp.cliAddPeer)
-	cli.Register("delpeer", "[proto://host:port]", "Deletes the peer at the specified address", 1, 1, lp.cliDelPeer)
-	cli.Register("peers", "", "List all active peers", 0, 0, lp.cliPeers)
+func (p *L3Peers) Start(cli *cli.Listener) {
+	cli.Register("addpeer", "[proto://host:port]", "Adds a peer at the specified address", 1, 1, p.cliAddPeer)
+	cli.Register("delpeer", "[proto://host:port]", "Deletes the peer at the specified address", 1, 1, p.cliDelPeer)
+	cli.Register("peers", "", "List all active peers", 0, 0, p.cliPeers)
 }
 
-func (lp *L3Peers) cliAddPeer(args ...string) (string, error) {
+func (p *L3Peers) cliAddPeer(args ...string) (string, error) {
 	peerURL := args[0]
 
-	err := lp.AddClient(peerURL)
+	err := p.AddClient(peerURL)
 	if err != nil {
 		return "", err
 	}
 	return fmt.Sprintf("Added peer %s", peerURL), nil
 }
 
-func (lp *L3Peers) AddClient(url string) error {
+func (p *L3Peers) AddClient(url string) error {
 	addr, err := proto.ParseAddress(url)
 	if err != nil {
 		return err
 	}
 
 	// verify no existing peer before creating client
-	err = lp.addClient(url, nil)
+	err = p.addClient(url, nil)
 	if err != nil {
 		return err
 	}
 
-	client, err := NewL3Client(lp, url, addr)
+	client, err := NewL3Client(p, url, addr)
 	if err != nil {
 		return err
 	}
 
-	err = lp.addClient(url, client)
+	err = p.addClient(url, client)
 	if err != nil {
 		return err
 	}
@@ -85,32 +85,32 @@ func (lp *L3Peers) AddClient(url string) error {
 	return nil
 }
 
-func (lp *L3Peers) addClient(url string, peer L3Peer) error {
-	lp.peersMutex.Lock()
-	defer lp.peersMutex.Unlock()
+func (p *L3Peers) addClient(url string, peer L3Peer) error {
+	p.peersMutex.Lock()
+	defer p.peersMutex.Unlock()
 
-	_, present := lp.peers[url]
+	_, present := p.peers[url]
 	if present {
 		return fmt.Errorf("already connected to peer %s", url)
 	}
 	if peer != nil {
-		lp.peers[url] = peer
+		p.peers[url] = peer
 	}
 	return nil
 }
 
-func (lp *L3Peers) cliDelPeer(args ...string) (string, error) {
+func (p *L3Peers) cliDelPeer(args ...string) (string, error) {
 	peerURL := args[0]
 
-	err := lp.DeletePeer(peerURL, nil)
+	err := p.DeletePeer(peerURL, nil)
 	if err != nil {
 		return "", err
 	}
 	return fmt.Sprintf("Deleted peer %s", peerURL), nil
 }
 
-func (lp *L3Peers) DeletePeer(url string, expected L3Peer) error {
-	peer, err := lp.removePeer(url, expected)
+func (p *L3Peers) DeletePeer(url string, expected L3Peer) error {
+	peer, err := p.removePeer(url, expected)
 	if err != nil {
 		return err
 	}
@@ -118,74 +118,74 @@ func (lp *L3Peers) DeletePeer(url string, expected L3Peer) error {
 	return nil
 }
 
-func (lp *L3Peers) removePeer(url string, expected L3Peer) (L3Peer, error) {
-	lp.peersMutex.Lock()
-	defer lp.peersMutex.Unlock()
+func (p *L3Peers) removePeer(url string, expected L3Peer) (L3Peer, error) {
+	p.peersMutex.Lock()
+	defer p.peersMutex.Unlock()
 
-	current, present := lp.peers[url]
+	current, present := p.peers[url]
 	if !present {
 		return nil, fmt.Errorf("no such peer %s", url)
 	}
 	if expected != nil && current != expected {
 		return nil, fmt.Errorf("peer at %s has been replaced", url)
 	}
-	delete(lp.peers, url)
+	delete(p.peers, url)
 	return current, nil
 }
 
-func (lp *L3Peers) UpdatePeer(oldURL string, newURL string, peer L3Peer) error {
-	lp.peersMutex.Lock()
-	defer lp.peersMutex.Unlock()
+func (p *L3Peers) UpdatePeer(oldURL string, newURL string, peer L3Peer) error {
+	p.peersMutex.Lock()
+	defer p.peersMutex.Unlock()
 
-	current, present := lp.peers[oldURL]
+	current, present := p.peers[oldURL]
 	if !present {
 		return fmt.Errorf("no such peer %s", oldURL)
 	}
 	if current != peer {
 		return fmt.Errorf("peer at %s has been replaced", oldURL)
 	}
-	delete(lp.peers, oldURL)
+	delete(p.peers, oldURL)
 
-	_, present = lp.peers[newURL]
+	_, present = p.peers[newURL]
 	if present {
 		return fmt.Errorf("already connected to peer %s", newURL)
 	}
-	lp.peers[newURL] = peer
+	p.peers[newURL] = peer
 	return nil
 }
 
-func (lp *L3Peers) AddInboundPeer(url string, peer L3Peer) {
-	replaced := lp.replace(url, peer)
+func (p *L3Peers) AddInboundPeer(url string, peer L3Peer) {
+	replaced := p.replace(url, peer)
 	if replaced != nil {
 		log.Warn("Inbound peer replaced existing peer at %s", url)
 		replaced.Stop()
 	}
 }
 
-func (lp *L3Peers) replace(url string, peer L3Peer) L3Peer {
-	lp.peersMutex.Lock()
-	defer lp.peersMutex.Unlock()
+func (p *L3Peers) replace(url string, peer L3Peer) L3Peer {
+	p.peersMutex.Lock()
+	defer p.peersMutex.Unlock()
 
 	var existing L3Peer
-	current, present := lp.peers[url]
+	current, present := p.peers[url]
 	if present {
 		existing = current
 	}
-	lp.peers[url] = peer
+	p.peers[url] = peer
 	return existing
 }
 
-func (lp *L3Peers) cliPeers(args ...string) (string, error) {
-	return fmt.Sprintf("Peers: %s", strings.Join(lp.ListPeers(), ", ")), nil
+func (p *L3Peers) cliPeers(args ...string) (string, error) {
+	return fmt.Sprintf("Peers: %s", strings.Join(p.ListPeers(), ", ")), nil
 }
 
-func (lp *L3Peers) ListPeers() []string {
-	lp.peersMutex.Lock()
-	defer lp.peersMutex.Unlock()
+func (p *L3Peers) ListPeers() []string {
+	p.peersMutex.Lock()
+	defer p.peersMutex.Unlock()
 
-	l := make([]string, len(lp.peers))
+	l := make([]string, len(p.peers))
 	offset := 0
-	for k := range lp.peers {
+	for k := range p.peers {
 		l[offset] = k
 		offset++
 	}
