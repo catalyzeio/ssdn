@@ -14,16 +14,15 @@ type L3Tap struct {
 	gwIP  net.IP
 	gwMAC net.HardwareAddr
 
-	bridge *L3Bridge
+	bridge     *L3Bridge
+	routes     *RouteTracker
+	arpTracker *ARPTracker
 
 	free PacketQueue
 	out  PacketQueue
 
 	freeARP PacketQueue
 	outARP  PacketQueue
-
-	routes     *RouteTracker
-	arpTracker *ARPTracker
 }
 
 const (
@@ -61,30 +60,30 @@ func NewL3Tap(gwIP net.IP, mtu uint16, bridge *L3Bridge, routes *RouteTracker) (
 	}, nil
 }
 
-func (lt *L3Tap) Start(cli *cli.Listener) error {
-	tap, err := lt.createLinkedTap()
+func (t *L3Tap) Start(cli *cli.Listener) error {
+	tap, err := t.createLinkedTap()
 	if err != nil {
 		return err
 	}
 
-	arpTracker := NewARPTracker(lt.gwIP, lt.gwMAC)
+	arpTracker := NewARPTracker(t.gwIP, t.gwMAC)
 	arpTracker.Start()
-	lt.arpTracker = arpTracker
+	t.arpTracker = arpTracker
 
-	cli.Register("arp", "", "Shows current ARP table", 0, 0, lt.cliARPTable)
-	cli.Register("resolve", "", "Forces IP to MAC address resolution", 1, 1, lt.cliResolve)
+	cli.Register("arp", "", "Shows current ARP table", 0, 0, t.cliARPTable)
+	cli.Register("resolve", "", "Forces IP to MAC address resolution", 1, 1, t.cliResolve)
 
-	go lt.service(tap)
+	go t.service(tap)
 
 	return nil
 }
 
-func (lt *L3Tap) cliARPTable(args ...string) (string, error) {
-	table := lt.arpTracker.Get()
+func (t *L3Tap) cliARPTable(args ...string) (string, error) {
+	table := t.arpTracker.Get()
 	return fmt.Sprintf("ARP table: %s", mapValues(table.StringMap())), nil
 }
 
-func (lt *L3Tap) cliResolve(args ...string) (string, error) {
+func (t *L3Tap) cliResolve(args ...string) (string, error) {
 	ipString := args[0]
 
 	ip := net.ParseIP(ipString)
@@ -92,28 +91,28 @@ func (lt *L3Tap) cliResolve(args ...string) (string, error) {
 		return "", fmt.Errorf("invalid IP address: %s", ipString)
 	}
 
-	mac, err := lt.Resolve(ip)
+	mac, err := t.Resolve(ip)
 	if err != nil {
 		return "", err
 	}
 	return fmt.Sprintf("%s is at %s", ip, mac), nil
 }
 
-func (lt *L3Tap) SeedMAC(ip uint32, mac net.HardwareAddr) {
-	lt.arpTracker.set(ip, mac)
+func (t *L3Tap) SeedMAC(ip uint32, mac net.HardwareAddr) {
+	t.arpTracker.set(ip, mac)
 }
 
-func (lt *L3Tap) UnseedMAC(ip uint32) {
-	lt.arpTracker.unset(ip)
+func (t *L3Tap) UnseedMAC(ip uint32) {
+	t.arpTracker.unset(ip)
 }
 
-func (lt *L3Tap) Resolve(ip net.IP) (net.HardwareAddr, error) {
+func (t *L3Tap) Resolve(ip net.IP) (net.HardwareAddr, error) {
 	ip = ip.To4()
 	if ip == nil {
 		return nil, fmt.Errorf("can only resolve IPv4 addresses")
 	}
 
-	arpTracker := lt.arpTracker
+	arpTracker := t.arpTracker
 
 	resolved := make(chan []byte, 1)
 	if !arpTracker.TrackQuery(ip, resolved) {
@@ -121,8 +120,8 @@ func (lt *L3Tap) Resolve(ip net.IP) (net.HardwareAddr, error) {
 	}
 	defer arpTracker.UntrackQuery(ip)
 
-	freeARP := lt.freeARP
-	outARP := lt.outARP
+	freeARP := t.freeARP
+	outARP := t.outARP
 
 	for i := 0; i < 3; i++ {
 		// grab a free packet
@@ -150,12 +149,12 @@ func (lt *L3Tap) Resolve(ip net.IP) (net.HardwareAddr, error) {
 	return nil, fmt.Errorf("failed to resolve %s", ip)
 }
 
-func (lt *L3Tap) InboundHandler(packet *PacketBuffer) error {
-	lt.out <- packet
+func (t *L3Tap) InboundHandler(packet *PacketBuffer) error {
+	t.out <- packet
 	return nil
 }
 
-func (lt *L3Tap) createLinkedTap() (*taptun.Interface, error) {
+func (t *L3Tap) createLinkedTap() (*taptun.Interface, error) {
 	if log.IsDebugEnabled() {
 		log.Debug("Creating new tap")
 	}
@@ -169,7 +168,7 @@ func (lt *L3Tap) createLinkedTap() (*taptun.Interface, error) {
 	name := tap.Name()
 	log.Info("Created layer 3 tap %s", name)
 
-	err = lt.bridge.link(name)
+	err = t.bridge.link(name)
 	if err != nil {
 		tap.Close()
 		return nil, err
@@ -178,13 +177,13 @@ func (lt *L3Tap) createLinkedTap() (*taptun.Interface, error) {
 	return tap, err
 }
 
-func (lt *L3Tap) service(tap *taptun.Interface) {
+func (t *L3Tap) service(tap *taptun.Interface) {
 	for {
-		lt.forward(tap)
+		t.forward(tap)
 
 		for {
 			time.Sleep(time.Second)
-			newTap, err := lt.createLinkedTap()
+			newTap, err := t.createLinkedTap()
 			if err == nil {
 				tap = newTap
 				break
@@ -194,7 +193,7 @@ func (lt *L3Tap) service(tap *taptun.Interface) {
 	}
 }
 
-func (lt *L3Tap) forward(tap *taptun.Interface) {
+func (t *L3Tap) forward(tap *taptun.Interface) {
 	defer func() {
 		tap.Close()
 		log.Info("Closed tap %s", tap.Name())
@@ -202,23 +201,23 @@ func (lt *L3Tap) forward(tap *taptun.Interface) {
 
 	done := make(chan struct{}, 2)
 
-	go lt.tapReader(tap, done)
-	go lt.tapWriter(tap, done)
+	go t.tapReader(tap, done)
+	go t.tapWriter(tap, done)
 
 	<-done
 }
 
-func (lt *L3Tap) tapReader(tap *taptun.Interface, done chan<- struct{}) {
+func (t *L3Tap) tapReader(tap *taptun.Interface, done chan<- struct{}) {
 	defer func() {
 		done <- struct{}{}
 	}()
 
 	trace := log.IsTraceEnabled()
 
-	free := lt.free
-	outARP := lt.outARP
-	arpTracker := lt.arpTracker
-	routes := lt.routes
+	free := t.free
+	outARP := t.outARP
+	arpTracker := t.arpTracker
+	routes := t.routes
 
 	for {
 		// grab a free packet
@@ -274,16 +273,16 @@ func (lt *L3Tap) tapReader(tap *taptun.Interface, done chan<- struct{}) {
 	}
 }
 
-func (lt *L3Tap) tapWriter(tap *taptun.Interface, done chan<- struct{}) {
+func (t *L3Tap) tapWriter(tap *taptun.Interface, done chan<- struct{}) {
 	defer func() {
 		done <- struct{}{}
 	}()
 
 	trace := log.IsTraceEnabled()
 
-	arpTracker := lt.arpTracker
-	out := lt.out
-	outARP := lt.outARP
+	arpTracker := t.arpTracker
+	out := t.out
+	outARP := t.outARP
 
 	for {
 		// grab next outgoing packet
@@ -291,7 +290,7 @@ func (lt *L3Tap) tapWriter(tap *taptun.Interface, done chan<- struct{}) {
 		select {
 		case p = <-out:
 			// attach MAC addresses based on destination IP
-			if !arpTracker.SetDestinationMAC(p, lt.gwMAC) {
+			if !arpTracker.SetDestinationMAC(p, t.gwMAC) {
 				p.Queue <- p
 				continue
 			}
@@ -301,10 +300,10 @@ func (lt *L3Tap) tapWriter(tap *taptun.Interface, done chan<- struct{}) {
 		}
 
 		// write next outgoing packet
-		message := p.Data[:p.Length]
-		n, err := tap.Write(message)
+		frame := p.Data[:p.Length]
+		n, err := tap.Write(frame)
 		if err != nil {
-			log.Warn("Failed to relay message to tap: %s", err)
+			log.Warn("Failed to relay packet to tap: %s", err)
 			p.Queue <- p
 			return
 		}

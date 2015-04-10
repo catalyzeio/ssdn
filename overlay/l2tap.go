@@ -36,20 +36,20 @@ func NewL2Tap() (*L2Tap, error) {
 	}, nil
 }
 
-func (lt *L2Tap) Name() string {
-	return lt.name
+func (t *L2Tap) Name() string {
+	return t.name
 }
 
-func (lt *L2Tap) Close() error {
-	log.Info("Closing layer 2 tap %s", lt.name)
-	return lt.tap.Close()
+func (t *L2Tap) Close() error {
+	log.Info("Closing layer 2 tap %s", t.name)
+	return t.tap.Close()
 }
 
-func (lt *L2Tap) Forward(r *bufio.Reader, w *bufio.Writer, abort <-chan struct{}) {
+func (t *L2Tap) Forward(r *bufio.Reader, w *bufio.Writer, abort <-chan struct{}) {
 	done := make(chan struct{}, 2)
 
-	go lt.connReader(r, done)
-	go lt.connWriter(w, done)
+	go t.connReader(r, done)
+	go t.connWriter(w, done)
 
 	for {
 		select {
@@ -61,7 +61,7 @@ func (lt *L2Tap) Forward(r *bufio.Reader, w *bufio.Writer, abort <-chan struct{}
 	}
 }
 
-func (lt *L2Tap) connReader(r *bufio.Reader, done chan<- struct{}) {
+func (t *L2Tap) connReader(r *bufio.Reader, done chan<- struct{}) {
 	defer func() {
 		done <- struct{}{}
 	}()
@@ -95,7 +95,7 @@ func (lt *L2Tap) connReader(r *bufio.Reader, done chan<- struct{}) {
 		// process message
 		if discriminator == 0 {
 			// forwarded packet; write to tap
-			_, err = lt.tap.Write(message)
+			_, err = t.tap.Write(message)
 			if err != nil {
 				log.Warn("Failed to relay message to tap: %s", err)
 				return
@@ -106,7 +106,7 @@ func (lt *L2Tap) connReader(r *bufio.Reader, done chan<- struct{}) {
 	}
 }
 
-func (lt *L2Tap) connWriter(w *bufio.Writer, done chan<- struct{}) {
+func (t *L2Tap) connWriter(w *bufio.Writer, done chan<- struct{}) {
 	defer func() {
 		done <- struct{}{}
 	}()
@@ -116,7 +116,7 @@ func (lt *L2Tap) connWriter(w *bufio.Writer, done chan<- struct{}) {
 
 	for {
 		// read whole packet from tap
-		len, err := lt.tap.Read(msgBuffer)
+		len, err := t.tap.Read(msgBuffer)
 		if err != nil {
 			log.Warn("Failed to read from tap: %s", err)
 			return
