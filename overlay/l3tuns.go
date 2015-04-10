@@ -45,6 +45,7 @@ func NewL3Tuns(subnet *IPv4Route, routes *RouteTracker, mtu uint16, actionsDir s
 }
 
 func (t *L3Tuns) Start(cli *cli.Listener) {
+	t.invoker.Start()
 	// TODO reattach to containers on restarts
 
 	// rename local routes CLI action to avoid conflict with remote routes
