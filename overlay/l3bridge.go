@@ -100,6 +100,7 @@ func (b *L3Bridge) cliAttach(args ...string) (string, error) {
 		pool.FormatIP(nextIP), mac.String(),
 		pool.FormatNetwork(), pool.FormatGatewayIP())
 	if err != nil {
+		pool.Free(nextIP)
 		return "", err
 	}
 
@@ -137,12 +138,15 @@ func (b *L3Bridge) cliDetach(args ...string) (string, error) {
 
 	// detach local interface from the bridge
 	_, err = b.invoker.Execute("detach", b.name, iface.localIface)
+
+	// unconditionally clean up resources that were allocated to the interface
+	b.tap.UnseedMAC(iface.containerIP)
+	b.pool.Free(iface.containerIP)
+
+	// return any errors that occurred when detaching the interface from the bridge
 	if err != nil {
 		return "", err
 	}
-
-	// remove the entry from the ARP cache
-	b.tap.UnseedMAC(iface.containerIP)
 
 	return fmt.Sprintf("Detached from %s", container), nil
 }
