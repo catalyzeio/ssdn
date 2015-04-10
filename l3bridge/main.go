@@ -25,7 +25,7 @@ func main() {
 	overlay.AddTenantFlags()
 	overlay.AddMTUFlag()
 	overlay.AddNetworkFlag()
-	overlay.AddSubnetFlags()
+	overlay.AddSubnetFlags(true)
 	overlay.AddDirFlags()
 	proto.AddListenFlags(true)
 	proto.AddTLSFlags()

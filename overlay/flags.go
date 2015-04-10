@@ -102,9 +102,11 @@ func GetNetworkFlag() (*net.IPNet, error) {
 	return network, err
 }
 
-func AddSubnetFlags() {
+func AddSubnetFlags(gw bool) {
 	subnetFlag = flag.String("subnet", "192.168.0.0/24", "local subnet")
-	gatewayFlag = flag.String("gateway", "", "virtual gateway IP address")
+	if gw {
+		gatewayFlag = flag.String("gateway", "", "virtual gateway IP address")
+	}
 }
 
 func GetSubnetFlags() (*IPv4Route, net.IP, error) {
@@ -119,20 +121,22 @@ func GetSubnetFlags() (*IPv4Route, net.IP, error) {
 	}
 
 	var gwIP net.IP
-	if len(*gatewayFlag) > 0 {
-		// parse given gateway IP
-		gwIP = net.ParseIP(*gatewayFlag)
-		if gwIP == nil {
-			return nil, nil, fmt.Errorf("invalid gateway IP: %s", *gatewayFlag)
+	if gatewayFlag != nil {
+		if len(*gatewayFlag) > 0 {
+			// parse given gateway IP
+			gwIP = net.ParseIP(*gatewayFlag)
+			if gwIP == nil {
+				return nil, nil, fmt.Errorf("invalid gateway IP: %s", *gatewayFlag)
+			}
+			gwIP = gwIP.To4()
+			if gwIP == nil {
+				return nil, nil, fmt.Errorf("gateway IP must be IPv4: %s", *gatewayFlag)
+			}
+		} else {
+			// default to last IP in subnet
+			lastIP := route.Network | ^route.Mask - 1
+			gwIP = net.IP(IntToIPv4(lastIP))
 		}
-		gwIP = gwIP.To4()
-		if gwIP == nil {
-			return nil, nil, fmt.Errorf("gateway IP must be IPv4: %s", *gatewayFlag)
-		}
-	} else {
-		// default to last IP in subnet
-		lastIP := route.Network | ^route.Mask - 1
-		gwIP = net.IP(IntToIPv4(lastIP))
 	}
 
 	return route, gwIP, nil

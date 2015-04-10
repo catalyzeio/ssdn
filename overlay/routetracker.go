@@ -82,7 +82,11 @@ func NewRouteTracker() *RouteTracker {
 }
 
 func (rt *RouteTracker) Start(cli *cli.Listener) {
-	cli.Register("routes", "", "List all available routes", 0, 0, rt.cliRoutes)
+	rt.StartAs(cli, "routes", "List all available routes")
+}
+
+func (rt *RouteTracker) StartAs(cli *cli.Listener, command, description string) {
+	cli.Register(command, "", description, 0, 0, rt.cliRoutes)
 }
 
 func (rt *RouteTracker) cliRoutes(args ...string) (string, error) {
