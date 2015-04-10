@@ -178,9 +178,26 @@ func (rt *RouteTracker) Remove(route *IPv4Route) {
 	}
 }
 
-func (rt *RouteTracker) RoutePacket(destIP uint32, p *PacketBuffer) {
+func (rt *RouteTracker) RoutePacket(p *PacketBuffer) {
 	trace := log.IsTraceEnabled()
 
+	// XXX assumes frames have no 802.1q tagging
+
+	// ignore non-IPv4 packets
+	buff := p.Data
+	if p.Length < 34 || buff[12] != 0x08 || buff[13] != 0x00 {
+		if log.IsTraceEnabled() {
+			log.Trace("Dropped non-IPv4 packet")
+		}
+		p.Queue <- p
+		return
+	}
+
+	// pull out destination IP
+	destIPBytes := buff[30:34]
+	destIP := IPv4ToInt(destIPBytes)
+
+	// look up destination based on available routes
 	for _, r := range rt.Get() {
 		if destIP&r.Mask == r.Network {
 			if trace {
@@ -191,6 +208,7 @@ func (rt *RouteTracker) RoutePacket(destIP uint32, p *PacketBuffer) {
 		}
 	}
 
+	// no route available; return to owner
 	if trace {
 		log.Trace("No match for destination IP %d", destIP)
 	}

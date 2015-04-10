@@ -254,22 +254,8 @@ func (t *L3Tap) tapReader(tap *taptun.Interface, done chan<- struct{}) {
 
 		// TODO reply to ICMP traffic
 
-		// XXX assumes frames have no 802.1q tagging
-
-		// ignore non-IPv4 packets
-		buff := p.Data
-		if p.Length < 34 || buff[12] != 0x08 || buff[13] != 0x00 {
-			if trace {
-				log.Trace("Dropped non-IPv4 packet")
-			}
-			p.Queue <- p
-			continue
-		}
-
-		// route packet based on destination IP
-		destIP := buff[30:34]
-		key := IPv4ToInt(destIP)
-		routes.RoutePacket(key, p)
+		// route packet to its destination queue
+		routes.RoutePacket(p)
 	}
 }
 
