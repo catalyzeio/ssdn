@@ -195,7 +195,11 @@ func (t *L3Tap) service(tap *taptun.Interface) {
 
 func (t *L3Tap) forward(tap *taptun.Interface) {
 	defer func() {
-		tap.Close()
+		err := tap.Close()
+		if err != nil {
+			log.Warn("Failed to close tap: %s", err)
+		}
+
 		log.Info("Closed tap %s", tap.Name())
 	}()
 
