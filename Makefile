@@ -1,6 +1,6 @@
 GIT_REV=$(shell git rev-parse --short HEAD)
 
-VERSION=0.3.0-dev-0-${GIT_REV}
+VERSION=0.4.0-dev-0-${GIT_REV}
 
 deb: clean build
 	mkdir -p build/usr/sbin
