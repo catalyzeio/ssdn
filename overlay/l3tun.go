@@ -100,9 +100,9 @@ func (t *L3Tun) forward(tun *taptun.Interface) bool {
 		log.Info("Closed tun %s", tun.Name())
 	}()
 
-	localRoutes := t.tuns.localRoutes
-	localRoutes.Add(t.route)
-	defer localRoutes.Remove(t.route)
+	routes := t.tuns.routes
+	routes.Add(t.route)
+	defer routes.Remove(t.route)
 
 	done := make(chan struct{}, 2)
 

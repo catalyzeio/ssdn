@@ -23,8 +23,6 @@ type L3Tuns struct {
 
 	connMutex   sync.Mutex
 	connections map[string]*L3Tun
-
-	localRoutes *RouteTracker
 }
 
 func NewL3Tuns(subnet *IPv4Route, routes *RouteTracker, mtu uint16, actionsDir string, network *net.IPNet, pool *IPPool) *L3Tuns {
@@ -39,17 +37,13 @@ func NewL3Tuns(subnet *IPv4Route, routes *RouteTracker, mtu uint16, actionsDir s
 		pool:    pool,
 
 		connections: make(map[string]*L3Tun),
-
-		localRoutes: NewRouteTracker(),
 	}
 }
 
 func (t *L3Tuns) Start(cli *cli.Listener) {
 	t.invoker.Start()
-	// TODO reattach to containers on restarts
 
-	// rename local routes CLI action to avoid conflict with remote routes
-	t.localRoutes.StartAs(cli, "local", "List all local routes")
+	// TODO reattach to containers on restarts
 
 	cli.Register("attach", "[container]", "Attaches the given container to this overlay network", 1, 1, t.cliAttach)
 	cli.Register("detach", "[container]", "Detaches the given container from this overlay network", 1, 1, t.cliDetach)
@@ -57,7 +51,7 @@ func (t *L3Tuns) Start(cli *cli.Listener) {
 }
 
 func (t *L3Tuns) InboundHandler(packet *PacketBuffer) error {
-	t.localRoutes.RoutePacket(packet)
+	t.routes.RoutePacket(packet)
 	return nil
 }
 
