@@ -48,7 +48,6 @@ type atRequest struct {
 
 func NewARPTracker(localIP []byte, localMAC []byte) *ARPTracker {
 	initTable := make(ARPTable)
-	// TODO initialize ARP table with broadcast entries
 
 	return &ARPTracker{
 		localIP:  localIP,
