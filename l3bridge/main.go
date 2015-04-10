@@ -52,6 +52,10 @@ func main() {
 	if err != nil {
 		fail("Invalid subnet config: %s\n", err)
 	}
+	err = overlay.CheckSubnetInNetwork(subnet, network)
+	if err != nil {
+		fail("Invalid subnet config: %s\n", err)
+	}
 	log.Info("Local subnet: %s", subnet)
 
 	runDir, confDir, err := overlay.GetDirFlags()

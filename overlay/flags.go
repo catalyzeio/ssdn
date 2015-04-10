@@ -137,3 +137,10 @@ func GetSubnetFlags() (*IPv4Route, net.IP, error) {
 
 	return route, gwIP, nil
 }
+
+func CheckSubnetInNetwork(subnet *IPv4Route, network *net.IPNet) error {
+	if !network.Contains(net.IP(IntToIPv4(subnet.Network))) {
+		return fmt.Errorf("network %s does not contain subnet %s", network, subnet)
+	}
+	return nil
+}
