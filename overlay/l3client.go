@@ -72,8 +72,7 @@ func (c *L3Client) connHandler(conn net.Conn, abort <-chan struct{}) error {
 	// ignore connections to self
 	if remoteURL == localURL {
 		log.Warn("Dropping redundant connection to self")
-		err := peers.DeletePeer(c.remoteURL, c)
-		if err != nil {
+		if err := peers.DeletePeer(c.remoteURL, c); err != nil {
 			log.Warn("Failed to prune connection to self: %s", err)
 			c.Stop()
 		}
@@ -83,8 +82,7 @@ func (c *L3Client) connHandler(conn net.Conn, abort <-chan struct{}) error {
 	// update peer registration if remote responded with different public address
 	if c.remoteURL != remoteURL {
 		log.Info("Peer at %s is actually %s", c.remoteURL, remoteURL)
-		err := peers.UpdatePeer(c.remoteURL, remoteURL, c)
-		if err != nil {
+		if err := peers.UpdatePeer(c.remoteURL, remoteURL, c); err != nil {
 			log.Warn("Failed to update connection URL: %s", err)
 			c.Stop()
 			return nil
@@ -93,8 +91,7 @@ func (c *L3Client) connHandler(conn net.Conn, abort <-chan struct{}) error {
 	}
 
 	// send local URL and subnet
-	err = WriteL3PeerInfo(localURL, subnet, r, w)
-	if err != nil {
+	if err := WriteL3PeerInfo(localURL, subnet, r, w); err != nil {
 		return err
 	}
 
@@ -109,18 +106,15 @@ func L3Handshake(peer net.Conn) (*bufio.Reader, *bufio.Writer, error) {
 }
 
 func WriteL3PeerInfo(localURL string, subnet *IPv4Route, r *bufio.Reader, w *bufio.Writer) error {
-	_, err := w.WriteString(localURL + string(urlDelim))
-	if err != nil {
+	if _, err := w.WriteString(localURL + string(urlDelim)); err != nil {
 		return err
 	}
 
-	err = subnet.Write(w)
-	if err != nil {
+	if err := subnet.Write(w); err != nil {
 		return err
 	}
 
-	err = w.Flush()
-	if err != nil {
+	if err := w.Flush(); err != nil {
 		return err
 	}
 

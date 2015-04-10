@@ -67,8 +67,7 @@ func (t *L3Tun) createTun() (*taptun.Interface, error) {
 	name := tun.Name()
 	log.Info("Created layer 3 tun %s", name)
 
-	err = t.tuns.inject(t.container, name, t.ip)
-	if err != nil {
+	if err := t.tuns.inject(t.container, name, t.ip); err != nil {
 		tun.Close()
 		return nil, err
 	}
@@ -96,8 +95,7 @@ func (t *L3Tun) service(tun *taptun.Interface) {
 
 func (t *L3Tun) forward(tun *taptun.Interface) bool {
 	defer func() {
-		err := tun.Close()
-		if err != nil {
+		if err := tun.Close(); err != nil {
 			log.Warn("Failed to close tun: %s", err)
 		}
 

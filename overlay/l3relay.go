@@ -123,8 +123,7 @@ func (rl *L3Relay) connReader(r *bufio.Reader, done chan<- struct{}) {
 
 		// read message (skipping ethernet header)
 		message := buff[ethernetHeaderSize : ethernetHeaderSize+len]
-		_, err = io.ReadFull(r, message)
-		if err != nil {
+		if _, err := io.ReadFull(r, message); err != nil {
 			log.Warn("Failed to read message: %s", err)
 			p.Queue <- p
 			return
@@ -141,8 +140,7 @@ func (rl *L3Relay) connReader(r *bufio.Reader, done chan<- struct{}) {
 			buff[13] = 0x00
 			if handler != nil {
 				// send to handler
-				err = handler(p)
-				if err != nil {
+				if err := handler(p); err != nil {
 					log.Warn("Failed to process incoming packet message: %s", err)
 					p.Queue <- p
 					return
@@ -180,18 +178,15 @@ func (rl *L3Relay) connWriter(w *bufio.Writer, done chan<- struct{}) {
 			// send header with control discriminator
 			header[0] = 0x80
 			header[1] = 0x01
-			_, err := w.Write(header)
-			if err != nil {
+			if _, err := w.Write(header); err != nil {
 				log.Warn("Failed to write control message header: %s", err)
 				return
 			}
-			err = w.WriteByte(0)
-			if err != nil {
+			if err := w.WriteByte(0); err != nil {
 				log.Warn("Failed to write control message: %s", err)
 				return
 			}
-			err = w.Flush()
-			if err != nil {
+			if err := w.Flush(); err != nil {
 				log.Warn("Failed to flush control message: %s", err)
 				return
 			}
@@ -209,8 +204,7 @@ func (rl *L3Relay) connWriter(w *bufio.Writer, done chan<- struct{}) {
 		// send header with packet discriminator
 		header[0] = byte(len >> 8 & 0x7F)
 		header[1] = byte(len)
-		_, err := w.Write(header)
-		if err != nil {
+		if _, err := w.Write(header); err != nil {
 			log.Warn("Failed to write packet message header: %s", err)
 			p.Queue <- p
 			return
@@ -218,16 +212,14 @@ func (rl *L3Relay) connWriter(w *bufio.Writer, done chan<- struct{}) {
 
 		// send packet (skipping ethernet header) as message
 		message := buff[ethernetHeaderSize:p.Length]
-		_, err = w.Write(message)
-		if err != nil {
+		if _, err := w.Write(message); err != nil {
 			log.Warn("Failed to write packet message: %s", err)
 			p.Queue <- p
 			return
 		}
 
 		// flush queued outgoing data
-		err = w.Flush()
-		if err != nil {
+		if err := w.Flush(); err != nil {
 			log.Warn("Failed to flush packet message: %s", err)
 			p.Queue <- p
 			return

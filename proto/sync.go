@@ -73,8 +73,7 @@ func (c *SyncClient) connHandler(conn net.Conn, abort <-chan struct{}) error {
 
 	dc := directCaller{conn, r}
 	if c.Handshaker != nil {
-		err := c.Handshaker(&dc)
-		if err != nil {
+		if err := c.Handshaker(&dc); err != nil {
 			return err
 		}
 	}
@@ -91,8 +90,7 @@ func (c *SyncClient) connHandler(conn net.Conn, abort <-chan struct{}) error {
 		case <-abort:
 			return nil
 		case <-timeout:
-			err := c.IdleHandler(&dc)
-			if err != nil {
+			if err := c.IdleHandler(&dc); err != nil {
 				return err
 			}
 		case request := <-c.requests:
@@ -110,8 +108,7 @@ func (dc *directCaller) SyncCall(reqMsg []byte) ([]byte, error) {
 	if log.IsTraceEnabled() {
 		log.Trace("-> %s", reqMsg)
 	}
-	_, err := dc.conn.Write(append(reqMsg, separator))
-	if err != nil {
+	if _, err := dc.conn.Write(append(reqMsg, separator)); err != nil {
 		return nil, err
 	}
 	// read result

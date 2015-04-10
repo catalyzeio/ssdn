@@ -101,8 +101,7 @@ func (c *ReconnectClient) connect(target string, initDelay bool) bool {
 	finished := make(chan struct{}, 1)
 	if c.Handler != nil {
 		go func() {
-			err := c.Handler(conn, abort)
-			if err != nil {
+			if err := c.Handler(conn, abort); err != nil {
 				log.Warn("Error in connection handler: %s", err)
 			}
 			finished <- struct{}{}

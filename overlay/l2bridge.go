@@ -39,8 +39,7 @@ func NewL2Bridge(name string, mtu uint16, actionsDir string) *L2Bridge {
 func (b *L2Bridge) Start(cli *cli.Listener) error {
 	b.invoker.Start()
 
-	_, err := b.invoker.Execute("create", b.name)
-	if err != nil {
+	if _, err := b.invoker.Execute("create", b.name); err != nil {
 		return err
 	}
 	log.Info("Created bridge %s", b.name)
@@ -93,8 +92,7 @@ func (b *L2Bridge) cliDetach(args ...string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	_, err = b.invoker.Execute("detach", b.name, localIface)
-	if err != nil {
+	if _, err := b.invoker.Execute("detach", b.name, localIface); err != nil {
 		return "", err
 	}
 	return fmt.Sprintf("Detached from %s", container), nil

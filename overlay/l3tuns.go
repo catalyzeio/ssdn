@@ -59,8 +59,7 @@ func (t *L3Tuns) cliAttach(args ...string) (string, error) {
 	container := args[0]
 
 	// verify no existing attachment before creating tun
-	err := t.associate(container, nil)
-	if err != nil {
+	if err := t.associate(container, nil); err != nil {
 		return "", err
 	}
 
@@ -73,15 +72,13 @@ func (t *L3Tuns) cliAttach(args ...string) (string, error) {
 
 	// create and start the tun device
 	tun := NewL3Tun(container, nextIP, t)
-	err = tun.Start()
-	if err != nil {
+	if err := tun.Start(); err != nil {
 		pool.Free(nextIP)
 		return "", err
 	}
 
 	// record the successful association
-	err = t.associate(container, tun)
-	if err != nil {
+	if err := t.associate(container, tun); err != nil {
 		return "", err
 	}
 

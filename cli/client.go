@@ -43,8 +43,7 @@ func (c *Client) CallWithArgs(args ...string) (*string, error) {
 }
 
 func (c *Client) Call(request string) (*string, error) {
-	_, err := c.conn.Write(append([]byte(request), delim))
-	if err != nil {
+	if _, err := c.conn.Write(append([]byte(request), delim)); err != nil {
 		return nil, err
 	}
 	result, err := c.reader.ReadString(delim)

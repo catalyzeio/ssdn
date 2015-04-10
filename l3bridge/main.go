@@ -52,8 +52,7 @@ func main() {
 	if err != nil {
 		fail("Invalid subnet config: %s\n", err)
 	}
-	err = overlay.CheckSubnetInNetwork(subnet, network)
-	if err != nil {
+	if err := overlay.CheckSubnetInNetwork(subnet, network); err != nil {
 		fail("Invalid subnet config: %s\n", err)
 	}
 	log.Info("Local subnet: %s", subnet)
@@ -82,8 +81,7 @@ func main() {
 	routes.Start(cli)
 
 	pool := overlay.NewIPPool(subnet)
-	err = pool.Acquire(gwIP)
-	if err != nil {
+	if err := pool.Acquire(gwIP); err != nil {
 		fail("Failed to initialize IP pool: %s\n", err)
 	}
 
@@ -94,13 +92,11 @@ func main() {
 		fail("Failed to create tap: %s\n", err)
 	}
 
-	err = bridge.Start(cli, tap)
-	if err != nil {
+	if err := bridge.Start(cli, tap); err != nil {
 		fail("Failed to start bridge: %s\n", err)
 	}
 
-	err = tap.Start(cli)
-	if err != nil {
+	if err := tap.Start(cli); err != nil {
 		fail("Failed to start tap: %s\n", err)
 	}
 
@@ -108,13 +104,11 @@ func main() {
 	peers.Start(cli)
 
 	listener := overlay.NewL3Listener(peers, listenAddress, config)
-	err = listener.Start(cli)
-	if err != nil {
+	if err := listener.Start(cli); err != nil {
 		fail("Failed to start listener: %s\n", err)
 	}
 
-	err = cli.Start()
-	if err != nil {
+	if err := cli.Start(); err != nil {
 		fail("Failed to start CLI: %s\n", err)
 	}
 

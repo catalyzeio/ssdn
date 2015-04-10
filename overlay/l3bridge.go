@@ -57,8 +57,7 @@ func NewL3Bridge(name string, mtu uint16, actionsDir string, network *net.IPNet,
 func (b *L3Bridge) Start(cli *cli.Listener, tap *L3Tap) error {
 	b.invoker.Start()
 
-	_, err := b.invoker.Execute("create", b.name)
-	if err != nil {
+	if _, err := b.invoker.Execute("create", b.name); err != nil {
 		return err
 	}
 	log.Info("Created bridge %s", b.name)

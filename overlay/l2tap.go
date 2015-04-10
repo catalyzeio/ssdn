@@ -86,8 +86,7 @@ func (t *L2Tap) connReader(r *bufio.Reader, done chan<- struct{}) {
 
 		// read message
 		message := msgBuffer[:len]
-		_, err = io.ReadFull(r, message)
-		if err != nil {
+		if _, err := io.ReadFull(r, message); err != nil {
 			log.Warn("Failed to read message: %s", err)
 			return
 		}
@@ -95,8 +94,7 @@ func (t *L2Tap) connReader(r *bufio.Reader, done chan<- struct{}) {
 		// process message
 		if discriminator == 0 {
 			// forwarded packet; write to tap
-			_, err = t.tap.Write(message)
-			if err != nil {
+			if _, err := t.tap.Write(message); err != nil {
 				log.Warn("Failed to relay message to tap: %s", err)
 				return
 			}
@@ -125,23 +123,20 @@ func (t *L2Tap) connWriter(w *bufio.Writer, done chan<- struct{}) {
 		// send header with packet discriminator
 		header[0] = byte(len >> 8 & 0x7F)
 		header[1] = byte(len)
-		_, err = w.Write(header)
-		if err != nil {
+		if _, err := w.Write(header); err != nil {
 			log.Warn("Failed to write message header: %s", err)
 			return
 		}
 
 		// send packet as message
 		message := msgBuffer[:len]
-		_, err = w.Write(message)
-		if err != nil {
+		if _, err := w.Write(message); err != nil {
 			log.Warn("Failed to write message: %s", err)
 			return
 		}
 
 		// flush queued outgoing data
-		err = w.Flush()
-		if err != nil {
+		if err := w.Flush(); err != nil {
 			log.Warn("Failed to flush message: %s", err)
 			return
 		}

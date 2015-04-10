@@ -66,8 +66,7 @@ func (l *L3Listener) initialize(conn net.Conn) {
 	}
 
 	// send local URL and subnet
-	err = WriteL3PeerInfo(localURL, subnet, r, w)
-	if err != nil {
+	if err := WriteL3PeerInfo(localURL, subnet, r, w); err != nil {
 		log.Warn("Failed to send peer information to %s: %s", remoteAddr, err)
 		return
 	}

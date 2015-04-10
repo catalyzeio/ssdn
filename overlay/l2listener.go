@@ -81,15 +81,13 @@ func (l *L2Listener) service(conn net.Conn) {
 		return
 	}
 	defer func() {
-		err := tap.Close()
-		if err != nil {
+		if err := tap.Close(); err != nil {
 			log.Warn("Failed to close tap: %s", err)
 		}
 	}()
 
 	tapName := tap.Name()
-	err = l.bridge.link(tapName)
-	if err != nil {
+	if err := l.bridge.link(tapName); err != nil {
 		log.Warn("Failed to link tap to bridge: %s", err)
 		return
 	}

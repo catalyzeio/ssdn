@@ -58,8 +58,7 @@ func main() {
 	cli := cli.NewServer(runDir, tenant)
 
 	bridge := overlay.NewL2Bridge(tenantID, mtu, path.Join(confDir, "l2link.d"))
-	err = bridge.Start(cli)
-	if err != nil {
+	if err := bridge.Start(cli); err != nil {
 		fail("Failed to start bridge: %s\n", err)
 	}
 
@@ -68,14 +67,12 @@ func main() {
 
 	if listenAddress != nil {
 		listener := overlay.NewL2Listener(listenAddress, config, bridge)
-		err = listener.Start(cli)
-		if err != nil {
+		if err := listener.Start(cli); err != nil {
 			fail("Failed to start listener: %s\n", err)
 		}
 	}
 
-	err = cli.Start()
-	if err != nil {
+	if err := cli.Start(); err != nil {
 		fail("Failed to start CLI: %s\n", err)
 	}
 

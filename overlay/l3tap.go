@@ -127,8 +127,7 @@ func (t *L3Tap) Resolve(ip net.IP) (net.HardwareAddr, error) {
 		// grab a free packet
 		p := <-freeARP
 		// generate the request
-		err := arpTracker.GenerateQuery(p, ip)
-		if err != nil {
+		if err := arpTracker.GenerateQuery(p, ip); err != nil {
 			p.Queue <- p
 			return nil, err
 		}
@@ -168,8 +167,7 @@ func (t *L3Tap) createLinkedTap() (*taptun.Interface, error) {
 	name := tap.Name()
 	log.Info("Created layer 3 tap %s", name)
 
-	err = t.bridge.link(name)
-	if err != nil {
+	if err := t.bridge.link(name); err != nil {
 		tap.Close()
 		return nil, err
 	}
@@ -195,8 +193,7 @@ func (t *L3Tap) service(tap *taptun.Interface) {
 
 func (t *L3Tap) forward(tap *taptun.Interface) {
 	defer func() {
-		err := tap.Close()
-		if err != nil {
+		if err := tap.Close(); err != nil {
 			log.Warn("Failed to close tap: %s", err)
 		}
 
@@ -308,8 +305,7 @@ func (t *L3Tap) tapWriter(tap *taptun.Interface, done chan<- struct{}) {
 
 func RandomMAC() (net.HardwareAddr, error) {
 	address := make([]byte, 6)
-	_, err := rand.Read(address)
-	if err != nil {
+	if _, err := rand.Read(address); err != nil {
 		return nil, err
 	}
 

@@ -52,8 +52,7 @@ func main() {
 	if err != nil {
 		fail("Invalid subnet config: %s\n", err)
 	}
-	err = overlay.CheckSubnetInNetwork(subnet, network)
-	if err != nil {
+	if err := overlay.CheckSubnetInNetwork(subnet, network); err != nil {
 		fail("Invalid subnet config: %s\n", err)
 	}
 	log.Info("Local subnet: %s", subnet)
@@ -90,13 +89,11 @@ func main() {
 	peers.Start(cli)
 
 	listener := overlay.NewL3Listener(peers, listenAddress, config)
-	err = listener.Start(cli)
-	if err != nil {
+	if err := listener.Start(cli); err != nil {
 		fail("Failed to start listener: %s\n", err)
 	}
 
-	err = cli.Start()
-	if err != nil {
+	if err = cli.Start(); err != nil {
 		fail("Failed to start CLI: %s\n", err)
 	}
 

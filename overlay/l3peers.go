@@ -52,8 +52,7 @@ func (p *L3Peers) Start(cli *cli.Listener) {
 func (p *L3Peers) cliAddPeer(args ...string) (string, error) {
 	peerURL := args[0]
 
-	err := p.AddClient(peerURL)
-	if err != nil {
+	if err := p.AddClient(peerURL); err != nil {
 		return "", err
 	}
 	return fmt.Sprintf("Added peer %s", peerURL), nil
@@ -66,8 +65,7 @@ func (p *L3Peers) AddClient(url string) error {
 	}
 
 	// verify no existing peer before creating client
-	err = p.addClient(url, nil)
-	if err != nil {
+	if err := p.addClient(url, nil); err != nil {
 		return err
 	}
 
@@ -76,8 +74,7 @@ func (p *L3Peers) AddClient(url string) error {
 		return err
 	}
 
-	err = p.addClient(url, client)
-	if err != nil {
+	if err := p.addClient(url, client); err != nil {
 		return err
 	}
 
@@ -102,8 +99,7 @@ func (p *L3Peers) addClient(url string, peer L3Peer) error {
 func (p *L3Peers) cliDelPeer(args ...string) (string, error) {
 	peerURL := args[0]
 
-	err := p.DeletePeer(peerURL, nil)
-	if err != nil {
+	if err := p.DeletePeer(peerURL, nil); err != nil {
 		return "", err
 	}
 	return fmt.Sprintf("Deleted peer %s", peerURL), nil

@@ -33,8 +33,7 @@ func (u *L2Uplink) Start(tap *L2Tap) {
 
 func (u *L2Uplink) Stop() {
 	u.client.Stop()
-	err := u.tap.Close()
-	if err != nil {
+	if err := u.tap.Close(); err != nil {
 		log.Warn("Failed to close tap: %s", err)
 	}
 }
@@ -63,12 +62,10 @@ func Handshake(conn net.Conn, hello string) (*bufio.Reader, *bufio.Writer, error
 	r := bufio.NewReaderSize(conn, bufSize)
 	w := bufio.NewWriterSize(conn, bufSize)
 
-	_, err := w.WriteString(message)
-	if err != nil {
+	if _, err := w.WriteString(message); err != nil {
 		return nil, nil, err
 	}
-	err = w.Flush()
-	if err != nil {
+	if err := w.Flush(); err != nil {
 		return nil, nil, err
 	}
 	resp, err := r.ReadString(delim)

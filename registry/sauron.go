@@ -109,8 +109,7 @@ func call(caller proto.SyncCaller, req *message) (*message, error) {
 		return nil, err
 	}
 	resp := message{}
-	err = json.Unmarshal(respMsg, &resp)
-	if err != nil {
+	if err := json.Unmarshal(respMsg, &resp); err != nil {
 		return nil, err
 	}
 	if resp.Type == "error" {
@@ -126,8 +125,7 @@ func (reg *SauronClient) handshake(caller proto.SyncCaller) error {
 		Tenant: reg.Tenant,
 		Token:  &token,
 	}
-	_, err := call(caller, &req)
-	if err != nil {
+	if _, err := call(caller, &req); err != nil {
 		return err
 	}
 	log.Info("Authenticated as %s", reg.Tenant)
@@ -137,8 +135,7 @@ func (reg *SauronClient) handshake(caller proto.SyncCaller) error {
 			Type:     "advertise",
 			Provides: reg.ads,
 		}
-		_, err := call(caller, &req)
-		if err != nil {
+		if _, err := call(caller, &req); err != nil {
 			return err
 		}
 		log.Info("Advertised %v", reg.ads)

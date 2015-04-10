@@ -37,23 +37,20 @@ func NewIPv4Route(network *net.IPNet) (*IPv4Route, error) {
 }
 
 func (r *IPv4Route) Write(w io.Writer) error {
-	_, err := w.Write(IntToIPv4(r.Network))
-	if err != nil {
+	if _, err := w.Write(IntToIPv4(r.Network)); err != nil {
 		return err
 	}
-	_, err = w.Write(IntToIPv4(r.Mask))
+	_, err := w.Write(IntToIPv4(r.Mask))
 	return err
 }
 
 func ReadIPv4Route(r io.Reader) (*IPv4Route, error) {
 	netBytes := make([]byte, 4)
-	_, err := io.ReadFull(r, netBytes)
-	if err != nil {
+	if _, err := io.ReadFull(r, netBytes); err != nil {
 		return nil, err
 	}
 	netMask := make([]byte, 4)
-	_, err = io.ReadFull(r, netMask)
-	if err != nil {
+	if _, err := io.ReadFull(r, netMask); err != nil {
 		return nil, err
 	}
 	return &IPv4Route{

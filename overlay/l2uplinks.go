@@ -35,8 +35,7 @@ func (u *L2Uplinks) Start(cli *cli.Listener) {
 func (u *L2Uplinks) cliAddUplink(args ...string) (string, error) {
 	uplinkURL := args[0]
 
-	err := u.AddUplink(uplinkURL)
-	if err != nil {
+	if err := u.AddUplink(uplinkURL); err != nil {
 		return "", err
 	}
 	return fmt.Sprintf("Added uplink %s", uplinkURL), nil
@@ -49,8 +48,7 @@ func (u *L2Uplinks) AddUplink(url string) error {
 	}
 
 	// verify no existing uplink before creating client/tap
-	err = u.addUplink(url, nil)
-	if err != nil {
+	if err := u.addUplink(url, nil); err != nil {
 		return err
 	}
 
@@ -64,13 +62,11 @@ func (u *L2Uplinks) AddUplink(url string) error {
 		return err
 	}
 
-	err = u.bridge.link(tap.Name())
-	if err != nil {
+	if err := u.bridge.link(tap.Name()); err != nil {
 		return err
 	}
 
-	err = u.addUplink(url, uplink)
-	if err != nil {
+	if err := u.addUplink(url, uplink); err != nil {
 		return err
 	}
 
@@ -95,8 +91,7 @@ func (u *L2Uplinks) addUplink(url string, uplink *L2Uplink) error {
 func (u *L2Uplinks) cliDelUplink(args ...string) (string, error) {
 	uplinkURL := args[0]
 
-	err := u.DeleteUplink(uplinkURL)
-	if err != nil {
+	if err := u.DeleteUplink(uplinkURL); err != nil {
 		return "", err
 	}
 	return fmt.Sprintf("Deleted uplink %s", uplinkURL), nil

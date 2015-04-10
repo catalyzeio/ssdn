@@ -66,8 +66,7 @@ func (s *Listener) Start() error {
 			return fmt.Errorf("%s exists and is accepting connections; is there another instance running?", s.dsPath)
 		}
 		// remove the existing domain socket
-		err = os.Remove(s.dsPath)
-		if err != nil {
+		if err := os.Remove(s.dsPath); err != nil {
 			return err
 		}
 		log.Warn("Removed existing socket at %s", s.dsPath)
