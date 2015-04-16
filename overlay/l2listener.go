@@ -69,16 +69,20 @@ func (l *L2Listener) service(conn net.Conn) {
 
 	log.Info("Inbound connection: %s", remoteAddr)
 
+	if err := l.handle(conn, remoteAddr); err != nil {
+		log.Warn("Failed to handle inbound connection %s: %s", remoteAddr, err)
+	}
+}
+
+func (l *L2Listener) handle(conn net.Conn, remoteAddr net.Addr) error {
 	r, w, err := L2Handshake(conn)
 	if err != nil {
-		log.Warn("Failed to initialize connection to %s: %s", remoteAddr, err)
-		return
+		return err
 	}
 
 	tap, err := NewL2Tap()
 	if err != nil {
-		log.Warn("Failed to create tap: %s", err)
-		return
+		return err
 	}
 	defer func() {
 		if err := tap.Close(); err != nil {
@@ -88,16 +92,10 @@ func (l *L2Listener) service(conn net.Conn) {
 		}
 	}()
 
-	tapName := tap.Name()
-	if err := l.bridge.link(tapName); err != nil {
-		log.Warn("Failed to link tap to bridge: %s", err)
-		return
-	}
-
-	l.downlinkConnected(remoteAddr, tapName)
+	l.downlinkConnected(remoteAddr, tap.Name())
 	defer l.downlinkDisconnected(remoteAddr)
 
-	tap.Forward(r, w, nil)
+	return tap.Forward(l.bridge, r, w, nil)
 }
 
 func (l *L2Listener) downlinkConnected(addr net.Addr, tapName string) {

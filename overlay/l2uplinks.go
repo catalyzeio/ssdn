@@ -47,22 +47,13 @@ func (u *L2Uplinks) AddUplink(url string) error {
 		return err
 	}
 
-	// verify no existing uplink before creating client/tap
+	// verify no existing uplink before creating client
 	if err := u.addUplink(url, nil); err != nil {
 		return err
 	}
 
-	uplink, err := NewL2Uplink(addr, u.config)
+	uplink, err := NewL2Uplink(u.bridge, addr, u.config)
 	if err != nil {
-		return err
-	}
-
-	tap, err := NewL2Tap()
-	if err != nil {
-		return err
-	}
-
-	if err := u.bridge.link(tap.Name()); err != nil {
 		return err
 	}
 
@@ -70,7 +61,7 @@ func (u *L2Uplinks) AddUplink(url string) error {
 		return err
 	}
 
-	uplink.Start(tap)
+	uplink.Start()
 	return nil
 }
 

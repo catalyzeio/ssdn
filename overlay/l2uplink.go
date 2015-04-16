@@ -5,44 +5,47 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net"
+	"sync"
 
 	"github.com/catalyzeio/shadowfax/proto"
 )
 
 type L2Uplink struct {
+	bridge *L2Bridge
+
 	client *proto.ReconnectClient
-	tap    *L2Tap
+
+	nameMutex sync.Mutex
+	name      string
 }
 
-func NewL2Uplink(addr *proto.Address, config *tls.Config) (*L2Uplink, error) {
+func NewL2Uplink(bridge *L2Bridge, addr *proto.Address, config *tls.Config) (*L2Uplink, error) {
 	if !addr.TLS() {
 		config = nil
 	} else if config == nil {
 		return nil, fmt.Errorf("uplink %s requires TLS configuration", addr)
 	}
 
-	u := L2Uplink{}
+	u := L2Uplink{
+		bridge: bridge,
+	}
 	u.client = proto.NewClient(u.connHandler, addr.Host(), addr.Port(), config)
 	return &u, nil
 }
 
-func (u *L2Uplink) Start(tap *L2Tap) {
-	u.tap = tap
+func (u *L2Uplink) Start() {
 	u.client.Start()
 }
 
 func (u *L2Uplink) Stop() {
 	u.client.Stop()
-	tap := u.tap
-	if err := tap.Close(); err != nil {
-		log.Warn("Failed to close uplink tap: %s", err)
-	} else {
-		log.Info("Closed uplink tap %s", tap.Name())
-	}
 }
 
 func (u *L2Uplink) Name() string {
-	return u.tap.Name()
+	u.nameMutex.Lock()
+	defer u.nameMutex.Unlock()
+
+	return u.name
 }
 
 func (u *L2Uplink) connHandler(conn net.Conn, abort <-chan struct{}) error {
@@ -50,8 +53,30 @@ func (u *L2Uplink) connHandler(conn net.Conn, abort <-chan struct{}) error {
 	if err != nil {
 		return err
 	}
-	u.tap.Forward(r, w, abort)
-	return nil
+
+	tap, err := NewL2Tap()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := tap.Close(); err != nil {
+			log.Warn("Failed to close uplink tap: %s", err)
+		} else {
+			log.Info("Closed uplink tap %s", tap.Name())
+		}
+	}()
+
+	u.updateName(tap.Name())
+	defer u.updateName("")
+
+	return tap.Forward(u.bridge, r, w, abort)
+}
+
+func (u *L2Uplink) updateName(name string) {
+	u.nameMutex.Lock()
+	defer u.nameMutex.Unlock()
+
+	u.name = name
 }
 
 func L2Handshake(conn net.Conn) (*bufio.Reader, *bufio.Writer, error) {
