@@ -3,6 +3,7 @@ package overlay
 import (
 	"crypto/rand"
 	"fmt"
+	"io"
 	"net"
 	"time"
 
@@ -126,16 +127,19 @@ func (t *L3Tap) Resolve(ip net.IP) (net.HardwareAddr, error) {
 	for i := 0; i < 3; i++ {
 		// grab a free packet
 		p := <-freeARP
+
 		// generate the request
 		if err := arpTracker.GenerateQuery(p, ip); err != nil {
 			p.Queue <- p
 			return nil, err
 		}
+
 		// send the request
 		outARP <- p
 		if log.IsDebugEnabled() {
 			log.Debug("Sent ARP request for %s", ip)
 		}
+
 		// wait up to a second for the response
 		select {
 		case response := <-resolved:
@@ -200,15 +204,22 @@ func (t *L3Tap) forward(tap *taptun.Interface) {
 		}
 	}()
 
+	acc, err := tap.Accessor()
+	if err != nil {
+		log.Warn("Failed to initialize tap: %s", err)
+		return
+	}
+	defer acc.Stop()
+
 	done := make(chan struct{}, 2)
 
-	go t.tapReader(tap, done)
-	go t.tapWriter(tap, done)
+	go t.tapReader(acc, done)
+	go t.tapWriter(acc, done)
 
 	<-done
 }
 
-func (t *L3Tap) tapReader(tap *taptun.Interface, done chan<- struct{}) {
+func (t *L3Tap) tapReader(acc taptun.Accessor, done chan<- struct{}) {
 	defer func() {
 		done <- struct{}{}
 	}()
@@ -225,7 +236,11 @@ func (t *L3Tap) tapReader(tap *taptun.Interface, done chan<- struct{}) {
 		p := <-free
 
 		// read whole packet from tap
-		n, err := tap.Read(p.Data)
+		n, err := acc.Read(p.Data)
+		if err == io.EOF {
+			p.Queue <- p
+			return
+		}
 		if err != nil {
 			log.Warn("Failed to read from tap: %s", err)
 			p.Queue <- p
@@ -260,7 +275,7 @@ func (t *L3Tap) tapReader(tap *taptun.Interface, done chan<- struct{}) {
 	}
 }
 
-func (t *L3Tap) tapWriter(tap *taptun.Interface, done chan<- struct{}) {
+func (t *L3Tap) tapWriter(acc taptun.Accessor, done chan<- struct{}) {
 	defer func() {
 		done <- struct{}{}
 	}()
@@ -288,7 +303,11 @@ func (t *L3Tap) tapWriter(tap *taptun.Interface, done chan<- struct{}) {
 
 		// write next outgoing packet
 		frame := p.Data[:p.Length]
-		n, err := tap.Write(frame)
+		n, err := acc.Write(frame)
+		if err == io.EOF {
+			p.Queue <- p
+			return
+		}
 		if err != nil {
 			log.Warn("Failed to relay packet to tap: %s", err)
 			p.Queue <- p
