@@ -1,6 +1,7 @@
 package overlay
 
 import (
+	"io"
 	"time"
 
 	"github.com/catalyzeio/taptun"
@@ -110,10 +111,17 @@ func (t *L3Tun) forward(tun *taptun.Interface) bool {
 	routes.Add(t.route)
 	defer routes.Remove(t.route)
 
+	acc, err := tun.Accessor()
+	if err != nil {
+		log.Warn("Failed to initialize tun: %s", err)
+		return true
+	}
+	defer acc.Stop()
+
 	done := make(chan struct{}, 2)
 
-	go t.tunReader(tun, done)
-	go t.tunWriter(tun, done)
+	go t.tunReader(acc, done)
+	go t.tunWriter(acc, done)
 
 	for {
 		select {
@@ -125,11 +133,13 @@ func (t *L3Tun) forward(tun *taptun.Interface) bool {
 	}
 }
 
-// XXX The packet buffers below leave space for an Ethernet frame, even though
-// tun devices do not include layer 2 framing. The additional (empty) offsets
-// are for compatibility with the existing L3Relay code.
+/*
+XXX The packet buffers below leave space for an Ethernet frame, even
+though tun devices do not include layer 2 framing. The additional
+(empty) offsets are for compatibility with the existing L3Relay code.
+*/
 
-func (t *L3Tun) tunReader(tun *taptun.Interface, done chan<- struct{}) {
+func (t *L3Tun) tunReader(acc taptun.Accessor, done chan<- struct{}) {
 	defer func() {
 		done <- struct{}{}
 	}()
@@ -143,13 +153,13 @@ func (t *L3Tun) tunReader(tun *taptun.Interface, done chan<- struct{}) {
 		// grab a free packet
 		p := <-free
 
-		// XXX On some Linux kernel versions, the following read call will stay
-		// blocked even if the underlying tun file descriptor is closed. The call
-		// will eventually return the next time a packet is written to the interface.
-
 		// read whole packet from tun (skipping ethernet header)
 		buff := p.Data
-		n, err := tun.Read(buff[ethernetHeaderSize:])
+		n, err := acc.Read(buff[ethernetHeaderSize:])
+		if err == io.EOF {
+			p.Queue <- p
+			return
+		}
 		if err != nil {
 			log.Warn("Failed to read from tun: %s", err)
 			p.Queue <- p
@@ -169,7 +179,7 @@ func (t *L3Tun) tunReader(tun *taptun.Interface, done chan<- struct{}) {
 	}
 }
 
-func (t *L3Tun) tunWriter(tun *taptun.Interface, done chan<- struct{}) {
+func (t *L3Tun) tunWriter(acc taptun.Accessor, done chan<- struct{}) {
 	defer func() {
 		done <- struct{}{}
 	}()
@@ -184,7 +194,11 @@ func (t *L3Tun) tunWriter(tun *taptun.Interface, done chan<- struct{}) {
 
 		// write next outgoing packet (skipping ethernet header)
 		payload := p.Data[ethernetHeaderSize:p.Length]
-		n, err := tun.Write(payload)
+		n, err := acc.Write(payload)
+		if err == io.EOF {
+			p.Queue <- p
+			return
+		}
 		if err != nil {
 			log.Warn("Failed to relay packet to tun: %s", err)
 			p.Queue <- p
