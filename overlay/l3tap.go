@@ -195,9 +195,9 @@ func (t *L3Tap) forward(tap *taptun.Interface) {
 	defer func() {
 		if err := tap.Close(); err != nil {
 			log.Warn("Failed to close tap: %s", err)
+		} else {
+			log.Info("Closed tap %s", tap.Name())
 		}
-
-		log.Info("Closed tap %s", tap.Name())
 	}()
 
 	done := make(chan struct{}, 2)

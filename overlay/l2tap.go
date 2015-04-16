@@ -41,7 +41,6 @@ func (t *L2Tap) Name() string {
 }
 
 func (t *L2Tap) Close() error {
-	log.Info("Closing layer 2 tap %s", t.name)
 	return t.tap.Close()
 }
 

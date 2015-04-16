@@ -97,9 +97,9 @@ func (t *L3Tun) forward(tun *taptun.Interface) bool {
 	defer func() {
 		if err := tun.Close(); err != nil {
 			log.Warn("Failed to close tun: %s", err)
+		} else {
+			log.Info("Closed tun %s", tun.Name())
 		}
-
-		log.Info("Closed tun %s", tun.Name())
 	}()
 
 	routes := t.tuns.routes

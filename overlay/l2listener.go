@@ -82,7 +82,9 @@ func (l *L2Listener) service(conn net.Conn) {
 	}
 	defer func() {
 		if err := tap.Close(); err != nil {
-			log.Warn("Failed to close tap: %s", err)
+			log.Warn("Failed to close downlink tap: %s", err)
+		} else {
+			log.Info("Closed downlink tap %s", tap.Name())
 		}
 	}()
 

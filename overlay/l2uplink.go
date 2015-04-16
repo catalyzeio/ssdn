@@ -33,8 +33,11 @@ func (u *L2Uplink) Start(tap *L2Tap) {
 
 func (u *L2Uplink) Stop() {
 	u.client.Stop()
-	if err := u.tap.Close(); err != nil {
-		log.Warn("Failed to close tap: %s", err)
+	tap := u.tap
+	if err := tap.Close(); err != nil {
+		log.Warn("Failed to close uplink tap: %s", err)
+	} else {
+		log.Info("Closed uplink tap %s", tap.Name())
 	}
 }
 
