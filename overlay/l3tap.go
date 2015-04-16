@@ -180,7 +180,7 @@ func (t *L3Tap) service(tap *taptun.Interface) {
 		t.forward(tap)
 
 		for {
-			time.Sleep(time.Second)
+			time.Sleep(5 * time.Second)
 			newTap, err := t.createLinkedTap()
 			if err == nil {
 				tap = newTap

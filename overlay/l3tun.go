@@ -82,7 +82,11 @@ func (t *L3Tun) service(tun *taptun.Interface) {
 		}
 
 		for {
-			time.Sleep(time.Second)
+			select {
+			case <-t.control:
+				return
+			case <-time.After(5 * time.Second):
+			}
 			newTun, err := t.createTun()
 			if err == nil {
 				tun = newTun
