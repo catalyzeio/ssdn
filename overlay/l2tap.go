@@ -49,10 +49,16 @@ func (t *L2Tap) Forward(bridge *L2Bridge, r *bufio.Reader, w *bufio.Writer, abor
 		return err
 	}
 
+	acc, err := t.tap.Accessor()
+	if err != nil {
+		return err
+	}
+	defer acc.Stop()
+
 	done := make(chan struct{}, 2)
 
-	go t.connReader(r, done)
-	go t.connWriter(w, done)
+	go tapConnReader(r, acc, done)
+	go tapConnWriter(w, acc, done)
 
 	for {
 		select {
@@ -64,7 +70,7 @@ func (t *L2Tap) Forward(bridge *L2Bridge, r *bufio.Reader, w *bufio.Writer, abor
 	}
 }
 
-func (t *L2Tap) connReader(r *bufio.Reader, done chan<- struct{}) {
+func tapConnReader(r *bufio.Reader, acc taptun.Accessor, done chan<- struct{}) {
 	defer func() {
 		done <- struct{}{}
 	}()
@@ -97,7 +103,7 @@ func (t *L2Tap) connReader(r *bufio.Reader, done chan<- struct{}) {
 		// process message
 		if discriminator == 0 {
 			// forwarded packet; write to tap
-			if _, err := t.tap.Write(message); err != nil {
+			if _, err := acc.Write(message); err != nil {
 				log.Warn("Failed to relay message to tap: %s", err)
 				return
 			}
@@ -107,7 +113,7 @@ func (t *L2Tap) connReader(r *bufio.Reader, done chan<- struct{}) {
 	}
 }
 
-func (t *L2Tap) connWriter(w *bufio.Writer, done chan<- struct{}) {
+func tapConnWriter(w *bufio.Writer, acc taptun.Accessor, done chan<- struct{}) {
 	defer func() {
 		done <- struct{}{}
 	}()
@@ -117,7 +123,7 @@ func (t *L2Tap) connWriter(w *bufio.Writer, done chan<- struct{}) {
 
 	for {
 		// read whole packet from tap
-		len, err := t.tap.Read(msgBuffer)
+		len, err := acc.Read(msgBuffer)
 		if err != nil {
 			log.Warn("Failed to read from tap: %s", err)
 			return
