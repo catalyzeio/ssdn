@@ -13,7 +13,7 @@ import (
 	"github.com/catalyzeio/shadowfax/proto"
 )
 
-var log = dumblog.NewLogger("l3bridge")
+var log = dumblog.NewLogger("l2link")
 
 func fail(format string, args ...interface{}) {
 	fmt.Fprintf(os.Stderr, format, args...)
