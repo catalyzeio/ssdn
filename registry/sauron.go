@@ -56,7 +56,8 @@ type message struct {
 }
 
 const (
-	pingInterval = 30 * time.Second
+	sauronDefaultPort = 7411
+	pingInterval      = 30 * time.Second
 )
 
 func NewSauronClient(tenant string, host string, port int, config *tls.Config) *SauronClient {

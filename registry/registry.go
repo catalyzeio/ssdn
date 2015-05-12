@@ -4,8 +4,9 @@ import (
 	"crypto/tls"
 	"flag"
 	"fmt"
-
-	"github.com/catalyzeio/shadowfax/proto"
+	"net"
+	"net/url"
+	"strconv"
 )
 
 type Client interface {
@@ -30,16 +31,33 @@ func NewClient(tenant string, config *tls.Config, registryURL string) (Client, e
 		return nil, nil
 	}
 
-	// TODO support DNS names in host portion of URL
-	addr, err := proto.ParseAddress(registryURL)
+	u, err := url.Parse(registryURL)
 	if err != nil {
 		return nil, err
 	}
-	if !addr.TLS() {
-		config = nil
-	} else if config == nil {
-		return nil, fmt.Errorf("registry server %s requires TLS configuration", addr)
+
+	scheme := u.Scheme
+	tls := false
+	if scheme == "tcps" {
+		tls = true
+	} else if scheme != "tcp" {
+		return nil, fmt.Errorf("unsupported scheme: %s", scheme)
 	}
 
-	return NewSauronClient(tenant, addr.Host(), addr.Port(), config), nil
+	if !tls {
+		config = nil
+	} else {
+		return nil, fmt.Errorf("registry server %s requires TLS configuration", registryURL)
+	}
+
+	var port int = sauronDefaultPort
+	host, portStr, err := net.SplitHostPort(u.Host)
+	if err == nil {
+		port, err = strconv.Atoi(portStr)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return NewSauronClient(tenant, host, port, config), nil
 }
