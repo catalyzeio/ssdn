@@ -56,7 +56,7 @@ type message struct {
 }
 
 const (
-	pingInterval = 15 * time.Second
+	pingInterval = 30 * time.Second
 )
 
 func NewRegistry(tenant string, host string, port int, config *tls.Config) *SauronClient {
