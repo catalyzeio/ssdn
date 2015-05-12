@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"time"
 
 	"github.com/catalyzeio/shadowfax/cli"
 	"github.com/catalyzeio/shadowfax/dumblog"
 	"github.com/catalyzeio/shadowfax/overlay"
 	"github.com/catalyzeio/shadowfax/proto"
+	"github.com/catalyzeio/shadowfax/registry"
 )
 
 var log = dumblog.NewLogger("l3direct")
@@ -29,6 +29,7 @@ func main() {
 	overlay.AddDirFlags()
 	proto.AddListenFlags(true)
 	proto.AddTLSFlags()
+	registry.AddRegistryFlags()
 	flag.Parse()
 
 	tenant, tenantID, err := overlay.GetTenantFlags()
@@ -97,8 +98,15 @@ func main() {
 		fail("Failed to start CLI: %s\n", err)
 	}
 
-	// TODO registry integration
-	for {
-		time.Sleep(time.Hour)
+	registryClient, err := registry.GenerateClient(tenant, config)
+	if err != nil {
+		fail("Failed to start registry client: %s\n", err)
+	}
+	if registryClient != nil {
+		advertiseAddress := listenAddress.PublicString()
+		overlay.WatchRegistry(registryClient, "sfl3", advertiseAddress, peers)
+	} else {
+		stall := make(chan interface{})
+		<-stall
 	}
 }

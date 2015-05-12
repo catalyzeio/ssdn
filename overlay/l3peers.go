@@ -49,6 +49,10 @@ func (p *L3Peers) Start(cli *cli.Listener) {
 	cli.Register("peers", "", "List all active peers", 0, 0, p.cliPeers)
 }
 
+func (p *L3Peers) UpdatePeers(peerURLs map[string]struct{}) {
+	// TODO
+}
+
 func (p *L3Peers) cliAddPeer(args ...string) (string, error) {
 	peerURL := args[0]
 
