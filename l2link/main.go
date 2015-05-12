@@ -86,7 +86,7 @@ func main() {
 		if listenAddress != nil {
 			advertiseAddress = listenAddress.PublicString()
 		}
-		overlay.WatchRegistry(registryClient, "sfl2", advertiseAddress, bridge)
+		overlay.WatchRegistry(registryClient, "sfl2", advertiseAddress, uplinks)
 	} else {
 		stall := make(chan interface{})
 		<-stall

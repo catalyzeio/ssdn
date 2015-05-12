@@ -32,6 +32,47 @@ func (u *L2Uplinks) Start(cli *cli.Listener) {
 	cli.Register("uplinks", "", "List all active uplinks", 0, 0, u.cliUplinks)
 }
 
+func (u *L2Uplinks) UpdatePeers(peerURLs map[string]struct{}) {
+	removed := make(map[string]*L2Uplink)
+	added := make(map[string]struct{})
+	u.processUpdate(peerURLs, removed, added)
+
+	for url, uplink := range removed {
+		uplink.Stop()
+		log.Info("Removed obsolete uplink %s", url)
+	}
+
+	for url := range added {
+		log.Info("Discovered uplink %s", url)
+		err := u.AddUplink(url)
+		if err != nil {
+			log.Warn("Failed to add client for uplink at %s: %s", url, err)
+		}
+	}
+}
+
+func (u *L2Uplinks) processUpdate(current map[string]struct{}, removed map[string]*L2Uplink, added map[string]struct{}) {
+	u.uplinksMutex.Lock()
+	defer u.uplinksMutex.Unlock()
+
+	// record which uplinks were removed
+	for url, uplink := range u.uplinks {
+		_, present := current[url]
+		if !present {
+			removed[url] = uplink
+			delete(u.uplinks, url)
+		}
+	}
+
+	// record which uplinks were added
+	for url := range current {
+		_, present := u.uplinks[url]
+		if !present {
+			added[url] = struct{}{}
+		}
+	}
+}
+
 func (u *L2Uplinks) cliAddUplink(args ...string) (string, error) {
 	uplinkURL := args[0]
 

@@ -54,10 +54,6 @@ func (b *L2Bridge) Start(cli *cli.Listener) error {
 	return nil
 }
 
-func (b *L2Bridge) UpdatePeers(peerURLs map[string]struct{}) {
-	// TODO
-}
-
 func (b *L2Bridge) cliAttach(args ...string) (string, error) {
 	container := args[0]
 

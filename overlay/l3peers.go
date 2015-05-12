@@ -50,7 +50,44 @@ func (p *L3Peers) Start(cli *cli.Listener) {
 }
 
 func (p *L3Peers) UpdatePeers(peerURLs map[string]struct{}) {
-	// TODO
+	removed := make(map[string]L3Peer)
+	added := make(map[string]struct{})
+	p.processUpdate(peerURLs, removed, added)
+
+	for url, peer := range removed {
+		peer.Stop()
+		log.Info("Removed obsolete peer %s", url)
+	}
+
+	for url := range added {
+		log.Info("Discovered peer %s", url)
+		err := p.AddClient(url)
+		if err != nil {
+			log.Warn("Failed to add client for peer at %s: %s", url, err)
+		}
+	}
+}
+
+func (p *L3Peers) processUpdate(current map[string]struct{}, removed map[string]L3Peer, added map[string]struct{}) {
+	p.peersMutex.Lock()
+	defer p.peersMutex.Unlock()
+
+	// record which peers were removed
+	for url, peer := range p.peers {
+		_, present := current[url]
+		if !present {
+			removed[url] = peer
+			delete(p.peers, url)
+		}
+	}
+
+	// record which peers were added
+	for url := range current {
+		_, present := p.peers[url]
+		if !present {
+			added[url] = struct{}{}
+		}
+	}
 }
 
 func (p *L3Peers) cliAddPeer(args ...string) (string, error) {
