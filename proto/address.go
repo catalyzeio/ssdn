@@ -11,10 +11,11 @@ import (
 )
 
 type Address struct {
-	ip       net.IP
-	publicIP net.IP
-	port     uint16
-	tls      bool
+	ip        net.IP
+	publicIP  net.IP
+	port      uint16
+	boundPort uint16
+	tls       bool
 }
 
 var listenFlag *bool
@@ -130,6 +131,21 @@ func ParseAddress(addressURL string) (*Address, error) {
 
 func (a *Address) Listen(config *tls.Config) (net.Listener, error) {
 	loc := net.JoinHostPort(a.Host(), strconv.Itoa(a.Port()))
+	listener, err := a.listen(loc, config)
+	if err == nil {
+		boundAddress := listener.Addr()
+		tcpAddress, ok := boundAddress.(*net.TCPAddr)
+		if ok {
+			a.boundPort = uint16(tcpAddress.Port)
+		} else {
+			log.Warn("Could not determine bound port for listener on %s", loc)
+			a.boundPort = a.port
+		}
+	}
+	return listener, err
+}
+
+func (a *Address) listen(loc string, config *tls.Config) (net.Listener, error) {
 	if a.tls {
 		return tls.Listen("tcp", loc, config)
 	}
@@ -149,17 +165,17 @@ func (a *Address) TLS() bool {
 }
 
 func (a *Address) PublicString() string {
-	return a.urlString(a.publicIP)
+	return a.urlString(a.publicIP, a.boundPort)
 }
 
 func (a *Address) String() string {
-	return a.urlString(a.ip)
+	return a.urlString(a.ip, a.port)
 }
 
-func (a *Address) urlString(ip net.IP) string {
+func (a *Address) urlString(ip net.IP, port uint16) string {
 	proto := "tcp"
 	if a.tls {
 		proto = "tcps"
 	}
-	return fmt.Sprintf("%s://%s:%d", proto, ip, a.port)
+	return fmt.Sprintf("%s://%s:%d", proto, ip, port)
 }
