@@ -50,7 +50,6 @@ func NewTLSConfig(useTLS bool, certFile, keyFile, caFile string) (*tls.Config, e
 		}
 	}
 
-	// TODO benchmark ciphers
 	// TODO client certificate validation
 
 	config := tls.Config{
@@ -59,7 +58,7 @@ func NewTLSConfig(useTLS bool, certFile, keyFile, caFile string) (*tls.Config, e
 		PreferServerCipherSuites: true,
 		SessionTicketsDisabled:   true,
 		MinVersion:               tls.VersionTLS12,
-		CipherSuites:             []uint16{tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA},
+		CipherSuites:             []uint16{tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256},
 		InsecureSkipVerify:       true,
 	}
 	return &config, nil
