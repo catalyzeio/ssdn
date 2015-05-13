@@ -57,6 +57,8 @@ func NewClient(tenant string, config *tls.Config, registryURL string) (Client, e
 		if err != nil {
 			return nil, err
 		}
+	} else {
+		host = u.Host
 	}
 
 	return NewSauronClient(tenant, host, port, config), nil
