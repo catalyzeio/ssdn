@@ -16,8 +16,9 @@ type L3Peer interface {
 
 type L3Peers struct {
 	localURL string
-	subnet   *IPv4Route
-	routes   *RouteTracker
+
+	subnet *IPv4Route
+	routes *RouteTracker
 
 	config *tls.Config
 	mtu    uint16
@@ -28,11 +29,10 @@ type L3Peers struct {
 	peers      map[string]L3Peer
 }
 
-func NewL3Peers(localURL string, subnet *IPv4Route, routes *RouteTracker, config *tls.Config, mtu uint16, handler InboundHandler) *L3Peers {
+func NewL3Peers(subnet *IPv4Route, routes *RouteTracker, config *tls.Config, mtu uint16, handler InboundHandler) *L3Peers {
 	return &L3Peers{
-		localURL: localURL,
-		subnet:   subnet,
-		routes:   routes,
+		subnet: subnet,
+		routes: routes,
 
 		config: config,
 		mtu:    mtu,
@@ -43,7 +43,9 @@ func NewL3Peers(localURL string, subnet *IPv4Route, routes *RouteTracker, config
 	}
 }
 
-func (p *L3Peers) Start(cli *cli.Listener) {
+func (p *L3Peers) Start(cli *cli.Listener, localURL string) {
+	p.localURL = localURL
+
 	cli.Register("addpeer", "[proto://host:port]", "Adds a peer at the specified address", 1, 1, p.cliAddPeer)
 	cli.Register("delpeer", "[proto://host:port]", "Deletes the peer at the specified address", 1, 1, p.cliDelPeer)
 	cli.Register("peers", "", "List all active peers", 0, 0, p.cliPeers)

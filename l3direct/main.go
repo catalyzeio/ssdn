@@ -86,13 +86,14 @@ func main() {
 	tuns := overlay.NewL3Tuns(subnet, routes, mtu, path.Join(confDir, "l3direct.d"), network, pool)
 	tuns.Start(cli)
 
-	peers := overlay.NewL3Peers(listenAddress.PublicString(), subnet, routes, config, mtu, tuns.InboundHandler)
-	peers.Start(cli)
+	peers := overlay.NewL3Peers(subnet, routes, config, mtu, tuns.InboundHandler)
 
 	listener := overlay.NewL3Listener(peers, listenAddress, config)
 	if err := listener.Start(cli); err != nil {
 		fail("Failed to start listener: %s\n", err)
 	}
+
+	peers.Start(cli, listenAddress.PublicString())
 
 	if err = cli.Start(); err != nil {
 		fail("Failed to start CLI: %s\n", err)

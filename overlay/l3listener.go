@@ -55,7 +55,7 @@ func (l *L3Listener) initialize(conn net.Conn) {
 	}()
 
 	peers := l.peers
-	localURL := peers.localURL
+	localURL := l.address.PublicString()
 	subnet := peers.subnet
 
 	// basic handshake
