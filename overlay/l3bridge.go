@@ -7,8 +7,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/catalyzeio/ssdn/actions"
-	"github.com/catalyzeio/ssdn/cli"
+	"github.com/catalyzeio/go-core/actions"
 )
 
 type L3Bridge struct {
@@ -54,7 +53,7 @@ func NewL3Bridge(name string, mtu uint16, actionsDir string, network *net.IPNet,
 	}
 }
 
-func (b *L3Bridge) Start(cli *cli.Listener, tap *L3Tap) error {
+func (b *L3Bridge) Start(tap *L3Tap) error {
 	b.invoker.Start()
 
 	if _, err := b.invoker.Execute("create", b.name); err != nil {
@@ -67,26 +66,20 @@ func (b *L3Bridge) Start(cli *cli.Listener, tap *L3Tap) error {
 
 	b.tap = tap
 
-	cli.Register("attach", "[container]", "Attaches the given container to this overlay network", 1, 1, b.cliAttach)
-	cli.Register("detach", "[container]", "Detaches the given container from this overlay network", 1, 1, b.cliDetach)
-	cli.Register("connections", "", "Lists all containers attached to this overlay network", 0, 0, b.cliConnections)
-
 	return nil
 }
 
-func (b *L3Bridge) cliAttach(args ...string) (string, error) {
-	container := args[0]
-
+func (b *L3Bridge) Attach(container string) error {
 	// grab the next local interface
 	iface, err := b.associate(container)
 	if err != nil {
-		return "", err
+		return err
 	}
 
 	// generate a MAC address
 	mac, err := RandomMAC()
 	if err != nil {
-		return "", err
+		return err
 	}
 	iface.containerMAC = mac
 
@@ -94,7 +87,7 @@ func (b *L3Bridge) cliAttach(args ...string) (string, error) {
 	pool := b.pool
 	nextIP, err := pool.Next()
 	if err != nil {
-		return "", err
+		return err
 	}
 	iface.containerIP = nextIP
 
@@ -105,13 +98,13 @@ func (b *L3Bridge) cliAttach(args ...string) (string, error) {
 		b.network.String(), b.gwIP.String())
 	if err != nil {
 		pool.Free(nextIP)
-		return "", err
+		return err
 	}
 
 	// seed the gateway's ARP cache
 	b.tap.SeedMAC(iface.containerIP, iface.containerMAC)
 
-	return fmt.Sprintf("Attached to %s", container), nil
+	return nil
 }
 
 func (b *L3Bridge) associate(container string) (*l3Interface, error) {
@@ -131,13 +124,11 @@ func (b *L3Bridge) associate(container string) (*l3Interface, error) {
 	return iface, nil
 }
 
-func (b *L3Bridge) cliDetach(args ...string) (string, error) {
-	container := args[0]
-
+func (b *L3Bridge) Detach(container string) error {
 	// remove container association
 	iface, err := b.unassociate(container)
 	if err != nil {
-		return "", err
+		return err
 	}
 
 	// detach local interface from the bridge
@@ -148,11 +139,7 @@ func (b *L3Bridge) cliDetach(args ...string) (string, error) {
 	b.pool.Free(iface.containerIP)
 
 	// return any errors that occurred when detaching the interface from the bridge
-	if err != nil {
-		return "", err
-	}
-
-	return fmt.Sprintf("Detached from %s", container), nil
+	return err
 }
 
 func (b *L3Bridge) unassociate(container string) (*l3Interface, error) {
@@ -167,8 +154,8 @@ func (b *L3Bridge) unassociate(container string) (*l3Interface, error) {
 	return iface, nil
 }
 
-func (b *L3Bridge) cliConnections(args ...string) (string, error) {
-	return b.listConnections(), nil
+func (b *L3Bridge) Connections() map[string]string {
+	return b.listConnections()
 }
 
 func (b *L3Bridge) listConnections() string {

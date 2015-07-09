@@ -1,10 +1,13 @@
-package main
+package cmd
 
 import (
 	"flag"
 	"fmt"
 	"os"
 	"path"
+
+	"github.com/catalyzeio/go-core/comm"
+	"github.com/catalyzeio/go-core/simplelog"
 
 	"github.com/catalyzeio/ssdn/cli"
 	"github.com/catalyzeio/ssdn/dumblog"
@@ -13,22 +16,17 @@ import (
 	"github.com/catalyzeio/ssdn/registry"
 )
 
-var log = dumblog.NewLogger("l3bridge")
+func StartL3Direct() {
+	log := simplelog.NewLogger("l3direct")
 
-func fail(format string, args ...interface{}) {
-	fmt.Fprintf(os.Stderr, format, args...)
-	os.Exit(1)
-}
-
-func main() {
-	dumblog.AddFlags()
+	simplelog.AddFlags()
 	overlay.AddTenantFlags()
 	overlay.AddMTUFlag()
 	overlay.AddNetworkFlag()
-	overlay.AddSubnetFlags(true)
+	overlay.AddSubnetFlags(false)
 	overlay.AddDirFlags()
-	proto.AddListenFlags(true)
-	proto.AddTLSFlags()
+	comm.AddListenFlags(true)
+	comm.AddTLSFlags()
 	registry.AddRegistryFlags()
 	flag.Parse()
 
@@ -49,7 +47,7 @@ func main() {
 	}
 	log.Info("Overlay network: %s", network)
 
-	subnet, gwIP, err := overlay.GetSubnetFlags()
+	subnet, _, err := overlay.GetSubnetFlags()
 	if err != nil {
 		fail("Invalid subnet config: %s\n", err)
 	}
@@ -82,26 +80,11 @@ func main() {
 	routes.Start(cli)
 
 	pool := overlay.NewIPPool(subnet)
-	if err := pool.Acquire(gwIP); err != nil {
-		fail("Failed to initialize IP pool: %s\n", err)
-	}
 
-	bridge := overlay.NewL3Bridge(tenantID, mtu, path.Join(confDir, "l3bridge.d"), network, pool, gwIP)
+	tuns := overlay.NewL3Tuns(subnet, routes, mtu, path.Join(confDir, "l3direct.d"), network, pool)
+	tuns.Start(cli)
 
-	tap, err := overlay.NewL3Tap(gwIP, mtu, bridge, routes)
-	if err != nil {
-		fail("Failed to create tap: %s\n", err)
-	}
-
-	if err := bridge.Start(cli, tap); err != nil {
-		fail("Failed to start bridge: %s\n", err)
-	}
-
-	if err := tap.Start(cli); err != nil {
-		fail("Failed to start tap: %s\n", err)
-	}
-
-	peers := overlay.NewL3Peers(subnet, routes, config, mtu, tap.InboundHandler)
+	peers := overlay.NewL3Peers(subnet, routes, config, mtu, tuns.InboundHandler)
 
 	listener := overlay.NewL3Listener(peers, listenAddress, config)
 	if err := listener.Start(cli); err != nil {
@@ -110,7 +93,7 @@ func main() {
 
 	peers.Start(cli, listenAddress.PublicString())
 
-	if err := cli.Start(); err != nil {
+	if err = cli.Start(); err != nil {
 		fail("Failed to start CLI: %s\n", err)
 	}
 

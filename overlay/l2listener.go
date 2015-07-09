@@ -7,12 +7,11 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/catalyzeio/ssdn/cli"
-	"github.com/catalyzeio/ssdn/proto"
+	"github.com/catalyzeio/go-core/comm"
 )
 
 type L2Listener struct {
-	address *proto.Address
+	address *comm.Address
 	config  *tls.Config
 	bridge  *L2Bridge
 
@@ -20,7 +19,7 @@ type L2Listener struct {
 	downlinks      map[string]string
 }
 
-func NewL2Listener(address *proto.Address, config *tls.Config, bridge *L2Bridge) *L2Listener {
+func NewL2Listener(address *comm.Address, config *tls.Config, bridge *L2Bridge) *L2Listener {
 	return &L2Listener{
 		address: address,
 		config:  config,
@@ -30,20 +29,18 @@ func NewL2Listener(address *proto.Address, config *tls.Config, bridge *L2Bridge)
 	}
 }
 
-func (l *L2Listener) Start(cli *cli.Listener) error {
+func (l *L2Listener) Start() error {
 	listener, err := l.address.Listen(l.config)
 	if err != nil {
 		return err
 	}
 	go l.accept(listener)
 
-	cli.Register("downlinks", "", "List all active downlinks", 0, 0, l.cliDownlinks)
-
 	return nil
 }
 
-func (l *L2Listener) cliDownlinks(args ...string) (string, error) {
-	return l.listDownlinks(), nil
+func (l *L2Listener) Downlinks() map[string]string {
+	return l.snapshot()
 }
 
 func (l *L2Listener) accept(listener net.Listener) {
@@ -112,17 +109,9 @@ func (l *L2Listener) downlinkDisconnected(addr net.Addr) {
 	delete(l.downlinks, addr.String())
 }
 
-func (l *L2Listener) listDownlinks() string {
+func (l *L2Listener) snapshot() map[string]string {
 	l.downlinksMutex.Lock()
 	defer l.downlinksMutex.Unlock()
 
-	return fmt.Sprintf("Downlinks: %s", mapValues(l.downlinks))
-}
-
-func mapValues(m map[string]string) string {
-	var entries []string
-	for k, v := range m {
-		entries = append(entries, fmt.Sprintf("%s via %s", k, v))
-	}
-	return strings.Join(entries, ", ")
+	return copyMap(l.downlinks)
 }

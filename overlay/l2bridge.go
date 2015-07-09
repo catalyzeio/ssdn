@@ -5,8 +5,7 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/catalyzeio/ssdn/actions"
-	"github.com/catalyzeio/ssdn/cli"
+	"github.com/catalyzeio/go-core/actions"
 )
 
 type L2Bridge struct {
@@ -47,27 +46,20 @@ func (b *L2Bridge) Start(cli *cli.Listener) error {
 	// TODO restore existing state (bridge, veth pairs kept)
 	// TODO recover on reboots (bridge, veth pairs killed)
 
-	cli.Register("attach", "[container]", "Attaches the given container to this overlay network", 1, 1, b.cliAttach)
-	cli.Register("detach", "[container]", "Detaches the given container from this overlay network", 1, 1, b.cliDetach)
-	cli.Register("connections", "", "Lists all containers attached to this overlay network", 0, 0, b.cliConnections)
-
 	return nil
 }
 
-func (b *L2Bridge) cliAttach(args ...string) (string, error) {
-	container := args[0]
-
+func (b *L2Bridge) Attach(container string) error {
 	localIface, err := b.associate(container)
 	if err != nil {
-		return "", err
+		return err
 	}
 	_, err = b.invoker.Execute("attach", b.name, b.mtu, container,
 		localIface, containerIface)
 	if err != nil {
-		return "", err
+		return err
 	}
-
-	return fmt.Sprintf("Attached to %s", container), nil
+	return nil
 }
 
 func (b *L2Bridge) associate(container string) (string, error) {
@@ -85,17 +77,15 @@ func (b *L2Bridge) associate(container string) (string, error) {
 	return localIface, nil
 }
 
-func (b *L2Bridge) cliDetach(args ...string) (string, error) {
-	container := args[0]
-
+func (b *L2Bridge) Detach(container string) error {
 	localIface, err := b.unassociate(container)
 	if err != nil {
-		return "", err
+		return err
 	}
 	if _, err := b.invoker.Execute("detach", b.name, localIface); err != nil {
-		return "", err
+		return err
 	}
-	return fmt.Sprintf("Detached from %s", container), nil
+	return nil
 }
 
 func (b *L2Bridge) unassociate(container string) (string, error) {
@@ -110,15 +100,15 @@ func (b *L2Bridge) unassociate(container string) (string, error) {
 	return localIface, nil
 }
 
-func (b *L2Bridge) cliConnections(args ...string) (string, error) {
-	return b.listConnections(), nil
+func (b *L2Bridge) Connections() map[string]string {
+	return b.snapshot()
 }
 
-func (b *L2Bridge) listConnections() string {
+func (b *L2Bridge) snapshot() map[string]string {
 	b.connMutex.Lock()
 	defer b.connMutex.Unlock()
 
-	return fmt.Sprintf("Connections: %s", mapValues(b.connections))
+	return copyMap(b.connections)
 }
 
 func (b *L2Bridge) link(tapName string) error {

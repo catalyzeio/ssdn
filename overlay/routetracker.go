@@ -8,8 +8,6 @@ import (
 	"strings"
 	"sync/atomic"
 	"unsafe"
-
-	"github.com/catalyzeio/ssdn/cli"
 )
 
 type IPv4Route struct {
@@ -84,15 +82,6 @@ func (rt *RouteTracker) Start(cli *cli.Listener) {
 
 func (rt *RouteTracker) StartAs(cli *cli.Listener, command, description string) {
 	cli.Register(command, "", description, 0, 0, rt.cliRoutes)
-}
-
-func (rt *RouteTracker) cliRoutes(args ...string) (string, error) {
-	routes := rt.Get()
-	routeStrings := make([]string, len(routes))
-	for i, v := range routes {
-		routeStrings[i] = v.String()
-	}
-	return fmt.Sprintf("Routes: %s", strings.Join(routeStrings, ", ")), nil
 }
 
 func (rt *RouteTracker) Get() RouteList {

@@ -7,19 +7,19 @@ import (
 	"net"
 	"sync"
 
-	"github.com/catalyzeio/ssdn/proto"
+	"github.com/catalyzeio/go-core/comm"
 )
 
 type L2Uplink struct {
 	bridge *L2Bridge
 
-	client *proto.ReconnectClient
+	client *comm.ReconnectClient
 
 	nameMutex sync.Mutex
 	name      string
 }
 
-func NewL2Uplink(bridge *L2Bridge, addr *proto.Address, config *tls.Config) (*L2Uplink, error) {
+func NewL2Uplink(bridge *L2Bridge, addr *comm.Address, config *tls.Config) (*L2Uplink, error) {
 	if !addr.TLS() {
 		config = nil
 	} else if config == nil {

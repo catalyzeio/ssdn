@@ -1,7 +1,7 @@
 package overlay
 
 import (
-	"github.com/catalyzeio/ssdn/dumblog"
+	"github.com/catalyzeio/go-core/simplelog"
 )
 
-var log = dumblog.NewLogger("overlay")
+var log = simplelog.NewLogger("overlay")

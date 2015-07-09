@@ -1,4 +1,4 @@
-package main
+package cmd
 
 import (
 	"flag"
@@ -13,14 +13,9 @@ import (
 	"github.com/catalyzeio/ssdn/registry"
 )
 
-var log = dumblog.NewLogger("l2link")
+func StartL2Link() {
+	log := dumblog.NewLogger("l2link")
 
-func fail(format string, args ...interface{}) {
-	fmt.Fprintf(os.Stderr, format, args...)
-	os.Exit(1)
-}
-
-func main() {
 	dumblog.AddFlags()
 	overlay.AddTenantFlags()
 	overlay.AddMTUFlag()

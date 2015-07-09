@@ -5,8 +5,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/catalyzeio/ssdn/cli"
-	"github.com/catalyzeio/ssdn/proto"
+	"github.com/catalyzeio/go-core/comm"
 )
 
 type L2Uplinks struct {
@@ -24,12 +23,6 @@ func NewL2Uplinks(config *tls.Config, bridge *L2Bridge) *L2Uplinks {
 
 		uplinks: make(map[string]*L2Uplink),
 	}
-}
-
-func (u *L2Uplinks) Start(cli *cli.Listener) {
-	cli.Register("adduplink", "[proto://host:port]", "Adds an uplink at the specified address", 1, 1, u.cliAddUplink)
-	cli.Register("deluplink", "[proto://host:port]", "Deletes the uplink at the specified address", 1, 1, u.cliDelUplink)
-	cli.Register("uplinks", "", "List all active uplinks", 0, 0, u.cliUplinks)
 }
 
 func (u *L2Uplinks) UpdatePeers(peerURLs map[string]struct{}) {
@@ -73,15 +66,6 @@ func (u *L2Uplinks) processUpdate(current map[string]struct{}, removed map[strin
 	}
 }
 
-func (u *L2Uplinks) cliAddUplink(args ...string) (string, error) {
-	uplinkURL := args[0]
-
-	if err := u.AddUplink(uplinkURL); err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("Added uplink %s", uplinkURL), nil
-}
-
 func (u *L2Uplinks) AddUplink(url string) error {
 	addr, err := proto.ParseAddress(url)
 	if err != nil {
@@ -120,15 +104,6 @@ func (u *L2Uplinks) addUplink(url string, uplink *L2Uplink) error {
 	return nil
 }
 
-func (u *L2Uplinks) cliDelUplink(args ...string) (string, error) {
-	uplinkURL := args[0]
-
-	if err := u.DeleteUplink(uplinkURL); err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("Deleted uplink %s", uplinkURL), nil
-}
-
 func (u *L2Uplinks) DeleteUplink(url string) error {
 	uplink, err := u.removeUplink(url)
 	if err != nil {
@@ -150,15 +125,11 @@ func (u *L2Uplinks) removeUplink(url string) (*L2Uplink, error) {
 	return uplink, nil
 }
 
-func (u *L2Uplinks) cliUplinks(args ...string) (string, error) {
-	return fmt.Sprintf("Uplinks: %s", mapValues(u.ListUplinks())), nil
-}
-
-func (u *L2Uplinks) ListUplinks() map[string]string {
+func (u *L2Uplinks) Uplinks() map[string]string {
 	u.uplinksMutex.Lock()
 	defer u.uplinksMutex.Unlock()
 
-	m := make(map[string]string)
+	m := make(map[string]string, len(u.uplinks))
 	for k, v := range u.uplinks {
 		m[k] = v.Name()
 	}
