@@ -3,7 +3,7 @@ package overlay
 import (
 	"time"
 
-	"github.com/catalyzeio/shadowfax/registry"
+	"github.com/catalyzeio/ssdn/registry"
 )
 
 type RegistryConsumer interface {

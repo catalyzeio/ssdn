@@ -75,8 +75,8 @@ func GetMTUFlag() (uint16, error) {
 }
 
 func AddDirFlags() {
-	runDirFlag = flag.String("rundir", "/var/run/shadowfax", "server socket directory")
-	confDirFlag = flag.String("confdir", "/etc/shadowfax", "configuration directory")
+	runDirFlag = flag.String("rundir", "/var/run/ssdn", "server socket directory")
+	confDirFlag = flag.String("confdir", "/etc/ssdn", "configuration directory")
 }
 
 func GetDirFlags() (string, string, error) {

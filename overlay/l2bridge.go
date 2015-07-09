@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/catalyzeio/shadowfax/actions"
-	"github.com/catalyzeio/shadowfax/cli"
+	"github.com/catalyzeio/ssdn/actions"
+	"github.com/catalyzeio/ssdn/cli"
 )
 
 type L2Bridge struct {

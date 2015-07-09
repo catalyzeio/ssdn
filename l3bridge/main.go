@@ -6,11 +6,11 @@ import (
 	"os"
 	"path"
 
-	"github.com/catalyzeio/shadowfax/cli"
-	"github.com/catalyzeio/shadowfax/dumblog"
-	"github.com/catalyzeio/shadowfax/overlay"
-	"github.com/catalyzeio/shadowfax/proto"
-	"github.com/catalyzeio/shadowfax/registry"
+	"github.com/catalyzeio/ssdn/cli"
+	"github.com/catalyzeio/ssdn/dumblog"
+	"github.com/catalyzeio/ssdn/overlay"
+	"github.com/catalyzeio/ssdn/proto"
+	"github.com/catalyzeio/ssdn/registry"
 )
 
 var log = dumblog.NewLogger("l3bridge")

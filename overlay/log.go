@@ -1,7 +1,7 @@
 package overlay
 
 import (
-	"github.com/catalyzeio/shadowfax/dumblog"
+	"github.com/catalyzeio/ssdn/dumblog"
 )
 
 var log = dumblog.NewLogger("overlay")

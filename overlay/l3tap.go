@@ -7,7 +7,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/catalyzeio/shadowfax/cli"
+	"github.com/catalyzeio/ssdn/cli"
 	"github.com/catalyzeio/taptun"
 )
 

@@ -4,8 +4,8 @@ import (
 	"crypto/tls"
 	"net"
 
-	"github.com/catalyzeio/shadowfax/cli"
-	"github.com/catalyzeio/shadowfax/proto"
+	"github.com/catalyzeio/ssdn/cli"
+	"github.com/catalyzeio/ssdn/proto"
 )
 
 type L3Listener struct {

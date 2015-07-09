@@ -9,7 +9,7 @@ import (
 	"sync/atomic"
 	"unsafe"
 
-	"github.com/catalyzeio/shadowfax/cli"
+	"github.com/catalyzeio/ssdn/cli"
 )
 
 type IPv4Route struct {

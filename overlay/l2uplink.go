@@ -7,7 +7,7 @@ import (
 	"net"
 	"sync"
 
-	"github.com/catalyzeio/shadowfax/proto"
+	"github.com/catalyzeio/ssdn/proto"
 )
 
 type L2Uplink struct {

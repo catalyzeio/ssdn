@@ -7,9 +7,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/catalyzeio/shadowfax/cli"
-	"github.com/catalyzeio/shadowfax/dumblog"
-	"github.com/catalyzeio/shadowfax/overlay"
+	"github.com/catalyzeio/ssdn/cli"
+	"github.com/catalyzeio/ssdn/dumblog"
+	"github.com/catalyzeio/ssdn/overlay"
 )
 
 func fail(format string, args ...interface{}) {
@@ -39,7 +39,7 @@ func check(resp *string, err error) {
 func main() {
 	dumblog.AddFlags()
 	overlay.AddTenantFlags()
-	runDirFlag := flag.String("rundir", "/var/run/shadowfax", "server socket directory")
+	runDirFlag := flag.String("rundir", "/var/run/ssdn", "server socket directory")
 	flag.Parse()
 
 	tenant, _, err := overlay.GetTenantFlags()
