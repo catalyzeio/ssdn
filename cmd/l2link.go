@@ -2,27 +2,24 @@ package cmd
 
 import (
 	"flag"
-	"fmt"
-	"os"
 	"path"
+	"runtime"
 
-	"github.com/catalyzeio/ssdn/cli"
-	"github.com/catalyzeio/ssdn/dumblog"
+	"github.com/catalyzeio/go-core/comm"
+	"github.com/catalyzeio/go-core/simplelog"
+
 	"github.com/catalyzeio/ssdn/overlay"
-	"github.com/catalyzeio/ssdn/proto"
-	"github.com/catalyzeio/ssdn/registry"
 )
 
 func StartL2Link() {
-	log := dumblog.NewLogger("l2link")
+	log := simplelog.NewLogger("l2link")
 
-	dumblog.AddFlags()
+	simplelog.AddFlags()
 	overlay.AddTenantFlags()
 	overlay.AddMTUFlag()
 	overlay.AddDirFlags()
-	proto.AddListenFlags(false)
-	proto.AddTLSFlags()
-	registry.AddRegistryFlags()
+	comm.AddListenFlags(false, 0, true)
+	comm.AddTLSFlags()
 	flag.Parse()
 
 	tenant, tenantID, err := overlay.GetTenantFlags()
@@ -40,50 +37,35 @@ func StartL2Link() {
 	if err != nil {
 		fail("Invalid directory config: %s\n", err)
 	}
+	// TODO
+	_ = runDir
 
-	listenAddress, err := proto.GetListenAddress()
+	listenAddress, err := comm.GetListenAddress()
 	if err != nil {
 		fail("Invalid listener config: %s\n", err)
 	}
 
-	config, err := proto.GenerateTLSConfig()
+	config, err := comm.GenerateTLSConfig(true)
 	if err != nil {
 		fail("Invalid TLS config: %s\n", err)
 	}
 
-	cli := cli.NewServer(runDir, tenant)
-
 	bridge := overlay.NewL2Bridge(tenantID, mtu, path.Join(confDir, "l2link.d"))
-	if err := bridge.Start(cli); err != nil {
+	if err := bridge.Start(); err != nil {
 		fail("Failed to start bridge: %s\n", err)
 	}
 
 	uplinks := overlay.NewL2Uplinks(config, bridge)
-	uplinks.Start(cli)
+	// TODO
+	_ = uplinks
 
 	if listenAddress != nil {
 		listener := overlay.NewL2Listener(listenAddress, config, bridge)
-		if err := listener.Start(cli); err != nil {
+		if err := listener.Start(); err != nil {
 			fail("Failed to start listener: %s\n", err)
 		}
 	}
 
-	if err := cli.Start(); err != nil {
-		fail("Failed to start CLI: %s\n", err)
-	}
-
-	registryClient, err := registry.GenerateClient(tenant, config)
-	if err != nil {
-		fail("Failed to start registry client: %s\n", err)
-	}
-	if registryClient != nil {
-		advertiseAddress := ""
-		if listenAddress != nil {
-			advertiseAddress = listenAddress.PublicString()
-		}
-		overlay.WatchRegistry(registryClient, "sfl2", advertiseAddress, uplinks)
-	} else {
-		stall := make(chan interface{})
-		<-stall
-	}
+	// wait for all other goroutines to finish
+	runtime.Goexit()
 }

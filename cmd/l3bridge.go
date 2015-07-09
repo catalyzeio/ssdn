@@ -3,28 +3,26 @@ package cmd
 import (
 	"flag"
 	"fmt"
-	"os"
 	"path"
+	"runtime"
 
-	"github.com/catalyzeio/ssdn/cli"
-	"github.com/catalyzeio/ssdn/dumblog"
+	"github.com/catalyzeio/go-core/comm"
+	"github.com/catalyzeio/go-core/simplelog"
+
 	"github.com/catalyzeio/ssdn/overlay"
-	"github.com/catalyzeio/ssdn/proto"
-	"github.com/catalyzeio/ssdn/registry"
 )
 
 func StartL3Bridge() {
-	log := dumblog.NewLogger("l3bridge")
+	log := simplelog.NewLogger("l3bridge")
 
-	dumblog.AddFlags()
+	simplelog.AddFlags()
 	overlay.AddTenantFlags()
 	overlay.AddMTUFlag()
 	overlay.AddNetworkFlag()
 	overlay.AddSubnetFlags(true)
 	overlay.AddDirFlags()
-	proto.AddListenFlags(true)
-	proto.AddTLSFlags()
-	registry.AddRegistryFlags()
+	comm.AddListenFlags(true, 0, true)
+	comm.AddTLSFlags()
 	flag.Parse()
 
 	tenant, tenantID, err := overlay.GetTenantFlags()
@@ -57,8 +55,10 @@ func StartL3Bridge() {
 	if err != nil {
 		fail("Invalid directory config: %s\n", err)
 	}
+	// TODO
+	_ = runDir
 
-	listenAddress, err := proto.GetListenAddress()
+	listenAddress, err := comm.GetListenAddress()
 	if err == nil && listenAddress == nil {
 		err = fmt.Errorf("-listen is required")
 	}
@@ -66,15 +66,12 @@ func StartL3Bridge() {
 		fail("Invalid listener config: %s\n", err)
 	}
 
-	config, err := proto.GenerateTLSConfig()
+	config, err := comm.GenerateTLSConfig(true)
 	if err != nil {
 		fail("Invalid TLS config: %s\n", err)
 	}
 
-	cli := cli.NewServer(runDir, tenant)
-
 	routes := overlay.NewRouteTracker()
-	routes.Start(cli)
 
 	pool := overlay.NewIPPool(subnet)
 	if err := pool.Acquire(gwIP); err != nil {
@@ -88,36 +85,23 @@ func StartL3Bridge() {
 		fail("Failed to create tap: %s\n", err)
 	}
 
-	if err := bridge.Start(cli, tap); err != nil {
+	if err := bridge.Start(tap); err != nil {
 		fail("Failed to start bridge: %s\n", err)
 	}
 
-	if err := tap.Start(cli); err != nil {
+	if err := tap.Start(); err != nil {
 		fail("Failed to start tap: %s\n", err)
 	}
 
 	peers := overlay.NewL3Peers(subnet, routes, config, mtu, tap.InboundHandler)
 
 	listener := overlay.NewL3Listener(peers, listenAddress, config)
-	if err := listener.Start(cli); err != nil {
+	if err := listener.Start(); err != nil {
 		fail("Failed to start listener: %s\n", err)
 	}
 
-	peers.Start(cli, listenAddress.PublicString())
+	peers.Start(listenAddress.PublicString())
 
-	if err := cli.Start(); err != nil {
-		fail("Failed to start CLI: %s\n", err)
-	}
-
-	registryClient, err := registry.GenerateClient(tenant, config)
-	if err != nil {
-		fail("Failed to start registry client: %s\n", err)
-	}
-	if registryClient != nil {
-		advertiseAddress := listenAddress.PublicString()
-		overlay.WatchRegistry(registryClient, "sfl3", advertiseAddress, peers)
-	} else {
-		stall := make(chan interface{})
-		<-stall
-	}
+	// wait for all other goroutines to finish
+	runtime.Goexit()
 }

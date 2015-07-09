@@ -3,17 +3,13 @@ package cmd
 import (
 	"flag"
 	"fmt"
-	"os"
 	"path"
+	"runtime"
 
 	"github.com/catalyzeio/go-core/comm"
 	"github.com/catalyzeio/go-core/simplelog"
 
-	"github.com/catalyzeio/ssdn/cli"
-	"github.com/catalyzeio/ssdn/dumblog"
 	"github.com/catalyzeio/ssdn/overlay"
-	"github.com/catalyzeio/ssdn/proto"
-	"github.com/catalyzeio/ssdn/registry"
 )
 
 func StartL3Direct() {
@@ -25,9 +21,8 @@ func StartL3Direct() {
 	overlay.AddNetworkFlag()
 	overlay.AddSubnetFlags(false)
 	overlay.AddDirFlags()
-	comm.AddListenFlags(true)
+	comm.AddListenFlags(true, 0, true)
 	comm.AddTLSFlags()
-	registry.AddRegistryFlags()
 	flag.Parse()
 
 	tenant, tenantID, err := overlay.GetTenantFlags()
@@ -60,8 +55,10 @@ func StartL3Direct() {
 	if err != nil {
 		fail("Invalid directory config: %s\n", err)
 	}
+	// TODO
+	_ = runDir
 
-	listenAddress, err := proto.GetListenAddress()
+	listenAddress, err := comm.GetListenAddress()
 	if err == nil && listenAddress == nil {
 		err = fmt.Errorf("-listen is required")
 	}
@@ -69,43 +66,27 @@ func StartL3Direct() {
 		fail("Invalid listener config: %s\n", err)
 	}
 
-	config, err := proto.GenerateTLSConfig()
+	config, err := comm.GenerateTLSConfig(true)
 	if err != nil {
 		fail("Invalid TLS config: %s\n", err)
 	}
 
-	cli := cli.NewServer(runDir, tenant)
-
 	routes := overlay.NewRouteTracker()
-	routes.Start(cli)
 
 	pool := overlay.NewIPPool(subnet)
 
 	tuns := overlay.NewL3Tuns(subnet, routes, mtu, path.Join(confDir, "l3direct.d"), network, pool)
-	tuns.Start(cli)
+	tuns.Start()
 
 	peers := overlay.NewL3Peers(subnet, routes, config, mtu, tuns.InboundHandler)
 
 	listener := overlay.NewL3Listener(peers, listenAddress, config)
-	if err := listener.Start(cli); err != nil {
+	if err := listener.Start(); err != nil {
 		fail("Failed to start listener: %s\n", err)
 	}
 
-	peers.Start(cli, listenAddress.PublicString())
+	peers.Start(listenAddress.PublicString())
 
-	if err = cli.Start(); err != nil {
-		fail("Failed to start CLI: %s\n", err)
-	}
-
-	registryClient, err := registry.GenerateClient(tenant, config)
-	if err != nil {
-		fail("Failed to start registry client: %s\n", err)
-	}
-	if registryClient != nil {
-		advertiseAddress := listenAddress.PublicString()
-		overlay.WatchRegistry(registryClient, "sfl3", advertiseAddress, peers)
-	} else {
-		stall := make(chan interface{})
-		<-stall
-	}
+	// wait for all other goroutines to finish
+	runtime.Goexit()
 }

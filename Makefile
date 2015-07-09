@@ -2,10 +2,9 @@ GIT_REV=$(shell git rev-parse --short HEAD)
 VERSION=0.5.0-dev-0-${GIT_REV}
 
 MULTI=ssdn
-ALIASES=l2link l3bridge l3direct cdnsd
+ALIASES=l2link l3bridge l3direct cdns
 
-#all: test ${MULTI} ${ALIASES}
-all: ${MULTI} ${ALIASES}
+all: test ${MULTI} ${ALIASES}
 
 test:
 	go test ./...
@@ -22,7 +21,7 @@ l3bridge: ${MULTI}
 l3direct: ${MULTI}
 	ln -sf ${MULTI} $@
 
-cdnsd: ${MULTI}
+cdns: ${MULTI}
 	ln -sf ${MULTI} $@
 
 deb: all
