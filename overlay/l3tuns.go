@@ -4,11 +4,9 @@ import (
 	"fmt"
 	"net"
 	"strconv"
-	"strings"
 	"sync"
 
-	"github.com/catalyzeio/ssdn/actions"
-	"github.com/catalyzeio/ssdn/cli"
+	"github.com/catalyzeio/go-core/actions"
 )
 
 type L3Tuns struct {
@@ -40,14 +38,10 @@ func NewL3Tuns(subnet *IPv4Route, routes *RouteTracker, mtu uint16, actionsDir s
 	}
 }
 
-func (t *L3Tuns) Start(cli *cli.Listener) {
+func (t *L3Tuns) Start() {
 	t.invoker.Start()
 
 	// TODO reattach to containers on restarts
-
-	cli.Register("attach", "[container]", "Attaches the given container to this overlay network", 1, 1, t.cliAttach)
-	cli.Register("detach", "[container]", "Detaches the given container from this overlay network", 1, 1, t.cliDetach)
-	cli.Register("connections", "", "Lists all containers attached to this overlay network", 0, 0, t.cliConnections)
 }
 
 func (t *L3Tuns) InboundHandler(packet *PacketBuffer) error {
@@ -55,34 +49,32 @@ func (t *L3Tuns) InboundHandler(packet *PacketBuffer) error {
 	return nil
 }
 
-func (t *L3Tuns) cliAttach(args ...string) (string, error) {
-	container := args[0]
-
+func (t *L3Tuns) Attach(container string) error {
 	// verify no existing attachment before creating tun
 	if err := t.associate(container, nil); err != nil {
-		return "", err
+		return err
 	}
 
 	// grab the next IP
 	pool := t.pool
 	nextIP, err := pool.Next()
 	if err != nil {
-		return "", err
+		return err
 	}
 
 	// create and start the tun device
 	tun := NewL3Tun(container, nextIP, t)
 	if err := tun.Start(); err != nil {
 		pool.Free(nextIP)
-		return "", err
+		return err
 	}
 
 	// record the successful association
 	if err := t.associate(container, tun); err != nil {
-		return "", err
+		return err
 	}
 
-	return fmt.Sprintf("Attached to %s", container), nil
+	return nil
 }
 
 func (t *L3Tuns) associate(container string, tun *L3Tun) error {
@@ -99,20 +91,18 @@ func (t *L3Tuns) associate(container string, tun *L3Tun) error {
 	return nil
 }
 
-func (t *L3Tuns) cliDetach(args ...string) (string, error) {
-	container := args[0]
-
+func (t *L3Tuns) Detach(container string) error {
 	// remove container association
 	tun, err := t.unassociate(container)
 	if err != nil {
-		return "", err
+		return err
 	}
 
 	// clean up resources that were allocated to the interface
 	tun.Stop()
 	t.pool.Free(tun.ip)
 
-	return fmt.Sprintf("Detached from %s", container), nil
+	return nil
 }
 
 func (t *L3Tuns) unassociate(container string) (*L3Tun, error) {
@@ -127,24 +117,16 @@ func (t *L3Tuns) unassociate(container string) (*L3Tun, error) {
 	return tun, nil
 }
 
-func (t *L3Tuns) cliConnections(args ...string) (string, error) {
-	return t.listConnections(), nil
-}
-
-func (t *L3Tuns) listConnections() string {
+func (t *L3Tuns) Connections() map[string]string {
 	t.connMutex.Lock()
 	defer t.connMutex.Unlock()
 
-	return fmt.Sprintf("Connections: %s", mapL3TunInterfaces(t.connections))
-}
-
-func mapL3TunInterfaces(m map[string]*L3Tun) string {
-	var entries []string
-	for k, v := range m {
+	result := make(map[string]string, len(t.connections))
+	for k, v := range t.connections {
 		ip := net.IP(IntToIPv4(v.ip))
-		entries = append(entries, fmt.Sprintf("%s (%s)", k, ip))
+		result[k] = ip.String()
 	}
-	return strings.Join(entries, ", ")
+	return result
 }
 
 func (t *L3Tuns) inject(container string, iface string, ip uint32) error {

@@ -35,7 +35,7 @@ func NewL2Bridge(name string, mtu uint16, actionsDir string) *L2Bridge {
 	}
 }
 
-func (b *L2Bridge) Start(cli *cli.Listener) error {
+func (b *L2Bridge) Start() error {
 	b.invoker.Start()
 
 	if _, err := b.invoker.Execute("create", b.name); err != nil {

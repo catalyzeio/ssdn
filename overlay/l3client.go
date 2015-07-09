@@ -5,14 +5,14 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/catalyzeio/ssdn/proto"
+	"github.com/catalyzeio/go-core/comm"
 )
 
 type L3Client struct {
 	peers *L3Peers
 
 	remoteURL string
-	client    *proto.ReconnectClient
+	client    *comm.ReconnectClient
 
 	relay *L3Relay
 }
@@ -21,7 +21,7 @@ const (
 	urlDelim = '\n'
 )
 
-func NewL3Client(peers *L3Peers, remoteURL string, addr *proto.Address) (*L3Client, error) {
+func NewL3Client(peers *L3Peers, remoteURL string, addr *comm.Address) (*L3Client, error) {
 	config := peers.config
 	if !addr.TLS() {
 		config = nil
@@ -39,7 +39,7 @@ func NewL3Client(peers *L3Peers, remoteURL string, addr *proto.Address) (*L3Clie
 
 		relay: NewL3RelayWithQueues(peers, free, out),
 	}
-	c.client = proto.NewClient(c.connHandler, addr.Host(), addr.Port(), config)
+	c.client = comm.NewClient(c.connHandler, addr.Host(), addr.Port(), config)
 	return &c, nil
 }
 

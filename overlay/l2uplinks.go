@@ -67,7 +67,7 @@ func (u *L2Uplinks) processUpdate(current map[string]struct{}, removed map[strin
 }
 
 func (u *L2Uplinks) AddUplink(url string) error {
-	addr, err := proto.ParseAddress(url)
+	addr, err := comm.ParseAddress(url)
 	if err != nil {
 		return err
 	}

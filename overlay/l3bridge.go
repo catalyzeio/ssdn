@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net"
 	"strconv"
-	"strings"
 	"sync"
 
 	"github.com/catalyzeio/go-core/actions"
@@ -154,24 +153,22 @@ func (b *L3Bridge) unassociate(container string) (*l3Interface, error) {
 	return iface, nil
 }
 
-func (b *L3Bridge) Connections() map[string]string {
-	return b.listConnections()
+type L3Connection struct {
+	Interface string
+	IP        net.IP
 }
 
-func (b *L3Bridge) listConnections() string {
+func (b *L3Bridge) Connections() map[string]*L3Connection {
 	b.connMutex.Lock()
 	defer b.connMutex.Unlock()
 
-	return fmt.Sprintf("Connections: %s", mapL3BridgeInterfaces(b.connections))
-}
-
-func mapL3BridgeInterfaces(m map[string]*l3Interface) string {
-	var entries []string
-	for k, v := range m {
+	result := make(map[string]*L3Connection, len(b.connections))
+	for k, v := range b.connections {
 		ip := net.IP(IntToIPv4(v.containerIP))
-		entries = append(entries, fmt.Sprintf("%s via %s (%s)", k, v.localIface, ip))
+		l3conn := &L3Connection{v.localIface, ip}
+		result[k] = l3conn
 	}
-	return strings.Join(entries, ", ")
+	return result
 }
 
 func (b *L3Bridge) link(tapName string) error {

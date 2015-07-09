@@ -306,7 +306,7 @@ func (at *ARPTracker) set(ipKey uint32, mac []byte) {
 		new := unsafe.Pointer(&newTable)
 		if atomic.CompareAndSwapPointer(pointer, old, new) {
 			if log.IsDebugEnabled() {
-				log.Debug("New ARP table: %s", mapValues(newTable.StringMap()))
+				log.Debug("New ARP table: %s", newTable.StringMap())
 			}
 			return
 		}
@@ -334,7 +334,7 @@ func (at *ARPTracker) unset(ipKey uint32) {
 		new := unsafe.Pointer(&newTable)
 		if atomic.CompareAndSwapPointer(pointer, old, new) {
 			if log.IsDebugEnabled() {
-				log.Debug("New ARP table: %s", mapValues(newTable.StringMap()))
+				log.Debug("New ARP table: %s", newTable.StringMap())
 			}
 			return
 		}

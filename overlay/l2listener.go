@@ -2,9 +2,7 @@ package overlay
 
 import (
 	"crypto/tls"
-	"fmt"
 	"net"
-	"strings"
 	"sync"
 
 	"github.com/catalyzeio/go-core/comm"

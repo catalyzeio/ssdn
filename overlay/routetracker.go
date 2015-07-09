@@ -5,7 +5,6 @@ import (
 	"io"
 	"net"
 	"sort"
-	"strings"
 	"sync/atomic"
 	"unsafe"
 )
@@ -74,14 +73,6 @@ func NewRouteTracker() *RouteTracker {
 	return &RouteTracker{
 		list: unsafe.Pointer(&emptyList),
 	}
-}
-
-func (rt *RouteTracker) Start(cli *cli.Listener) {
-	rt.StartAs(cli, "routes", "List all available routes")
-}
-
-func (rt *RouteTracker) StartAs(cli *cli.Listener, command, description string) {
-	cli.Register(command, "", description, 0, 0, rt.cliRoutes)
 }
 
 func (rt *RouteTracker) Get() RouteList {

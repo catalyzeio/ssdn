@@ -7,7 +7,6 @@ import (
 	"net"
 	"time"
 
-	"github.com/catalyzeio/ssdn/cli"
 	"github.com/catalyzeio/taptun"
 )
 
@@ -61,7 +60,7 @@ func NewL3Tap(gwIP net.IP, mtu uint16, bridge *L3Bridge, routes *RouteTracker) (
 	}, nil
 }
 
-func (t *L3Tap) Start(cli *cli.Listener) error {
+func (t *L3Tap) Start() error {
 	tap, err := t.createLinkedTap()
 	if err != nil {
 		return err
@@ -71,32 +70,14 @@ func (t *L3Tap) Start(cli *cli.Listener) error {
 	arpTracker.Start()
 	t.arpTracker = arpTracker
 
-	cli.Register("arp", "", "Shows current ARP table", 0, 0, t.cliARPTable)
-	cli.Register("resolve", "", "Forces IP to MAC address resolution", 1, 1, t.cliResolve)
-
 	go t.service(tap)
 
 	return nil
 }
 
-func (t *L3Tap) cliARPTable(args ...string) (string, error) {
+func (t *L3Tap) ARPTable() map[string]string {
 	table := t.arpTracker.Get()
-	return fmt.Sprintf("ARP table: %s", mapValues(table.StringMap())), nil
-}
-
-func (t *L3Tap) cliResolve(args ...string) (string, error) {
-	ipString := args[0]
-
-	ip := net.ParseIP(ipString)
-	if ip == nil {
-		return "", fmt.Errorf("invalid IP address: %s", ipString)
-	}
-
-	mac, err := t.Resolve(ip)
-	if err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("%s is at %s", ip, mac), nil
+	return table.StringMap()
 }
 
 func (t *L3Tap) SeedMAC(ip uint32, mac net.HardwareAddr) {

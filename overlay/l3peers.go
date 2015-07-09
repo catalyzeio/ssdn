@@ -3,11 +3,9 @@ package overlay
 import (
 	"crypto/tls"
 	"fmt"
-	"strings"
 	"sync"
 
-	"github.com/catalyzeio/ssdn/cli"
-	"github.com/catalyzeio/ssdn/proto"
+	"github.com/catalyzeio/go-core/comm"
 )
 
 type L3Peer interface {
@@ -43,12 +41,8 @@ func NewL3Peers(subnet *IPv4Route, routes *RouteTracker, config *tls.Config, mtu
 	}
 }
 
-func (p *L3Peers) Start(cli *cli.Listener, localURL string) {
+func (p *L3Peers) Start(localURL string) {
 	p.localURL = localURL
-
-	cli.Register("addpeer", "[proto://host:port]", "Adds a peer at the specified address", 1, 1, p.cliAddPeer)
-	cli.Register("delpeer", "[proto://host:port]", "Deletes the peer at the specified address", 1, 1, p.cliDelPeer)
-	cli.Register("peers", "", "List all active peers", 0, 0, p.cliPeers)
 }
 
 func (p *L3Peers) UpdatePeers(peerURLs map[string]struct{}) {
@@ -92,17 +86,8 @@ func (p *L3Peers) processUpdate(current map[string]struct{}, removed map[string]
 	}
 }
 
-func (p *L3Peers) cliAddPeer(args ...string) (string, error) {
-	peerURL := args[0]
-
-	if err := p.AddClient(peerURL); err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("Added peer %s", peerURL), nil
-}
-
 func (p *L3Peers) AddClient(url string) error {
-	addr, err := proto.ParseAddress(url)
+	addr, err := comm.ParseAddress(url)
 	if err != nil {
 		return err
 	}
@@ -137,15 +122,6 @@ func (p *L3Peers) addClient(url string, peer L3Peer) error {
 		p.peers[url] = peer
 	}
 	return nil
-}
-
-func (p *L3Peers) cliDelPeer(args ...string) (string, error) {
-	peerURL := args[0]
-
-	if err := p.DeletePeer(peerURL, nil); err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("Deleted peer %s", peerURL), nil
 }
 
 func (p *L3Peers) DeletePeer(url string, expected L3Peer) error {
@@ -214,19 +190,13 @@ func (p *L3Peers) replace(url string, peer L3Peer) L3Peer {
 	return existing
 }
 
-func (p *L3Peers) cliPeers(args ...string) (string, error) {
-	return fmt.Sprintf("Peers: %s", strings.Join(p.ListPeers(), ", ")), nil
-}
-
 func (p *L3Peers) ListPeers() []string {
 	p.peersMutex.Lock()
 	defer p.peersMutex.Unlock()
 
-	l := make([]string, len(p.peers))
-	offset := 0
+	l := make([]string, 0, len(p.peers))
 	for k := range p.peers {
-		l[offset] = k
-		offset++
+		l = append(l, k)
 	}
 	return l
 }

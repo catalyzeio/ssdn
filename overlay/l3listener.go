@@ -4,18 +4,17 @@ import (
 	"crypto/tls"
 	"net"
 
-	"github.com/catalyzeio/ssdn/cli"
-	"github.com/catalyzeio/ssdn/proto"
+	"github.com/catalyzeio/go-core/comm"
 )
 
 type L3Listener struct {
 	peers *L3Peers
 
-	address *proto.Address
+	address *comm.Address
 	config  *tls.Config
 }
 
-func NewL3Listener(peers *L3Peers, address *proto.Address, config *tls.Config) *L3Listener {
+func NewL3Listener(peers *L3Peers, address *comm.Address, config *tls.Config) *L3Listener {
 	return &L3Listener{
 		peers: peers,
 
@@ -24,7 +23,7 @@ func NewL3Listener(peers *L3Peers, address *proto.Address, config *tls.Config) *
 	}
 }
 
-func (l *L3Listener) Start(cli *cli.Listener) error {
+func (l *L3Listener) Start() error {
 	listener, err := l.address.Listen(l.config)
 	if err != nil {
 		return err

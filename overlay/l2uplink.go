@@ -29,7 +29,7 @@ func NewL2Uplink(bridge *L2Bridge, addr *comm.Address, config *tls.Config) (*L2U
 	u := L2Uplink{
 		bridge: bridge,
 	}
-	u.client = proto.NewClient(u.connHandler, addr.Host(), addr.Port(), config)
+	u.client = comm.NewClient(u.connHandler, addr.Host(), addr.Port(), config)
 	return &u, nil
 }
 
