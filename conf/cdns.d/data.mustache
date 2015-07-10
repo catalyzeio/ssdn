@@ -1,0 +1,10 @@
+# use a short NXDOMAIN TTL for the SOA record
+Zssdn:a.ns.ssdn:owner.ssdn::::::5
+
+# set up NS record for local tinydns server
+.ssdn:127.0.0.2:a:259200
+
+# .ssdn records
+{{#provides}}
+={{name}}.ssdn:{{host}}:5
+{{/provides}}

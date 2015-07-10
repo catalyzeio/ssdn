@@ -1,4 +1,4 @@
-package cdns
+package watch
 
 import (
 	"github.com/catalyzeio/go-core/simplelog"

@@ -35,9 +35,9 @@ exec 2>&1
 cd /etc/tinydns/root
 while true; do
     cp ${CONFIG} .
-    echo Updating DNS configuration ${CONFIG}
+    echo updating DNS configuration ${CONFIG}
     make
-    inotifywait ${CONFIG}
+    inotifywait -q -e close_write ${CONFIG}
 done
 EOF
 chmod 755 run
