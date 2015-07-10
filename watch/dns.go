@@ -17,9 +17,6 @@ import (
 )
 
 const (
-	dockerPollInterval  = 5 * time.Second
-	dockerRetryInterval = 5 * time.Second
-
 	registryRetryInterval = 5 * time.Second
 )
 
@@ -152,6 +149,8 @@ func (c *ContainerDNS) advertise() {
 
 	dc := c.dc
 	rc := c.rc
+
+	dockerChanges := RateLimitWatch(dc)
 	for {
 		// grab list of containers
 		if log.IsDebugEnabled() {
@@ -167,7 +166,9 @@ func (c *ContainerDNS) advertise() {
 		// refresh advertisements if the current set has changed
 		newSet := c.extractSet(containers)
 		if !reflect.DeepEqual(set, newSet) {
-			if err := rc.Advertise(newSet.toAds()); err != nil {
+			ads := newSet.toAds()
+			log.Info("Updating registry advertisements: %s", ads)
+			if err := rc.Advertise(ads); err != nil {
 				log.Warn("Error updating registry: %s", err)
 				time.Sleep(registryRetryInterval)
 				continue
@@ -175,8 +176,8 @@ func (c *ContainerDNS) advertise() {
 			set = newSet
 		}
 
-		// TODO use events instead of polling
-		time.Sleep(dockerPollInterval)
+		// wait for changes to docker
+		<-dockerChanges
 	}
 }
 
