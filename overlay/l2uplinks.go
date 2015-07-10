@@ -125,13 +125,16 @@ func (u *L2Uplinks) removeUplink(url string) (*L2Uplink, error) {
 	return uplink, nil
 }
 
-func (u *L2Uplinks) Uplinks() map[string]string {
+func (u *L2Uplinks) ListUplinks() map[string]*PeerDetails {
 	u.uplinksMutex.Lock()
 	defer u.uplinksMutex.Unlock()
 
-	m := make(map[string]string, len(u.uplinks))
+	result := make(map[string]*PeerDetails, len(u.uplinks))
 	for k, v := range u.uplinks {
-		m[k] = v.Name()
+		result[k] = &PeerDetails{
+			Type:      "uplink",
+			Interface: v.Name(),
+		}
 	}
-	return m
+	return result
 }

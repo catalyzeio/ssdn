@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"path"
-	"runtime"
 
 	"github.com/catalyzeio/go-core/comm"
 	"github.com/catalyzeio/go-core/simplelog"
@@ -55,8 +54,6 @@ func StartL3Bridge() {
 	if err != nil {
 		fail("Invalid directory config: %s\n", err)
 	}
-	// TODO
-	_ = runDir
 
 	listenAddress, err := comm.GetListenAddress()
 	if err == nil && listenAddress == nil {
@@ -102,6 +99,8 @@ func StartL3Bridge() {
 
 	peers.Start(listenAddress.PublicString())
 
-	// wait for all other goroutines to finish
-	runtime.Goexit()
+	dl := overlay.NewListener(tenant, runDir)
+	if err := dl.Listen(bridge, peers, routes); err != nil {
+		fail("Failed to start domain socket listener: %s\n", err)
+	}
 }

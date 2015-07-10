@@ -100,15 +100,17 @@ func (b *L2Bridge) unassociate(container string) (string, error) {
 	return localIface, nil
 }
 
-func (b *L2Bridge) Connections() map[string]string {
-	return b.snapshot()
-}
-
-func (b *L2Bridge) snapshot() map[string]string {
+func (b *L2Bridge) ListConnections() map[string]*ConnectionDetails {
 	b.connMutex.Lock()
 	defer b.connMutex.Unlock()
 
-	return copyMap(b.connections)
+	result := make(map[string]*ConnectionDetails, len(b.connections))
+	for k, v := range b.connections {
+		result[k] = &ConnectionDetails{
+			Interface: v,
+		}
+	}
+	return result
 }
 
 func (b *L2Bridge) link(tapName string) error {

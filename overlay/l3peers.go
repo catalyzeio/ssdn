@@ -57,7 +57,7 @@ func (p *L3Peers) UpdatePeers(peerURLs map[string]struct{}) {
 
 	for url := range added {
 		log.Info("Discovered peer %s", url)
-		err := p.AddClient(url)
+		err := p.AddPeer(url)
 		if err != nil {
 			log.Warn("Failed to add client for peer at %s: %s", url, err)
 		}
@@ -86,7 +86,7 @@ func (p *L3Peers) processUpdate(current map[string]struct{}, removed map[string]
 	}
 }
 
-func (p *L3Peers) AddClient(url string) error {
+func (p *L3Peers) AddPeer(url string) error {
 	addr, err := comm.ParseAddress(url)
 	if err != nil {
 		return err
@@ -124,7 +124,11 @@ func (p *L3Peers) addClient(url string, peer L3Peer) error {
 	return nil
 }
 
-func (p *L3Peers) DeletePeer(url string, expected L3Peer) error {
+func (p *L3Peers) DeletePeer(url string) error {
+	return p.RemovePeer(url, nil)
+}
+
+func (p *L3Peers) RemovePeer(url string, expected L3Peer) error {
 	peer, err := p.removePeer(url, expected)
 	if err != nil {
 		return err
@@ -190,13 +194,15 @@ func (p *L3Peers) replace(url string, peer L3Peer) L3Peer {
 	return existing
 }
 
-func (p *L3Peers) ListPeers() []string {
+func (p *L3Peers) ListPeers() map[string]*PeerDetails {
 	p.peersMutex.Lock()
 	defer p.peersMutex.Unlock()
 
-	l := make([]string, 0, len(p.peers))
+	result := make(map[string]*PeerDetails, len(p.peers))
 	for k := range p.peers {
-		l = append(l, k)
+		result[k] = &PeerDetails{
+			Type: "peer",
+		}
 	}
-	return l
+	return result
 }

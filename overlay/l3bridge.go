@@ -158,15 +158,18 @@ type L3Connection struct {
 	IP        net.IP
 }
 
-func (b *L3Bridge) Connections() map[string]*L3Connection {
+func (b *L3Bridge) ListConnections() map[string]*ConnectionDetails {
 	b.connMutex.Lock()
 	defer b.connMutex.Unlock()
 
-	result := make(map[string]*L3Connection, len(b.connections))
+	result := make(map[string]*ConnectionDetails, len(b.connections))
 	for k, v := range b.connections {
 		ip := net.IP(IntToIPv4(v.containerIP))
-		l3conn := &L3Connection{v.localIface, ip}
-		result[k] = l3conn
+		result[k] = &ConnectionDetails{
+			Interface: v.localIface,
+			IP:        ip.String(),
+			MAC:       v.containerMAC.String(),
+		}
 	}
 	return result
 }

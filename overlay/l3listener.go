@@ -82,7 +82,7 @@ func (l *L3Listener) initialize(conn net.Conn) {
 	relay := NewL3Relay(peers)
 
 	peers.AddInboundPeer(remoteURL, relay)
-	defer peers.DeletePeer(remoteURL, relay)
+	defer peers.RemovePeer(remoteURL, relay)
 
 	// kick off packet forwarding
 	relay.Forward(remoteSubnet, r, w, nil)

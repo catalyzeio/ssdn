@@ -37,7 +37,7 @@ func (l *L2Listener) Start() error {
 	return nil
 }
 
-func (l *L2Listener) Downlinks() map[string]string {
+func (l *L2Listener) ListDownlinks() map[string]*PeerDetails {
 	return l.snapshot()
 }
 
@@ -107,9 +107,16 @@ func (l *L2Listener) downlinkDisconnected(addr net.Addr) {
 	delete(l.downlinks, addr.String())
 }
 
-func (l *L2Listener) snapshot() map[string]string {
+func (l *L2Listener) snapshot() map[string]*PeerDetails {
 	l.downlinksMutex.Lock()
 	defer l.downlinksMutex.Unlock()
 
-	return copyMap(l.downlinks)
+	result := make(map[string]*PeerDetails, len(l.downlinks))
+	for k, v := range l.downlinks {
+		result[k] = &PeerDetails{
+			Type:      "downlink",
+			Interface: v,
+		}
+	}
+	return result
 }

@@ -3,7 +3,6 @@ package cmd
 import (
 	"flag"
 	"path"
-	"runtime"
 
 	"github.com/catalyzeio/go-core/comm"
 	"github.com/catalyzeio/go-core/simplelog"
@@ -37,8 +36,6 @@ func StartL2Link() {
 	if err != nil {
 		fail("Invalid directory config: %s\n", err)
 	}
-	// TODO
-	_ = runDir
 
 	listenAddress, err := comm.GetListenAddress()
 	if err != nil {
@@ -56,16 +53,18 @@ func StartL2Link() {
 	}
 
 	uplinks := overlay.NewL2Uplinks(config, bridge)
-	// TODO
-	_ = uplinks
 
+	var listener *overlay.L2Listener
 	if listenAddress != nil {
-		listener := overlay.NewL2Listener(listenAddress, config, bridge)
+		listener = overlay.NewL2Listener(listenAddress, config, bridge)
 		if err := listener.Start(); err != nil {
 			fail("Failed to start listener: %s\n", err)
 		}
 	}
 
-	// wait for all other goroutines to finish
-	runtime.Goexit()
+	dl := overlay.NewListener(tenant, runDir)
+	wrapper := overlay.NewL2PeersWrapper(uplinks, listener)
+	if err := dl.Listen(bridge, wrapper, nil); err != nil {
+		fail("Failed to start domain socket listener: %s\n", err)
+	}
 }

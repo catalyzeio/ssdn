@@ -117,14 +117,16 @@ func (t *L3Tuns) unassociate(container string) (*L3Tun, error) {
 	return tun, nil
 }
 
-func (t *L3Tuns) Connections() map[string]string {
+func (t *L3Tuns) ListConnections() map[string]*ConnectionDetails {
 	t.connMutex.Lock()
 	defer t.connMutex.Unlock()
 
-	result := make(map[string]string, len(t.connections))
+	result := make(map[string]*ConnectionDetails, len(t.connections))
 	for k, v := range t.connections {
 		ip := net.IP(IntToIPv4(v.ip))
-		result[k] = ip.String()
+		result[k] = &ConnectionDetails{
+			IP: ip.String(),
+		}
 	}
 	return result
 }
