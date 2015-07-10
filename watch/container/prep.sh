@@ -9,14 +9,14 @@ mkdir -p /service
 # set up tinydns
 tinydns-conf ${USER} ${LOGUSER} /etc/tinydns 127.0.0.2
 cd /etc/tinydns/root
-./add-ns ssdn 127.0.0.2
+./add-ns internal 127.0.0.2
 make
 
 # set up dnscache
 dnscache-conf ${USER} ${LOGUSER} /etc/dnscache 0.0.0.0
 cd /etc/dnscache
-echo 127.0.0.2 > root/servers/ssdn
-chmod 644 root/servers/ssdn
+echo 127.0.0.2 > root/servers/internal
+chmod 644 root/servers/internal
 # allow querying from any private IP
 touch root/ip/192.168
 touch root/ip/10
