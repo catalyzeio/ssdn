@@ -15,8 +15,15 @@ make
 # set up dnscache
 dnscache-conf ${USER} ${LOGUSER} /etc/dnscache 0.0.0.0
 cd /etc/dnscache
+# delegate .internal to tinydns
 echo 127.0.0.2 > root/servers/internal
 chmod 644 root/servers/internal
+# forward everything else to our favorite public servers
+cat <<EOF > root/servers/@
+8.8.8.8
+8.8.4.4
+EOF
+echo 1 > env/FORWARDONLY
 # allow querying from any private IP
 touch root/ip/192.168
 touch root/ip/10
