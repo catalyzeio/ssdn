@@ -75,7 +75,7 @@ func GetMTUFlag() (uint16, error) {
 }
 
 func AddDirFlags() {
-	runDirFlag = flag.String("run-dir", "/var/run/ssdn", "server socket directory")
+	runDirFlag = flag.String("run-dir", "/var/run/ssdn", "run-time data directory")
 	confDirFlag = flag.String("conf-dir", "/etc/ssdn", "configuration directory")
 }
 
