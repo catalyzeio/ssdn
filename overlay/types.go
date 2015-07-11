@@ -23,3 +23,7 @@ type PeerManager interface {
 	DeletePeer(string) error
 	ListPeers() map[string]*PeerDetails
 }
+
+type AttachRequest struct {
+	Container string `json:"container"`
+}

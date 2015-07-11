@@ -81,9 +81,9 @@ func (l *Listener) connections(w http.ResponseWriter, r *http.Request) {
 	case "GET":
 		err = json.NewEncoder(w).Encode(l.connector.ListConnections())
 	case "POST":
-		var data []byte
-		if data, err = ioutil.ReadAll(r.Body); err == nil {
-			err = l.connector.Attach(string(data))
+		data := AttachRequest{}
+		if err = json.NewDecoder(r.Body).Decode(&data); err == nil {
+			err = l.connector.Attach(data.Container)
 		}
 	}
 
