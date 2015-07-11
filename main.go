@@ -8,6 +8,7 @@ import (
 
 func main() {
 	multicall.Start("Secure SDN", multicall.Commands{
+		"ssdn":     cmd.StartSSDN,
 		"cdns":     cmd.StartCDNS,
 		"l2link":   cmd.StartL2Link,
 		"l3bridge": cmd.StartL3Bridge,
