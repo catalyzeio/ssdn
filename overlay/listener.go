@@ -64,9 +64,8 @@ func (l *Listener) Listen(connector Connector, peerManager PeerManager, routeTra
 func (l *Listener) status(w http.ResponseWriter, r *http.Request) {
 	var err error
 
-	res := map[string]string{
-		"uptime": time.Now().Sub(l.start).String(),
-	}
+	uptime := time.Now().Sub(l.start)
+	res := &Status{uptime.String()}
 	err = json.NewEncoder(w).Encode(res)
 
 	if err != nil {
@@ -81,8 +80,8 @@ func (l *Listener) connections(w http.ResponseWriter, r *http.Request) {
 	case "GET":
 		err = json.NewEncoder(w).Encode(l.connector.ListConnections())
 	case "POST":
-		data := AttachRequest{}
-		if err = json.NewDecoder(r.Body).Decode(&data); err == nil {
+		data := &AttachRequest{}
+		if err = json.NewDecoder(r.Body).Decode(data); err == nil {
 			err = l.connector.Attach(data.Container)
 		}
 	}

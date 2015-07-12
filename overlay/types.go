@@ -1,5 +1,9 @@
 package overlay
 
+type Status struct {
+	Uptime string `json:"uptime"`
+}
+
 type ConnectionDetails struct {
 	Interface string `json:"interface,omitempty"`
 
