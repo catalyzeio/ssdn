@@ -112,7 +112,6 @@ func (c *Client) AddPeer(peer string) error {
 }
 
 func (c *Client) DeletePeer(peer string) error {
-	// TODO this is not properly escaped
 	target := fmt.Sprintf("%s/peers/%s", c.base, url.QueryEscape(peer))
 	req, err := http.NewRequest("DELETE", target, nil)
 	fmt.Println(req.URL)

@@ -51,9 +51,9 @@ func (l *Listener) Listen(connector Connector, peerManager PeerManager, routeTra
 	r := mux.NewRouter()
 	r.HandleFunc("/status", l.status).Methods("GET")
 	r.HandleFunc("/connections", l.connections).Methods("GET", "POST")
-	r.HandleFunc("/connections/{id}", l.detach).Methods("DELETE")
+	r.HandleFunc("/connections/{id:.*}", l.detach).Methods("DELETE")
 	r.HandleFunc("/peers", l.peers).Methods("GET", "POST")
-	r.HandleFunc("/peers/{id}", l.deletePeer).Methods("DELETE")
+	r.HandleFunc("/peers/{id:.*}", l.deletePeer).Methods("DELETE")
 	r.HandleFunc("/routes", l.routes).Methods("GET")
 
 	log.Info("Domain socket listening on %s", l.dsPath)
