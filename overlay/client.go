@@ -115,6 +115,7 @@ func (c *Client) DeletePeer(peer string) error {
 	// TODO this is not properly escaped
 	target := fmt.Sprintf("%s/peers/%s", c.base, url.QueryEscape(peer))
 	req, err := http.NewRequest("DELETE", target, nil)
+	fmt.Println(req.URL)
 	if err != nil {
 		return err
 	}
@@ -163,8 +164,7 @@ func (c *Client) ListRoutes() ([]string, error) {
 }
 
 func verifyResponse(response *http.Response) error {
-	// TODO disallow 3xx?
-	if response.StatusCode < 200 || response.StatusCode >= 400 {
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		messageBytes, err := ioutil.ReadAll(response.Body)
 		if err != nil {
 			return err
