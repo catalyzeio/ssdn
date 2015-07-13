@@ -49,11 +49,18 @@ func (l *Listener) Listen(connector Connector, peerManager PeerManager, routeTra
 
 	// set up routes
 	r := mux.NewRouter()
+
 	r.HandleFunc("/status", l.status).Methods("GET")
-	r.HandleFunc("/connections", l.connections).Methods("GET", "POST")
-	r.HandleFunc("/connections/{id:.*}", l.detach).Methods("DELETE")
-	r.HandleFunc("/peers", l.peers).Methods("GET", "POST")
-	r.HandleFunc("/peers/{id:.*}", l.deletePeer).Methods("DELETE")
+
+	r.HandleFunc("/connections", l.connections).Methods("GET")
+	r.HandleFunc("/connections/attach", l.attach).Methods("POST")
+	r.HandleFunc("/connections/detach", l.detach).Methods("POST")
+
+	// encoding peer URLs in paths causes issues; use explicit verb POST routes instead
+	r.HandleFunc("/peers", l.peers).Methods("GET")
+	r.HandleFunc("/peers/add", l.addPeer).Methods("POST")
+	r.HandleFunc("/peers/delete", l.deletePeer).Methods("POST")
+
 	r.HandleFunc("/routes", l.routes).Methods("GET")
 
 	log.Info("Domain socket listening on %s", l.dsPath)
@@ -76,14 +83,19 @@ func (l *Listener) status(w http.ResponseWriter, r *http.Request) {
 func (l *Listener) connections(w http.ResponseWriter, r *http.Request) {
 	var err error
 
-	switch r.Method {
-	case "GET":
-		err = json.NewEncoder(w).Encode(l.connector.ListConnections())
-	case "POST":
-		data := &AttachRequest{}
-		if err = json.NewDecoder(r.Body).Decode(data); err == nil {
-			err = l.connector.Attach(data.Container)
-		}
+	err = json.NewEncoder(w).Encode(l.connector.ListConnections())
+
+	if err != nil {
+		sendError(w, err)
+	}
+}
+
+func (l *Listener) attach(w http.ResponseWriter, r *http.Request) {
+	var err error
+
+	data := &AttachRequest{}
+	if err = json.NewDecoder(r.Body).Decode(data); err == nil {
+		err = l.connector.Attach(data.Container)
 	}
 
 	if err != nil {
@@ -92,10 +104,12 @@ func (l *Listener) connections(w http.ResponseWriter, r *http.Request) {
 }
 
 func (l *Listener) detach(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
 	var err error
 
-	err = l.connector.Detach(vars["id"])
+	var data []byte
+	if data, err = ioutil.ReadAll(r.Body); err == nil {
+		err = l.connector.Detach(string(data))
+	}
 
 	if err != nil {
 		sendError(w, err)
@@ -105,14 +119,19 @@ func (l *Listener) detach(w http.ResponseWriter, r *http.Request) {
 func (l *Listener) peers(w http.ResponseWriter, r *http.Request) {
 	var err error
 
-	switch r.Method {
-	case "GET":
-		err = json.NewEncoder(w).Encode(l.peerManager.ListPeers())
-	case "POST":
-		var data []byte
-		if data, err = ioutil.ReadAll(r.Body); err == nil {
-			err = l.peerManager.AddPeer(string(data))
-		}
+	err = json.NewEncoder(w).Encode(l.peerManager.ListPeers())
+
+	if err != nil {
+		sendError(w, err)
+	}
+}
+
+func (l *Listener) addPeer(w http.ResponseWriter, r *http.Request) {
+	var err error
+
+	var data []byte
+	if data, err = ioutil.ReadAll(r.Body); err == nil {
+		err = l.peerManager.AddPeer(string(data))
 	}
 
 	if err != nil {
@@ -121,10 +140,12 @@ func (l *Listener) peers(w http.ResponseWriter, r *http.Request) {
 }
 
 func (l *Listener) deletePeer(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
 	var err error
 
-	err = l.peerManager.DeletePeer(vars["id"])
+	var data []byte
+	if data, err = ioutil.ReadAll(r.Body); err == nil {
+		err = l.peerManager.DeletePeer(string(data))
+	}
 
 	if err != nil {
 		sendError(w, err)

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"net/url"
 	"path"
 	"path/filepath"
 	"strings"
@@ -55,7 +54,7 @@ func (c *Client) Attach(req *AttachRequest) error {
 		return err
 	}
 
-	target := fmt.Sprintf("%s/connections", c.base)
+	target := fmt.Sprintf("%s/connections/attach", c.base)
 	r, err := c.client.Post(target, "application/json", bytes.NewReader(data))
 	if err != nil {
 		return err
@@ -66,13 +65,10 @@ func (c *Client) Attach(req *AttachRequest) error {
 }
 
 func (c *Client) Detach(container string) error {
-	target := fmt.Sprintf("%s/connections/%s", c.base, url.QueryEscape(container))
-	req, err := http.NewRequest("DELETE", target, nil)
-	if err != nil {
-		return err
-	}
+	data := []byte(container)
 
-	r, err := c.client.Do(req)
+	target := fmt.Sprintf("%s/connections/detach", c.base)
+	r, err := c.client.Post(target, "application/json", bytes.NewReader(data))
 	if err != nil {
 		return err
 	}
@@ -101,7 +97,7 @@ func (c *Client) ListConnections() (map[string]*ConnectionDetails, error) {
 func (c *Client) AddPeer(peer string) error {
 	data := []byte(peer)
 
-	target := fmt.Sprintf("%s/peers", c.base)
+	target := fmt.Sprintf("%s/peers/add", c.base)
 	r, err := c.client.Post(target, "application/json", bytes.NewReader(data))
 	if err != nil {
 		return err
@@ -112,14 +108,10 @@ func (c *Client) AddPeer(peer string) error {
 }
 
 func (c *Client) DeletePeer(peer string) error {
-	target := fmt.Sprintf("%s/peers/%s", c.base, url.QueryEscape(peer))
-	req, err := http.NewRequest("DELETE", target, nil)
-	fmt.Println(req.URL)
-	if err != nil {
-		return err
-	}
+	data := []byte(peer)
 
-	r, err := c.client.Do(req)
+	target := fmt.Sprintf("%s/peers/delete", c.base)
+	r, err := c.client.Post(target, "application/json", bytes.NewReader(data))
 	if err != nil {
 		return err
 	}
