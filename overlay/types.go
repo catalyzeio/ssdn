@@ -40,3 +40,7 @@ type Resolver interface {
 	ARPTable() map[string]string
 	Resolve(ip net.IP) (net.HardwareAddr, error)
 }
+
+type RegistryConsumer interface {
+	UpdatePeers(peerURLs map[string]struct{})
+}

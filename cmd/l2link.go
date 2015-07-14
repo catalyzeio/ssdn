@@ -6,6 +6,7 @@ import (
 
 	"github.com/catalyzeio/go-core/comm"
 	"github.com/catalyzeio/go-core/simplelog"
+	"github.com/catalyzeio/paas-orchestration/registry"
 
 	"github.com/catalyzeio/ssdn/overlay"
 )
@@ -14,11 +15,12 @@ func StartL2Link() {
 	log := simplelog.NewLogger("l2link")
 
 	simplelog.AddFlags()
+	comm.AddListenFlags(false, 0, true)
+	comm.AddTLSFlags()
+	registry.AddFlags(false)
 	overlay.AddTenantFlags()
 	overlay.AddMTUFlag()
 	overlay.AddDirFlags()
-	comm.AddListenFlags(false, 0, true)
-	comm.AddTLSFlags()
 	flag.Parse()
 
 	tenant, tenantID, err := overlay.GetTenantFlags()
@@ -60,6 +62,18 @@ func StartL2Link() {
 		if err := listener.Start(); err != nil {
 			fail("Failed to start listener: %s\n", err)
 		}
+	}
+
+	rc, err := registry.GenerateClient(tenant, config)
+	if err != nil {
+		fail("Failed to start registry client: %s\n", err)
+	}
+	if rc != nil {
+		advertiseAddress := ""
+		if listenAddress != nil {
+			advertiseAddress = listenAddress.PublicString()
+		}
+		go overlay.WatchRegistry(rc, "sfl2", advertiseAddress, uplinks)
 	}
 
 	dl := overlay.NewListener(tenant, runDir)

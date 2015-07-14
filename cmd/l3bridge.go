@@ -7,6 +7,7 @@ import (
 
 	"github.com/catalyzeio/go-core/comm"
 	"github.com/catalyzeio/go-core/simplelog"
+	"github.com/catalyzeio/paas-orchestration/registry"
 
 	"github.com/catalyzeio/ssdn/overlay"
 )
@@ -15,13 +16,14 @@ func StartL3Bridge() {
 	log := simplelog.NewLogger("l3bridge")
 
 	simplelog.AddFlags()
+	comm.AddListenFlags(true, 0, true)
+	comm.AddTLSFlags()
+	registry.AddFlags(false)
 	overlay.AddTenantFlags()
 	overlay.AddMTUFlag()
 	overlay.AddNetworkFlag()
 	overlay.AddSubnetFlags(true)
 	overlay.AddDirFlags()
-	comm.AddListenFlags(true, 0, true)
-	comm.AddTLSFlags()
 	flag.Parse()
 
 	tenant, tenantID, err := overlay.GetTenantFlags()
@@ -98,6 +100,15 @@ func StartL3Bridge() {
 	}
 
 	peers.Start(listenAddress.PublicString())
+
+	rc, err := registry.GenerateClient(tenant, config)
+	if err != nil {
+		fail("Failed to start registry client: %s\n", err)
+	}
+	if rc != nil {
+		advertiseAddress := listenAddress.PublicString()
+		go overlay.WatchRegistry(rc, "sfl3", advertiseAddress, peers)
+	}
 
 	dl := overlay.NewListener(tenant, runDir)
 	if err := dl.Listen(bridge, peers, routes, tap); err != nil {
