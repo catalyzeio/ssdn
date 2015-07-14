@@ -2,6 +2,7 @@ package overlay
 
 import (
 	"crypto/tls"
+	"fmt"
 	"net"
 	"sync"
 
@@ -111,9 +112,15 @@ func (l *L2Listener) snapshot() map[string]*PeerDetails {
 	l.downlinksMutex.Lock()
 	defer l.downlinksMutex.Unlock()
 
+	prefix := "tcp://"
+	if l.config != nil {
+		prefix = "tcps://"
+	}
+
 	result := make(map[string]*PeerDetails, len(l.downlinks))
 	for k, v := range l.downlinks {
-		result[k] = &PeerDetails{
+		key := fmt.Sprintf("%s%s", prefix, k)
+		result[key] = &PeerDetails{
 			Type:      "downlink",
 			Interface: v,
 		}
