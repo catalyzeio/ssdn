@@ -42,7 +42,8 @@ func NewCLI(client *overlay.Client) *CLI {
 
 	c.Register("routes", "", "List all available routes", 0, 0, c.routes)
 
-	// TODO arp, resolve
+	c.Register("arp", "", "Shows current ARP table", 0, 0, c.arpTable)
+	c.Register("resolve", "", "Forces IP to MAC address resolution", 1, 1, c.resolve)
 
 	return c
 }
@@ -205,4 +206,25 @@ func (c *CLI) routes(args ...string) (string, error) {
 		res = append(res, fmt.Sprintf("  %s", v))
 	}
 	return strings.Join(res, "\n"), nil
+}
+
+func (c *CLI) arpTable(args ...string) (string, error) {
+	table, err := c.client.ARPTable()
+	if err != nil {
+		return "", err
+	}
+	res := []string{"ARP Table:"}
+	for k, v := range table {
+		res = append(res, fmt.Sprintf("  %s/%s", k, v))
+	}
+	return strings.Join(res, "\n"), nil
+}
+
+func (c *CLI) resolve(args ...string) (string, error) {
+	ip := args[0]
+	mac, err := c.client.Resolve(ip)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%s/%s", ip, mac), nil
 }

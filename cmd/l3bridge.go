@@ -100,7 +100,7 @@ func StartL3Bridge() {
 	peers.Start(listenAddress.PublicString())
 
 	dl := overlay.NewListener(tenant, runDir)
-	if err := dl.Listen(bridge, peers, routes); err != nil {
+	if err := dl.Listen(bridge, peers, routes, tap); err != nil {
 		fail("Failed to start domain socket listener: %s\n", err)
 	}
 }

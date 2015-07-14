@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"path"
 	"path/filepath"
 	"strings"
@@ -152,6 +153,42 @@ func (c *Client) ListRoutes() ([]string, error) {
 	var routes []string
 	err = json.NewDecoder(r.Body).Decode(&routes)
 	return routes, err
+}
+
+func (c *Client) ARPTable() (map[string]string, error) {
+	target := fmt.Sprintf("%s/arp", c.base)
+	r, err := c.client.Get(target)
+	if err != nil {
+		return nil, err
+	}
+	defer r.Body.Close()
+
+	if err := verifyResponse(r); err != nil {
+		return nil, err
+	}
+
+	var table map[string]string
+	err = json.NewDecoder(r.Body).Decode(&table)
+	return table, err
+}
+
+func (c *Client) Resolve(ip string) (string, error) {
+	target := fmt.Sprintf("%s/arp/%s", c.base, url.QueryEscape(ip))
+	r, err := c.client.Get(target)
+	if err != nil {
+		return "", err
+	}
+	defer r.Body.Close()
+
+	if err := verifyResponse(r); err != nil {
+		return "", err
+	}
+
+	data, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
 }
 
 func verifyResponse(response *http.Response) error {

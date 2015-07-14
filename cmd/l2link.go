@@ -64,7 +64,7 @@ func StartL2Link() {
 
 	dl := overlay.NewListener(tenant, runDir)
 	wrapper := overlay.NewL2PeersWrapper(uplinks, listener)
-	if err := dl.Listen(bridge, wrapper, nil); err != nil {
+	if err := dl.Listen(bridge, wrapper, nil, nil); err != nil {
 		fail("Failed to start domain socket listener: %s\n", err)
 	}
 }

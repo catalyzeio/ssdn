@@ -85,7 +85,7 @@ func StartL3Direct() {
 	peers.Start(listenAddress.PublicString())
 
 	dl := overlay.NewListener(tenant, runDir)
-	if err := dl.Listen(tuns, peers, routes); err != nil {
+	if err := dl.Listen(tuns, peers, routes, nil); err != nil {
 		fail("Failed to start domain socket listener: %s\n", err)
 	}
 }

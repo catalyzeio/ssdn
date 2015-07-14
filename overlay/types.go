@@ -1,7 +1,15 @@
 package overlay
 
+import (
+	"net"
+)
+
 type Status struct {
 	Uptime string `json:"uptime"`
+}
+
+type AttachRequest struct {
+	Container string `json:"container"`
 }
 
 type ConnectionDetails struct {
@@ -28,6 +36,7 @@ type PeerManager interface {
 	ListPeers() map[string]*PeerDetails
 }
 
-type AttachRequest struct {
-	Container string `json:"container"`
+type Resolver interface {
+	ARPTable() map[string]string
+	Resolve(ip net.IP) (net.HardwareAddr, error)
 }
