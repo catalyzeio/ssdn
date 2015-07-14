@@ -9,6 +9,7 @@ import (
 )
 
 type L3Peer interface {
+	Connected() bool
 	Stop()
 }
 
@@ -71,7 +72,7 @@ func (p *L3Peers) processUpdate(current map[string]struct{}, removed map[string]
 	// record which peers were removed
 	for url, peer := range p.peers {
 		_, present := current[url]
-		if !present {
+		if !present && !peer.Connected() { // always keep live peers
 			removed[url] = peer
 			delete(p.peers, url)
 		}

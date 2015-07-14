@@ -47,6 +47,10 @@ func (c *L3Client) Start() {
 	c.client.Start()
 }
 
+func (c *L3Client) Connected() bool {
+	return c.client.Connected()
+}
+
 func (c *L3Client) Stop() {
 	c.client.Stop()
 }

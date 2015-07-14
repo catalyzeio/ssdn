@@ -51,7 +51,7 @@ func (u *L2Uplinks) processUpdate(current map[string]struct{}, removed map[strin
 	// record which uplinks were removed
 	for url, uplink := range u.uplinks {
 		_, present := current[url]
-		if !present {
+		if !present && !uplink.Connected() { // always keep live uplinks
 			removed[url] = uplink
 			delete(u.uplinks, url)
 		}

@@ -37,6 +37,10 @@ func (u *L2Uplink) Start() {
 	u.client.Start()
 }
 
+func (u *L2Uplink) Connected() bool {
+	return u.client.Connected()
+}
+
 func (u *L2Uplink) Stop() {
 	u.client.Stop()
 }
