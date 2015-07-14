@@ -58,4 +58,4 @@ clean:
 	rm -rf build
 	rm -f ${MULTI} ${ALIASES}
 
-.PHONY: clean all test deb
+.PHONY: clean all test deb ${MULTI}
