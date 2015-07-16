@@ -118,10 +118,13 @@ func (t *L3Tun) forward(tun *taptun.Interface) bool {
 	}
 	defer acc.Stop()
 
+	cancel := make(chan struct{})
+	defer close(cancel)
+
 	done := make(chan struct{}, 2)
 
-	go t.tunReader(acc, done)
-	go t.tunWriter(acc, done)
+	go t.tunReader(acc, done, cancel)
+	go t.tunWriter(acc, done, cancel)
 
 	for {
 		select {
@@ -139,7 +142,7 @@ though tun devices do not include layer 2 framing. The additional
 (empty) offsets are for compatibility with the existing L3Relay code.
 */
 
-func (t *L3Tun) tunReader(acc taptun.Accessor, done chan<- struct{}) {
+func (t *L3Tun) tunReader(acc taptun.Accessor, done chan<- struct{}, cancel <-chan struct{}) {
 	defer func() {
 		done <- struct{}{}
 	}()
@@ -151,7 +154,12 @@ func (t *L3Tun) tunReader(acc taptun.Accessor, done chan<- struct{}) {
 
 	for {
 		// grab a free packet
-		p := <-free
+		var p *PacketBuffer
+		select {
+		case <-cancel:
+			return
+		case p = <-free:
+		}
 
 		// read whole packet from tun (skipping ethernet header)
 		buff := p.Data
@@ -179,7 +187,7 @@ func (t *L3Tun) tunReader(acc taptun.Accessor, done chan<- struct{}) {
 	}
 }
 
-func (t *L3Tun) tunWriter(acc taptun.Accessor, done chan<- struct{}) {
+func (t *L3Tun) tunWriter(acc taptun.Accessor, done chan<- struct{}, cancel <-chan struct{}) {
 	defer func() {
 		done <- struct{}{}
 	}()
@@ -190,7 +198,12 @@ func (t *L3Tun) tunWriter(acc taptun.Accessor, done chan<- struct{}) {
 
 	for {
 		// grab next outgoing packet
-		p := <-out
+		var p *PacketBuffer
+		select {
+		case <-cancel:
+			return
+		case p = <-out:
+		}
 
 		// write next outgoing packet (skipping ethernet header)
 		payload := p.Data[ethernetHeaderSize:p.Length]

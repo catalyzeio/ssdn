@@ -192,15 +192,18 @@ func (t *L3Tap) forward(tap *taptun.Interface) {
 	}
 	defer acc.Stop()
 
+	cancel := make(chan struct{})
+	defer close(cancel)
+
 	done := make(chan struct{}, 2)
 
-	go t.tapReader(acc, done)
-	go t.tapWriter(acc, done)
+	go t.tapReader(acc, done, cancel)
+	go t.tapWriter(acc, done, cancel)
 
 	<-done
 }
 
-func (t *L3Tap) tapReader(acc taptun.Accessor, done chan<- struct{}) {
+func (t *L3Tap) tapReader(acc taptun.Accessor, done chan<- struct{}, cancel <-chan struct{}) {
 	defer func() {
 		done <- struct{}{}
 	}()
@@ -214,7 +217,12 @@ func (t *L3Tap) tapReader(acc taptun.Accessor, done chan<- struct{}) {
 
 	for {
 		// grab a free packet
-		p := <-free
+		var p *PacketBuffer
+		select {
+		case <-cancel:
+			return
+		case p = <-free:
+		}
 
 		// read whole packet from tap
 		n, err := acc.Read(p.Data)
@@ -256,7 +264,7 @@ func (t *L3Tap) tapReader(acc taptun.Accessor, done chan<- struct{}) {
 	}
 }
 
-func (t *L3Tap) tapWriter(acc taptun.Accessor, done chan<- struct{}) {
+func (t *L3Tap) tapWriter(acc taptun.Accessor, done chan<- struct{}, cancel <-chan struct{}) {
 	defer func() {
 		done <- struct{}{}
 	}()
@@ -271,6 +279,8 @@ func (t *L3Tap) tapWriter(acc taptun.Accessor, done chan<- struct{}) {
 		// grab next outgoing packet
 		var p *PacketBuffer
 		select {
+		case <-cancel:
+			return
 		case p = <-out:
 			// attach MAC addresses based on destination IP
 			if !arpTracker.SetDestinationMAC(p, t.gwMAC) {

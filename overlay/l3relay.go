@@ -60,10 +60,13 @@ func (rl *L3Relay) Forward(remoteSubnet *IPv4Route, r *bufio.Reader, w *bufio.Wr
 	routes.Add(remoteSubnet)
 	defer routes.Remove(remoteSubnet)
 
+	cancel := make(chan struct{})
+	defer close(cancel)
+
 	done := make(chan struct{}, 2)
 
-	go rl.connReader(r, done)
-	go rl.connWriter(w, done)
+	go rl.connReader(r, done, cancel)
+	go rl.connWriter(w, done, cancel)
 
 	for {
 		select {
@@ -79,7 +82,7 @@ func (rl *L3Relay) Forward(remoteSubnet *IPv4Route, r *bufio.Reader, w *bufio.Wr
 	}
 }
 
-func (rl *L3Relay) connReader(r *bufio.Reader, done chan<- struct{}) {
+func (rl *L3Relay) connReader(r *bufio.Reader, done chan<- struct{}, cancel <-chan struct{}) {
 	defer func() {
 		done <- struct{}{}
 	}()
@@ -95,7 +98,12 @@ func (rl *L3Relay) connReader(r *bufio.Reader, done chan<- struct{}) {
 
 	for {
 		// grab packet
-		p := <-free
+		var p *PacketBuffer
+		select {
+		case <-cancel:
+			return
+		case p = <-free:
+		}
 		buff := p.Data
 
 		// read header
@@ -159,7 +167,7 @@ func (rl *L3Relay) connReader(r *bufio.Reader, done chan<- struct{}) {
 	}
 }
 
-func (rl *L3Relay) connWriter(w *bufio.Writer, done chan<- struct{}) {
+func (rl *L3Relay) connWriter(w *bufio.Writer, done chan<- struct{}, cancel <-chan struct{}) {
 	defer func() {
 		done <- struct{}{}
 	}()
@@ -174,6 +182,8 @@ func (rl *L3Relay) connWriter(w *bufio.Writer, done chan<- struct{}) {
 		// grab next outgoing packet
 		var p *PacketBuffer
 		select {
+		case <-cancel:
+			return
 		case <-ping:
 			// send header with control discriminator
 			header[0] = 0x80
