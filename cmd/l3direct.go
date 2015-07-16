@@ -7,9 +7,11 @@ import (
 
 	"github.com/catalyzeio/go-core/comm"
 	"github.com/catalyzeio/go-core/simplelog"
+	"github.com/catalyzeio/go-core/udocker"
 	"github.com/catalyzeio/paas-orchestration/registry"
 
 	"github.com/catalyzeio/ssdn/overlay"
+	"github.com/catalyzeio/ssdn/watch"
 )
 
 func StartL3Direct() {
@@ -18,6 +20,7 @@ func StartL3Direct() {
 	simplelog.AddFlags()
 	comm.AddListenFlags(true, 0, true)
 	comm.AddTLSFlags()
+	udocker.AddFlags("")
 	registry.AddFlags(false)
 	overlay.AddTenantFlags()
 	overlay.AddMTUFlag()
@@ -70,6 +73,11 @@ func StartL3Direct() {
 		fail("Invalid TLS config: %s\n", err)
 	}
 
+	dc, err := udocker.GenerateClient(false)
+	if err != nil {
+		fail("Invalid Docker configuration: %s", err)
+	}
+
 	routes := overlay.NewRouteTracker()
 
 	pool := overlay.NewIPPool(subnet)
@@ -99,6 +107,11 @@ func StartL3Direct() {
 	if rc != nil {
 		advertiseAddress := listenAddress.PublicString()
 		go overlay.WatchRegistry(rc, "sfl3", advertiseAddress, peers, true)
+	}
+
+	if dc != nil {
+		cc := watch.NewContainerConnector(dc, tenant, tuns)
+		cc.Watch()
 	}
 
 	dl := overlay.NewListener(tenant, runDir)

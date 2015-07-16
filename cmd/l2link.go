@@ -6,9 +6,11 @@ import (
 
 	"github.com/catalyzeio/go-core/comm"
 	"github.com/catalyzeio/go-core/simplelog"
+	"github.com/catalyzeio/go-core/udocker"
 	"github.com/catalyzeio/paas-orchestration/registry"
 
 	"github.com/catalyzeio/ssdn/overlay"
+	"github.com/catalyzeio/ssdn/watch"
 )
 
 func StartL2Link() {
@@ -17,6 +19,7 @@ func StartL2Link() {
 	simplelog.AddFlags()
 	comm.AddListenFlags(false, 0, true)
 	comm.AddTLSFlags()
+	udocker.AddFlags("")
 	registry.AddFlags(false)
 	overlay.AddTenantFlags()
 	overlay.AddMTUFlag()
@@ -47,6 +50,11 @@ func StartL2Link() {
 	config, err := comm.GenerateTLSConfig(true)
 	if err != nil {
 		fail("Invalid TLS config: %s\n", err)
+	}
+
+	dc, err := udocker.GenerateClient(false)
+	if err != nil {
+		fail("Invalid Docker configuration: %s", err)
 	}
 
 	state := overlay.NewState(tenant, runDir)
@@ -80,6 +88,11 @@ func StartL2Link() {
 			advertiseAddress = listenAddress.PublicString()
 		}
 		go overlay.WatchRegistry(rc, "sfl2", advertiseAddress, uplinks, false)
+	}
+
+	if dc != nil {
+		cc := watch.NewContainerConnector(dc, tenant, bridge)
+		cc.Watch()
 	}
 
 	dl := overlay.NewListener(tenant, runDir)

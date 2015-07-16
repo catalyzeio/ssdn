@@ -23,6 +23,7 @@ type ConnectionDetails struct {
 type Connector interface {
 	Attach(container, ip string) error
 	Detach(string) error
+	UpdateConnections(connections map[string]string)
 	ListConnections() map[string]*ConnectionDetails
 }
 

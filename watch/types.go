@@ -2,6 +2,7 @@ package watch
 
 const (
 	TenantLabel   = "io.catalyze.ssdn.tenant"   // plain string
+	IPLabel       = "io.catalyze.ssdn.ip"       // plain string
 	ServicesLabel = "io.catalyze.ssdn.services" // []Service json
 )
 

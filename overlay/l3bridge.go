@@ -229,6 +229,45 @@ func (b *L3Bridge) unassociate(container string) (*l3Interface, error) {
 	return iface, nil
 }
 
+func (b *L3Bridge) UpdateConnections(connections map[string]string) {
+	removed := make(map[string]struct{})
+	added := make(map[string]string)
+	b.processUpdate(connections, removed, added)
+
+	for container := range removed {
+		log.Info("Removing obsolete container %s", container)
+		if err := b.Detach(container); err != nil {
+			log.Warn("Failed to detach from container %s: %s", container, err)
+		}
+	}
+
+	for container, ip := range added {
+		log.Info("Discovered container %s", container)
+		if err := b.Attach(container, ip); err != nil {
+			log.Warn("Failed to attach to container %s: %s", container, err)
+		}
+	}
+}
+
+func (b *L3Bridge) processUpdate(connections map[string]string, removed map[string]struct{}, added map[string]string) {
+	b.connMutex.Lock()
+	defer b.connMutex.Unlock()
+
+	// record which containers were removed
+	for container := range b.connections {
+		if _, present := connections[container]; !present {
+			removed[container] = struct{}{}
+		}
+	}
+
+	// record which containers were added
+	for container, ip := range connections {
+		if _, present := b.connections[container]; !present {
+			added[container] = ip
+		}
+	}
+}
+
 func (b *L3Bridge) ListConnections() map[string]*ConnectionDetails {
 	b.connMutex.Lock()
 	defer b.connMutex.Unlock()

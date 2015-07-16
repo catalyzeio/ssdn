@@ -149,6 +149,45 @@ func (t *L3Tuns) unassociate(container string) (*L3Tun, error) {
 	return tun, nil
 }
 
+func (t *L3Tuns) UpdateConnections(connections map[string]string) {
+	removed := make(map[string]struct{})
+	added := make(map[string]string)
+	t.processUpdate(connections, removed, added)
+
+	for container := range removed {
+		log.Info("Removing obsolete container %s", container)
+		if err := t.Detach(container); err != nil {
+			log.Warn("Failed to detach from container %s: %s", container, err)
+		}
+	}
+
+	for container, ip := range added {
+		log.Info("Discovered container %s", container)
+		if err := t.Attach(container, ip); err != nil {
+			log.Warn("Failed to attach to container %s: %s", container, err)
+		}
+	}
+}
+
+func (t *L3Tuns) processUpdate(connections map[string]string, removed map[string]struct{}, added map[string]string) {
+	t.connMutex.Lock()
+	defer t.connMutex.Unlock()
+
+	// record which containers were removed
+	for container := range t.connections {
+		if _, present := connections[container]; !present {
+			removed[container] = struct{}{}
+		}
+	}
+
+	// record which containers were added
+	for container, ip := range connections {
+		if _, present := t.connections[container]; !present {
+			added[container] = ip
+		}
+	}
+}
+
 func (t *L3Tuns) ListConnections() map[string]*ConnectionDetails {
 	t.connMutex.Lock()
 	defer t.connMutex.Unlock()
