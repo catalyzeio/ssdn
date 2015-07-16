@@ -78,11 +78,12 @@ func (l *L3Listener) initialize(conn net.Conn) {
 	}
 	log.Info("Inbound connection: peer %s, subnet %s", remoteURL, remoteSubnet)
 
-	// register connection for this peer
+	// register inbound connection for this peer
 	relay := NewL3Relay(peers)
-
-	peers.AddInboundPeer(remoteURL, relay)
-	defer peers.RemovePeer(remoteURL, relay)
+	if !peers.UpdateState(remoteURL, relay, Inbound) {
+		return
+	}
+	defer peers.Drop(remoteURL, relay)
 
 	// kick off packet forwarding
 	relay.Forward(remoteSubnet, r, w, nil)

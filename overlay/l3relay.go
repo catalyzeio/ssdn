@@ -50,18 +50,6 @@ func NewL3RelayWithQueues(peers *L3Peers, free, out PacketQueue) *L3Relay {
 	}
 }
 
-/*
-For the L3Peer interface.
-
-If this type is used as an instance of L3Peer that means it represents
-an inbound connection. Relays for inbound connections are only
-referenced while clients are connected, so this method should only
-return true.
-*/
-func (rl *L3Relay) Connected() bool {
-	return true
-}
-
 func (rl *L3Relay) Stop() {
 	rl.control <- struct{}{}
 }

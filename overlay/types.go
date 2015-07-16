@@ -25,6 +25,28 @@ type Connector interface {
 	ListConnections() map[string]*ConnectionDetails
 }
 
+type PeerState int
+
+const (
+	_ PeerState = iota
+	Connecting
+	Connected
+	Inbound
+)
+
+func (p PeerState) String() string {
+	switch p {
+	case Connecting:
+		return "connecting"
+	case Connected:
+		return "connected"
+	case Inbound:
+		return "inbound"
+	default:
+		return "unknown"
+	}
+}
+
 type PeerDetails struct {
 	Type      string `json:"type"`
 	Interface string `json:"interface,omitempty"`

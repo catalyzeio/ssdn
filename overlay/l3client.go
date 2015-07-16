@@ -47,10 +47,6 @@ func (c *L3Client) Start() {
 	c.client.Start()
 }
 
-func (c *L3Client) Connected() bool {
-	return c.client.Connected()
-}
-
 func (c *L3Client) Stop() {
 	c.client.Stop()
 }
@@ -76,19 +72,14 @@ func (c *L3Client) connHandler(conn net.Conn, abort <-chan struct{}) error {
 	// ignore connections to self
 	if remoteURL == localURL {
 		log.Warn("Dropping redundant connection to self")
-		if err := peers.RemovePeer(c.remoteURL, c); err != nil {
-			log.Warn("Failed to prune connection to self: %s", err)
-			c.Stop()
-		}
+		peers.Drop(remoteURL, c)
 		return nil
 	}
 
 	// update peer registration if remote responded with different public address
 	if c.remoteURL != remoteURL {
 		log.Info("Peer at %s is actually %s", c.remoteURL, remoteURL)
-		if err := peers.UpdatePeer(c.remoteURL, remoteURL, c); err != nil {
-			log.Warn("Failed to update connection URL: %s", err)
-			c.Stop()
+		if !peers.UpdateLocation(c.remoteURL, remoteURL, c) {
 			return nil
 		}
 		c.remoteURL = remoteURL
@@ -98,6 +89,12 @@ func (c *L3Client) connHandler(conn net.Conn, abort <-chan struct{}) error {
 	if err := WriteL3PeerInfo(localURL, subnet, r, w); err != nil {
 		return err
 	}
+
+	// update peer state
+	if !peers.UpdateState(remoteURL, c, Connected) {
+		return nil
+	}
+	defer peers.UpdateState(remoteURL, c, Connecting)
 
 	// kick off packet forwarding
 	c.relay.Forward(remoteSubnet, r, w, abort)
