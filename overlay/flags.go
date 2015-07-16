@@ -63,7 +63,7 @@ func GetTenantFlags() (string, string, error) {
 }
 
 func AddMTUFlag() {
-	mtuFlag = flag.Int("mtu", 9000, "MTU to use for virtual interfaces")
+	mtuFlag = flag.Int("mtu", 32000, "MTU to use for virtual interfaces")
 }
 
 func GetMTUFlag() (uint16, error) {
