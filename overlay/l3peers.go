@@ -62,8 +62,7 @@ func (p *L3Peers) UpdatePeers(peerURLs map[string]struct{}) {
 
 	for url := range added {
 		log.Info("Discovered peer %s", url)
-		err := p.AddPeer(url)
-		if err != nil {
+		if err := p.AddPeer(url); err != nil {
 			log.Warn("Failed to add client for peer at %s: %s", url, err)
 		}
 	}
@@ -84,8 +83,7 @@ func (p *L3Peers) processUpdate(current map[string]struct{}, removed map[string]
 
 	// record which peers were added
 	for url := range current {
-		entry := p.peers[url]
-		if entry == nil {
+		if entry := p.peers[url]; entry == nil {
 			added[url] = struct{}{}
 		}
 	}

@@ -37,8 +37,7 @@ func (u *L2Uplinks) UpdatePeers(peerURLs map[string]struct{}) {
 
 	for url := range added {
 		log.Info("Discovered uplink %s", url)
-		err := u.AddUplink(url)
-		if err != nil {
+		if err := u.AddUplink(url); err != nil {
 			log.Warn("Failed to add client for uplink at %s: %s", url, err)
 		}
 	}
@@ -59,8 +58,7 @@ func (u *L2Uplinks) processUpdate(current map[string]struct{}, removed map[strin
 
 	// record which uplinks were added
 	for url := range current {
-		_, present := u.uplinks[url]
-		if !present {
+		if _, present := u.uplinks[url]; !present {
 			added[url] = struct{}{}
 		}
 	}

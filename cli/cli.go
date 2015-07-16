@@ -129,8 +129,7 @@ func (c *CLI) attach(args ...string) (string, error) {
 		ip = args[1]
 	}
 	req := &overlay.AttachRequest{Container: container, IP: ip}
-	err := c.client.Attach(req)
-	if err != nil {
+	if err := c.client.Attach(req); err != nil {
 		return "", err
 	}
 	return fmt.Sprintf("Attached to %s", container), nil
@@ -138,8 +137,7 @@ func (c *CLI) attach(args ...string) (string, error) {
 
 func (c *CLI) detach(args ...string) (string, error) {
 	container := args[0]
-	err := c.client.Detach(container)
-	if err != nil {
+	if err := c.client.Detach(container); err != nil {
 		return "", err
 	}
 	return fmt.Sprintf("Detached from %s", container), nil
@@ -172,8 +170,7 @@ func (c *CLI) connections(args ...string) (string, error) {
 
 func (c *CLI) addPeer(args ...string) (string, error) {
 	peer := args[0]
-	err := c.client.AddPeer(peer)
-	if err != nil {
+	if err := c.client.AddPeer(peer); err != nil {
 		return "", err
 	}
 	return fmt.Sprintf("Added peer %s", peer), nil
@@ -181,8 +178,7 @@ func (c *CLI) addPeer(args ...string) (string, error) {
 
 func (c *CLI) delPeer(args ...string) (string, error) {
 	peer := args[0]
-	err := c.client.DeletePeer(peer)
-	if err != nil {
+	if err := c.client.DeletePeer(peer); err != nil {
 		return "", err
 	}
 	return fmt.Sprintf("Deleted peer %s", peer), nil
