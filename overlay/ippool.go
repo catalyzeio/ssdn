@@ -59,17 +59,39 @@ func (p *IPPool) Next() (uint32, error) {
 	return 0, fmt.Errorf("no more IP addresses available")
 }
 
-func (p *IPPool) Acquire(ip net.IP) error {
+func (p *IPPool) AcquireFromString(ip string) (uint32, error) {
+	parsed := net.ParseIP(ip)
+	if parsed == nil {
+		return 0, fmt.Errorf("invalid IP address: %s", ip)
+	}
+
+	return p.Acquire(parsed)
+}
+
+func (p *IPPool) Acquire(ip net.IP) (uint32, error) {
+	requested := ip.To4()
+	if requested == nil {
+		return 0, fmt.Errorf("invalid IP address: %s", ip)
+	}
+
+	return p.acquireIP(requested)
+}
+
+func (p *IPPool) acquireIP(ip net.IP) (uint32, error) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
 	key := IPv4ToInt(ip)
+	if key < p.start || key > p.end {
+		return 0, fmt.Errorf("not in pool range: %s", ip)
+	}
+
 	_, present := p.used[key]
 	if present {
-		return fmt.Errorf("already allocated IP %s", ip)
+		return 0, fmt.Errorf("already allocated IP %s", ip)
 	}
 	p.used[key] = struct{}{}
-	return nil
+	return key, nil
 }
 
 func (p *IPPool) Free(ip uint32) {
@@ -81,12 +103,4 @@ func (p *IPPool) Free(ip uint32) {
 
 func (p *IPPool) FormatIP(ip uint32) string {
 	return FormatIPWithMask(ip, net.IPMask(IntToIPv4(p.subnet.Mask)))
-}
-
-func FormatIPWithMask(ip uint32, mask net.IPMask) string {
-	net := net.IPNet{
-		IP:   net.IP(IntToIPv4(ip)),
-		Mask: mask,
-	}
-	return net.String()
 }

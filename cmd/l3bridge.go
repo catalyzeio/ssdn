@@ -73,11 +73,14 @@ func StartL3Bridge() {
 	routes := overlay.NewRouteTracker()
 
 	pool := overlay.NewIPPool(subnet)
-	if err := pool.Acquire(gwIP); err != nil {
+	if _, err := pool.Acquire(gwIP); err != nil {
 		fail("Failed to initialize IP pool: %s\n", err)
 	}
 
-	bridge := overlay.NewL3Bridge(tenantID, mtu, path.Join(confDir, "l3bridge.d"), network, pool, gwIP)
+	state := overlay.NewState(tenant, runDir)
+	state.Start()
+
+	bridge := overlay.NewL3Bridge(tenantID, mtu, state, path.Join(confDir, "l3bridge.d"), network, pool, gwIP)
 
 	tap, err := overlay.NewL3Tap(gwIP, mtu, bridge, routes)
 	if err != nil {
@@ -90,6 +93,10 @@ func StartL3Bridge() {
 
 	if err := tap.Start(); err != nil {
 		fail("Failed to start tap: %s\n", err)
+	}
+
+	if err := bridge.Restore(); err != nil {
+		fail("Failed to restore state: %s\n", err)
 	}
 
 	peers := overlay.NewL3Peers(subnet, routes, config, mtu, tap.InboundHandler)

@@ -49,9 +49,15 @@ func StartL2Link() {
 		fail("Invalid TLS config: %s\n", err)
 	}
 
-	bridge := overlay.NewL2Bridge(tenantID, mtu, path.Join(confDir, "l2link.d"))
+	state := overlay.NewState(tenant, runDir)
+	state.Start()
+
+	bridge := overlay.NewL2Bridge(tenantID, mtu, state, path.Join(confDir, "l2link.d"))
 	if err := bridge.Start(); err != nil {
 		fail("Failed to start bridge: %s\n", err)
+	}
+	if err := bridge.Restore(); err != nil {
+		fail("Failed to restore state: %s\n", err)
 	}
 
 	uplinks := overlay.NewL2Uplinks(config, bridge)

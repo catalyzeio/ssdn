@@ -1,7 +1,6 @@
 package overlay
 
 import (
-	"crypto/rand"
 	"fmt"
 	"io"
 	"net"
@@ -311,16 +310,4 @@ func (t *L3Tap) tapWriter(acc taptun.Accessor, done chan<- struct{}, cancel <-ch
 		// return packet to its owner
 		p.Queue <- p
 	}
-}
-
-func RandomMAC() (net.HardwareAddr, error) {
-	address := make([]byte, 6)
-	if _, err := rand.Read(address); err != nil {
-		return nil, err
-	}
-
-	// clear multicast and set local assignment bits
-	address[0] &= 0xFE
-	address[0] |= 0x02
-	return net.HardwareAddr(address), nil
 }

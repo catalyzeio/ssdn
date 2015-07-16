@@ -340,14 +340,3 @@ func (at *ARPTracker) unset(ipKey uint32) {
 		}
 	}
 }
-
-// This method requires a 4-byte IP address to function properly.
-// Use ip.To4() if the IPv4 address may have been encoded with 16 bytes.
-func IPv4ToInt(ip []byte) uint32 {
-	return uint32(ip[0])<<24 | uint32(ip[1])<<16 | uint32(ip[2])<<8 | uint32(ip[3])
-}
-
-// Reverse operation of IPv4ToInt.
-func IntToIPv4(ip uint32) []byte {
-	return []byte{byte(ip >> 24), byte(ip >> 16), byte(ip >> 8), byte(ip)}
-}

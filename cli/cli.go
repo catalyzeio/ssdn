@@ -32,7 +32,7 @@ func NewCLI(client *overlay.Client) *CLI {
 	c.Register("help", "[command]", "Shows help on available commands", 0, 1, c.help)
 	c.Register("status", "", "Displays process status", 0, 0, c.status)
 
-	c.Register("attach", "[container]", "Attaches the given container to this overlay network", 1, 1, c.attach)
+	c.Register("attach", "[container] ([ip])", "Attaches the given container to this overlay network", 1, 2, c.attach)
 	c.Register("detach", "[container]", "Detaches the given container from this overlay network", 1, 1, c.detach)
 	c.Register("connections", "", "Lists all containers attached to this overlay network", 0, 0, c.connections)
 
@@ -124,7 +124,11 @@ func (c *CLI) status(args ...string) (string, error) {
 
 func (c *CLI) attach(args ...string) (string, error) {
 	container := args[0]
-	req := &overlay.AttachRequest{Container: container}
+	ip := ""
+	if len(args) >= 2 {
+		ip = args[1]
+	}
+	req := &overlay.AttachRequest{Container: container, IP: ip}
 	err := c.client.Attach(req)
 	if err != nil {
 		return "", err

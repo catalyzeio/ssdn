@@ -96,7 +96,7 @@ func (l *Listener) attach(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := l.connector.Attach(data.Container); err != nil {
+	if err := l.connector.Attach(data.Container, data.IP); err != nil {
 		sendError(w, err)
 	}
 }

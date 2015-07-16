@@ -10,6 +10,7 @@ type Status struct {
 
 type AttachRequest struct {
 	Container string `json:"container"`
+	IP        string `json:"ip,omitempty"`
 }
 
 type ConnectionDetails struct {
@@ -20,7 +21,7 @@ type ConnectionDetails struct {
 }
 
 type Connector interface {
-	Attach(string) error
+	Attach(container, ip string) error
 	Detach(string) error
 	ListConnections() map[string]*ConnectionDetails
 }
@@ -53,8 +54,8 @@ type PeerDetails struct {
 }
 
 type PeerManager interface {
-	AddPeer(string) error
-	DeletePeer(string) error
+	AddPeer(url string) error
+	DeletePeer(url string) error
 	ListPeers() map[string]*PeerDetails
 }
 

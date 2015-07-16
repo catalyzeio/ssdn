@@ -74,8 +74,14 @@ func StartL3Direct() {
 
 	pool := overlay.NewIPPool(subnet)
 
-	tuns := overlay.NewL3Tuns(subnet, routes, mtu, path.Join(confDir, "l3direct.d"), network, pool)
+	state := overlay.NewState(tenant, runDir)
+	state.Start()
+
+	tuns := overlay.NewL3Tuns(subnet, routes, mtu, state, path.Join(confDir, "l3direct.d"), network, pool)
 	tuns.Start()
+	if err := tuns.Restore(); err != nil {
+		fail("Failed to restore state: %s\n", err)
+	}
 
 	peers := overlay.NewL3Peers(subnet, routes, config, mtu, tuns.InboundHandler)
 

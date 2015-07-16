@@ -14,6 +14,8 @@ type L3Tuns struct {
 	routes *RouteTracker
 	mtu    uint16
 
+	state *State
+
 	invoker *actions.Invoker
 
 	network *net.IPNet
@@ -23,11 +25,13 @@ type L3Tuns struct {
 	connections map[string]*L3Tun
 }
 
-func NewL3Tuns(subnet *IPv4Route, routes *RouteTracker, mtu uint16, actionsDir string, network *net.IPNet, pool *IPPool) *L3Tuns {
+func NewL3Tuns(subnet *IPv4Route, routes *RouteTracker, mtu uint16, state *State, actionsDir string, network *net.IPNet, pool *IPPool) *L3Tuns {
 	return &L3Tuns{
 		subnet: subnet,
 		routes: routes,
 		mtu:    mtu,
+
+		state: state,
 
 		invoker: actions.NewInvoker(actionsDir),
 
@@ -40,8 +44,28 @@ func NewL3Tuns(subnet *IPv4Route, routes *RouteTracker, mtu uint16, actionsDir s
 
 func (t *L3Tuns) Start() {
 	t.invoker.Start()
+}
 
-	// TODO reattach to containers on restarts
+func (t *L3Tuns) Restore() error {
+	snapshot, err := t.state.Load()
+	if err != nil {
+		return err
+	}
+
+	if snapshot != nil {
+		for k, v := range snapshot.Connections {
+			if v == nil {
+				continue
+			}
+
+			if err := t.Attach(k, v.IP); err != nil {
+				log.Warn("Failed to reattach to %s: %s", k, err)
+				continue
+			}
+			log.Info("Reattached to %s", k)
+		}
+	}
+	return nil
 }
 
 func (t *L3Tuns) InboundHandler(packet *PacketBuffer) error {
@@ -49,15 +73,21 @@ func (t *L3Tuns) InboundHandler(packet *PacketBuffer) error {
 	return nil
 }
 
-func (t *L3Tuns) Attach(container string) error {
+func (t *L3Tuns) Attach(container, ip string) error {
 	// verify no existing attachment before creating tun
 	if err := t.associate(container, nil); err != nil {
 		return err
 	}
 
-	// grab the next IP
+	// grab the requested IP, or the next available IP
+	var nextIP uint32
+	var err error
 	pool := t.pool
-	nextIP, err := pool.Next()
+	if len(ip) > 0 {
+		nextIP, err = pool.AcquireFromString(ip)
+	} else {
+		nextIP, err = pool.Next()
+	}
 	if err != nil {
 		return err
 	}
@@ -87,6 +117,7 @@ func (t *L3Tuns) associate(container string, tun *L3Tun) error {
 	}
 	if tun != nil {
 		t.connections[container] = tun
+		t.state.Update(t.snapshot())
 	}
 	return nil
 }
@@ -114,6 +145,7 @@ func (t *L3Tuns) unassociate(container string) (*L3Tun, error) {
 		return nil, fmt.Errorf("not attached to container %s", container)
 	}
 	delete(t.connections, container)
+	t.state.Update(t.snapshot())
 	return tun, nil
 }
 
@@ -121,6 +153,10 @@ func (t *L3Tuns) ListConnections() map[string]*ConnectionDetails {
 	t.connMutex.Lock()
 	defer t.connMutex.Unlock()
 
+	return t.snapshot().Connections
+}
+
+func (t *L3Tuns) snapshot() *Snapshot {
 	result := make(map[string]*ConnectionDetails, len(t.connections))
 	for k, v := range t.connections {
 		ip := net.IP(IntToIPv4(v.ip))
@@ -128,7 +164,7 @@ func (t *L3Tuns) ListConnections() map[string]*ConnectionDetails {
 			IP: ip.String(),
 		}
 	}
-	return result
+	return &Snapshot{Connections: result}
 }
 
 func (t *L3Tuns) inject(container string, iface string, ip uint32) error {
