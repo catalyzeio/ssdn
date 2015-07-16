@@ -8,9 +8,10 @@ import (
 
 const (
 	registryRetryInterval = 5 * time.Second
+	registryPollInterval  = 30 * time.Second
 )
 
-func WatchRegistry(client *registry.Client, key string, advertiseURL string, consumer RegistryConsumer) {
+func WatchRegistry(client *registry.Client, key string, advertiseURL string, consumer RegistryConsumer, poll bool) {
 	var ads []registry.Advertisement
 	if len(advertiseURL) > 0 {
 		ads = append(ads, registry.Advertisement{
@@ -18,7 +19,8 @@ func WatchRegistry(client *registry.Client, key string, advertiseURL string, con
 			Location: advertiseURL,
 		})
 	}
-	client.Start(ads, true)
+	notify := !poll
+	client.Start(ads, notify)
 
 	for {
 		// pull in latest set of peers
@@ -41,6 +43,10 @@ func WatchRegistry(client *registry.Client, key string, advertiseURL string, con
 		consumer.UpdatePeers(peerURLs)
 
 		// wait for more changes
-		<-client.Changes
+		if notify {
+			<-client.Changes
+		} else {
+			time.Sleep(registryPollInterval)
+		}
 	}
 }

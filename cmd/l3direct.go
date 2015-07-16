@@ -92,7 +92,7 @@ func StartL3Direct() {
 	}
 	if rc != nil {
 		advertiseAddress := listenAddress.PublicString()
-		go overlay.WatchRegistry(rc, "sfl3", advertiseAddress, peers)
+		go overlay.WatchRegistry(rc, "sfl3", advertiseAddress, peers, true)
 	}
 
 	dl := overlay.NewListener(tenant, runDir)
