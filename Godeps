@@ -4,28 +4,28 @@
 	"Deps": [
 		{
 			"ImportPath": "github.com/catalyzeio/go-core/actions",
-			"Rev": "a0a9d4dd622ad8d5342d1e8479ea2791c85732de"
+			"Rev": "22f7bb78d38d2e0268568b24f1a398b752bfb2db"
 		},
 		{
 			"ImportPath": "github.com/catalyzeio/go-core/comm",
-			"Rev": "a0a9d4dd622ad8d5342d1e8479ea2791c85732de"
+			"Rev": "22f7bb78d38d2e0268568b24f1a398b752bfb2db"
 		},
 		{
 			"ImportPath": "github.com/catalyzeio/go-core/multicall",
-			"Rev": "a0a9d4dd622ad8d5342d1e8479ea2791c85732de"
+			"Rev": "22f7bb78d38d2e0268568b24f1a398b752bfb2db"
 		},
 		{
 			"ImportPath": "github.com/catalyzeio/go-core/simplelog",
-			"Rev": "a0a9d4dd622ad8d5342d1e8479ea2791c85732de"
+			"Rev": "22f7bb78d38d2e0268568b24f1a398b752bfb2db"
 		},
 		{
 			"ImportPath": "github.com/catalyzeio/go-core/udocker",
-			"Rev": "a0a9d4dd622ad8d5342d1e8479ea2791c85732de"
+			"Rev": "22f7bb78d38d2e0268568b24f1a398b752bfb2db"
 		},
 		{
 			"ImportPath": "github.com/catalyzeio/paas-orchestration/registry",
-			"Comment": "v1.4.0-334-gb9615c3",
-			"Rev": "b9615c3b789e3cea9e94bb9cb2f4da466bb45db0"
+			"Comment": "v1.4.0-336-g9f5a9b2",
+			"Rev": "9f5a9b2a86cfc915b3f3712bdc269b644ae43f97"
 		},
 		{
 			"ImportPath": "github.com/catalyzeio/taptun",
