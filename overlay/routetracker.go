@@ -6,6 +6,7 @@ import (
 	"net"
 	"sort"
 	"sync/atomic"
+	"time"
 	"unsafe"
 )
 
@@ -117,6 +118,38 @@ func (rt *RouteTracker) Add(route *IPv4Route) {
 }
 
 func (rt *RouteTracker) Remove(route *IPv4Route) {
+	// remove the route from the routing table
+	rt.removeFromTable(route)
+
+	// XXX The hack below is not foolproof. If it takes longer than the
+	// artificial delay below for all packet forwarders to pick up on
+	// the routing table change, packets contained in this outbound queue
+	// will never be returned to their original owner, thus causing
+	// their owner's queue of free packets to permanently shrink. The
+	// obvious fix for this problem involves using "full"
+	// synchronization instead of CAS pointers, but that would likely
+	// not perform as well in the general case.
+
+	// wait for routing table change to propagate
+	const drainDelay = 500 * time.Millisecond
+	time.Sleep(drainDelay)
+
+	// drain all packets out of the queue and return to their owner
+	if log.IsDebugEnabled() {
+		log.Debug("Draining outbound queue for %s", route)
+	}
+	q := route.Queue
+	for {
+		select {
+		case p := <-q:
+			p.Queue <- p
+		default:
+			return
+		}
+	}
+}
+
+func (rt *RouteTracker) removeFromTable(route *IPv4Route) {
 	pointer := &rt.list
 	for {
 		// grab current list
