@@ -12,24 +12,22 @@ import (
 type ContainerConnector struct {
 	dc *udocker.Client
 
-	tenant    string
-	connector overlay.Connector
+	tenant string
 }
 
-func NewContainerConnector(dc *udocker.Client, tenant string, connector overlay.Connector) *ContainerConnector {
+func NewContainerConnector(dc *udocker.Client, tenant string) *ContainerConnector {
 	return &ContainerConnector{
 		dc: dc,
 
-		tenant:    tenant,
-		connector: connector,
+		tenant: tenant,
 	}
 }
 
-func (c *ContainerConnector) Watch() {
-	go c.attach()
+func (c *ContainerConnector) Watch(connector overlay.Connector) {
+	go c.connect(connector)
 }
 
-func (c *ContainerConnector) attach() {
+func (c *ContainerConnector) connect(connector overlay.Connector) {
 	var connections map[string]string
 
 	dc := c.dc
@@ -51,7 +49,7 @@ func (c *ContainerConnector) attach() {
 		newConnections := c.extractConnections(containers)
 		if !reflect.DeepEqual(connections, newConnections) {
 			log.Info("Updating container connections: %s", newConnections)
-			c.connector.UpdateConnections(newConnections)
+			connector.UpdateConnections(newConnections)
 			connections = newConnections
 		}
 

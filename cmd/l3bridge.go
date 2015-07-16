@@ -122,12 +122,13 @@ func StartL3Bridge() {
 	}
 	if rc != nil {
 		advertiseAddress := listenAddress.PublicString()
-		go overlay.WatchRegistry(rc, "sfl3", advertiseAddress, peers, true)
+		rw := watch.NewRegistryWatcher(rc, "sfl3", advertiseAddress, true)
+		rw.Watch(peers)
 	}
 
 	if dc != nil {
-		cc := watch.NewContainerConnector(dc, tenant, bridge)
-		cc.Watch()
+		cc := watch.NewContainerConnector(dc, tenant)
+		cc.Watch(bridge)
 	}
 
 	dl := overlay.NewListener(tenant, runDir)

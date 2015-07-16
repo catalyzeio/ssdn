@@ -87,12 +87,13 @@ func StartL2Link() {
 		if listenAddress != nil {
 			advertiseAddress = listenAddress.PublicString()
 		}
-		go overlay.WatchRegistry(rc, "sfl2", advertiseAddress, uplinks, false)
+		rw := watch.NewRegistryWatcher(rc, "sfl2", advertiseAddress, false)
+		rw.Watch(uplinks)
 	}
 
 	if dc != nil {
-		cc := watch.NewContainerConnector(dc, tenant, bridge)
-		cc.Watch()
+		cc := watch.NewContainerConnector(dc, tenant)
+		cc.Watch(bridge)
 	}
 
 	dl := overlay.NewListener(tenant, runDir)

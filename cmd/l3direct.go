@@ -106,12 +106,13 @@ func StartL3Direct() {
 	}
 	if rc != nil {
 		advertiseAddress := listenAddress.PublicString()
-		go overlay.WatchRegistry(rc, "sfl3", advertiseAddress, peers, true)
+		rw := watch.NewRegistryWatcher(rc, "sfl3", advertiseAddress, true)
+		rw.Watch(peers)
 	}
 
 	if dc != nil {
-		cc := watch.NewContainerConnector(dc, tenant, tuns)
-		cc.Watch()
+		cc := watch.NewContainerConnector(dc, tenant)
+		cc.Watch(tuns)
 	}
 
 	dl := overlay.NewListener(tenant, runDir)

@@ -16,11 +16,6 @@ import (
 	"github.com/catalyzeio/paas-orchestration/registry"
 )
 
-const (
-	dockerRetryInterval   = 15 * time.Second
-	registryRetryInterval = 5 * time.Second
-)
-
 type ContainerDNS struct {
 	dc *udocker.Client
 	rc *registry.Client
