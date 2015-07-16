@@ -155,9 +155,10 @@ func (p *L3Peers) ListPeers() map[string]*PeerDetails {
 	defer p.peersMutex.Unlock()
 
 	result := make(map[string]*PeerDetails, len(p.peers))
-	for k := range p.peers {
+	for k, v := range p.peers {
 		result[k] = &PeerDetails{
-			Type: "peer",
+			Type:  "peer",
+			State: v.state,
 		}
 	}
 	return result

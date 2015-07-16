@@ -191,7 +191,7 @@ func (c *CLI) peers(args ...string) (string, error) {
 	}
 	res := []string{"Peers:"}
 	for k, v := range peers {
-		res = append(res, fmt.Sprintf("  %s (%s)", k, v.Type))
+		res = append(res, fmt.Sprintf("  %s (%s, %s)", k, v.Type, v.State))
 	}
 	return strings.Join(res, "\n"), nil
 }

@@ -131,8 +131,13 @@ func (u *L2Uplinks) ListUplinks() map[string]*PeerDetails {
 
 	result := make(map[string]*PeerDetails, len(u.uplinks))
 	for k, v := range u.uplinks {
+		state := Connecting
+		if v.Connected() {
+			state = Connected
+		}
 		result[k] = &PeerDetails{
 			Type:      "uplink",
+			State:     state,
 			Interface: v.Name(),
 		}
 	}

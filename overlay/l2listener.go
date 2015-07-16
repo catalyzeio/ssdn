@@ -122,6 +122,7 @@ func (l *L2Listener) snapshot() map[string]*PeerDetails {
 		key := fmt.Sprintf("%s%s", prefix, k)
 		result[key] = &PeerDetails{
 			Type:      "downlink",
+			State:     Inbound,
 			Interface: v,
 		}
 	}

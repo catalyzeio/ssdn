@@ -28,8 +28,7 @@ type Connector interface {
 type PeerState int
 
 const (
-	_ PeerState = iota
-	Connecting
+	Connecting PeerState = iota
 	Connected
 	Inbound
 )
@@ -48,8 +47,9 @@ func (p PeerState) String() string {
 }
 
 type PeerDetails struct {
-	Type      string `json:"type"`
-	Interface string `json:"interface,omitempty"`
+	Type      string    `json:"type"`
+	State     PeerState `json:"state"`
+	Interface string    `json:"interface,omitempty"`
 }
 
 type PeerManager interface {
