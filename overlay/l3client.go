@@ -72,7 +72,7 @@ func (c *L3Client) connHandler(conn net.Conn, abort <-chan struct{}) error {
 	// ignore connections to self
 	if remoteURL == localURL {
 		log.Warn("Dropping redundant connection to self")
-		peers.Drop(remoteURL, c)
+		peers.Drop(c.remoteURL, c)
 		return nil
 	}
 
