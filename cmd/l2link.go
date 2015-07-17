@@ -24,6 +24,7 @@ func StartL2Link() {
 	overlay.AddTenantFlags()
 	overlay.AddMTUFlag()
 	overlay.AddDirFlags()
+	overlay.AddPeerTLSFlags()
 	flag.Parse()
 
 	tenant, tenantID, err := overlay.GetTenantFlags()
@@ -68,7 +69,8 @@ func StartL2Link() {
 		fail("Failed to restore state: %s\n", err)
 	}
 
-	uplinks := overlay.NewL2Uplinks(config, bridge)
+	peerConfig := overlay.GetPeerTLSConfig(config)
+	uplinks := overlay.NewL2Uplinks(peerConfig, bridge)
 
 	var listener *overlay.L2Listener
 	if listenAddress != nil {

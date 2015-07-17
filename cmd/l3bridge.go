@@ -27,6 +27,7 @@ func StartL3Bridge() {
 	overlay.AddNetworkFlag()
 	overlay.AddSubnetFlags(true)
 	overlay.AddDirFlags()
+	overlay.AddPeerTLSFlags()
 	flag.Parse()
 
 	tenant, tenantID, err := overlay.GetTenantFlags()
@@ -107,7 +108,8 @@ func StartL3Bridge() {
 		fail("Failed to restore state: %s\n", err)
 	}
 
-	peers := overlay.NewL3Peers(subnet, routes, config, mtu, tap.InboundHandler)
+	peerConfig := overlay.GetPeerTLSConfig(config)
+	peers := overlay.NewL3Peers(subnet, routes, peerConfig, mtu, tap.InboundHandler)
 
 	listener := overlay.NewL3Listener(peers, listenAddress, config)
 	if err := listener.Start(); err != nil {

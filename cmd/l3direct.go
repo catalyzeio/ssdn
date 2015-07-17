@@ -27,6 +27,7 @@ func StartL3Direct() {
 	overlay.AddNetworkFlag()
 	overlay.AddSubnetFlags(false)
 	overlay.AddDirFlags()
+	overlay.AddPeerTLSFlags()
 	flag.Parse()
 
 	tenant, tenantID, err := overlay.GetTenantFlags()
@@ -91,7 +92,8 @@ func StartL3Direct() {
 		fail("Failed to restore state: %s\n", err)
 	}
 
-	peers := overlay.NewL3Peers(subnet, routes, config, mtu, tuns.InboundHandler)
+	peerConfig := overlay.GetPeerTLSConfig(config)
+	peers := overlay.NewL3Peers(subnet, routes, peerConfig, mtu, tuns.InboundHandler)
 
 	listener := overlay.NewL3Listener(peers, listenAddress, config)
 	if err := listener.Start(); err != nil {

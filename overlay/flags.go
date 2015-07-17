@@ -1,6 +1,7 @@
 package overlay
 
 import (
+	"crypto/tls"
 	"flag"
 	"fmt"
 	"net"
@@ -24,6 +25,8 @@ var (
 	networkFlag *string
 	subnetFlag  *string
 	gatewayFlag *string
+
+	serverNameFlag *string
 )
 
 func AddTenantFlags() {
@@ -147,4 +150,18 @@ func CheckSubnetInNetwork(subnet *IPv4Route, network *net.IPNet) error {
 		return fmt.Errorf("network %s does not contain subnet %s", network, subnet)
 	}
 	return nil
+}
+
+func AddPeerTLSFlags() {
+	serverNameFlag = flag.String("tls-peer-name", "", "expected peer server name in TLS mode")
+}
+
+func GetPeerTLSConfig(config *tls.Config) *tls.Config {
+	serverName := *serverNameFlag
+	if len(serverName) == 0 {
+		return config
+	}
+	copy := *config
+	copy.ServerName = serverName
+	return &copy
 }
