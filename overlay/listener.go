@@ -77,8 +77,8 @@ func (l *Listener) Listen(connector Connector, peerManager PeerManager, routeTra
 
 func (l *Listener) status(w http.ResponseWriter, r *http.Request) {
 	uptime := time.Now().Sub(l.start)
-	res := &Status{uptime.String()}
-	if err := json.NewEncoder(w).Encode(res); err != nil {
+	result := &Status{uptime.String()}
+	if err := json.NewEncoder(w).Encode(result); err != nil {
 		sendError(w, err)
 	}
 }
@@ -89,7 +89,8 @@ func (l *Listener) connections(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := json.NewEncoder(w).Encode(l.connector.ListConnections()); err != nil {
+	result := l.connector.ListConnections()
+	if err := json.NewEncoder(w).Encode(result); err != nil {
 		sendError(w, err)
 	}
 }
@@ -129,7 +130,8 @@ func (l *Listener) detach(w http.ResponseWriter, r *http.Request) {
 }
 
 func (l *Listener) peers(w http.ResponseWriter, r *http.Request) {
-	if err := json.NewEncoder(w).Encode(l.peerManager.ListPeers()); err != nil {
+	result := l.peerManager.ListPeers()
+	if err := json.NewEncoder(w).Encode(result); err != nil {
 		sendError(w, err)
 	}
 }
@@ -170,7 +172,7 @@ func (l *Listener) routes(w http.ResponseWriter, r *http.Request) {
 	for i, v := range routes {
 		result[i] = v.String()
 	}
-	if err := json.NewEncoder(w).Encode(routes); err != nil {
+	if err := json.NewEncoder(w).Encode(result); err != nil {
 		sendError(w, err)
 	}
 }
