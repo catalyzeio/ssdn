@@ -13,5 +13,6 @@ func main() {
 		"l2link":   cmd.StartL2Link,
 		"l3bridge": cmd.StartL3Bridge,
 		"l3direct": cmd.StartL3Direct,
+		"l3node":   cmd.StartL3Node,
 	})
 }

@@ -1,8 +1,8 @@
 GIT_REV=$(shell git rev-parse --short HEAD)
-VERSION=0.6.0-dev-1-${GIT_REV}
+VERSION=0.7.0-dev-0-${GIT_REV}
 
 MULTI=ssdn
-ALIASES=l2link l3bridge l3direct cdns
+ALIASES=l2link l3bridge l3direct l3node cdns
 
 all: test ${MULTI} ${ALIASES}
 
@@ -19,6 +19,9 @@ l3bridge: ${MULTI}
 	ln -sf ${MULTI} $@
 
 l3direct: ${MULTI}
+	ln -sf ${MULTI} $@
+
+l3node: ${MULTI}
 	ln -sf ${MULTI} $@
 
 cdns: ${MULTI}

@@ -84,12 +84,22 @@ func (l *Listener) status(w http.ResponseWriter, r *http.Request) {
 }
 
 func (l *Listener) connections(w http.ResponseWriter, r *http.Request) {
+	if l.connector == nil {
+		sendUnsupported(w)
+		return
+	}
+
 	if err := json.NewEncoder(w).Encode(l.connector.ListConnections()); err != nil {
 		sendError(w, err)
 	}
 }
 
 func (l *Listener) attach(w http.ResponseWriter, r *http.Request) {
+	if l.connector == nil {
+		sendUnsupported(w)
+		return
+	}
+
 	data := &AttachRequest{}
 	if err := json.NewDecoder(r.Body).Decode(data); err != nil {
 		sendError(w, err)
@@ -102,6 +112,11 @@ func (l *Listener) attach(w http.ResponseWriter, r *http.Request) {
 }
 
 func (l *Listener) detach(w http.ResponseWriter, r *http.Request) {
+	if l.connector == nil {
+		sendUnsupported(w)
+		return
+	}
+
 	data, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		sendError(w, err)

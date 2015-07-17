@@ -78,7 +78,7 @@ func (t *L3Tun) createTun() (*taptun.Interface, error) {
 
 func (t *L3Tun) service(tun *taptun.Interface) {
 	for {
-		if !t.forward(tun) {
+		if !ForwardL3Tun(tun, t.route, t.tuns.routes, t.free, t.out, t.control) {
 			return
 		}
 
@@ -98,7 +98,7 @@ func (t *L3Tun) service(tun *taptun.Interface) {
 	}
 }
 
-func (t *L3Tun) forward(tun *taptun.Interface) bool {
+func ForwardL3Tun(tun *taptun.Interface, route *IPv4Route, routes *RouteTracker, free PacketQueue, out PacketQueue, abort <-chan struct{}) bool {
 	defer func() {
 		if err := tun.Close(); err != nil {
 			log.Warn("Failed to close tun: %s", err)
@@ -107,9 +107,8 @@ func (t *L3Tun) forward(tun *taptun.Interface) bool {
 		}
 	}()
 
-	routes := t.tuns.routes
-	routes.Add(t.route)
-	defer routes.Remove(t.route)
+	routes.Add(route)
+	defer routes.Remove(route)
 
 	acc, err := tun.Accessor()
 	if err != nil {
@@ -123,14 +122,14 @@ func (t *L3Tun) forward(tun *taptun.Interface) bool {
 
 	done := make(chan struct{}, 2)
 
-	go t.tunReader(acc, done, cancel)
-	go t.tunWriter(acc, done, cancel)
+	go tunReader(acc, free, routes, done, cancel)
+	go tunWriter(acc, out, done, cancel)
 
 	for {
 		select {
 		case <-done:
 			return true
-		case <-t.control:
+		case <-abort:
 			return false
 		}
 	}
@@ -142,15 +141,12 @@ though tun devices do not include layer 2 framing. The additional
 (empty) offsets are for compatibility with the existing L3Relay code.
 */
 
-func (t *L3Tun) tunReader(acc taptun.Accessor, done chan<- struct{}, cancel <-chan struct{}) {
+func tunReader(acc taptun.Accessor, free PacketQueue, routes *RouteTracker, done chan<- struct{}, cancel <-chan struct{}) {
 	defer func() {
 		done <- struct{}{}
 	}()
 
 	trace := log.IsTraceEnabled()
-
-	free := t.free
-	routes := t.tuns.routes
 
 	for {
 		// grab a free packet
@@ -187,14 +183,12 @@ func (t *L3Tun) tunReader(acc taptun.Accessor, done chan<- struct{}, cancel <-ch
 	}
 }
 
-func (t *L3Tun) tunWriter(acc taptun.Accessor, done chan<- struct{}, cancel <-chan struct{}) {
+func tunWriter(acc taptun.Accessor, out PacketQueue, done chan<- struct{}, cancel <-chan struct{}) {
 	defer func() {
 		done <- struct{}{}
 	}()
 
 	trace := log.IsTraceEnabled()
-
-	out := t.out
 
 	for {
 		// grab next outgoing packet
@@ -224,5 +218,4 @@ func (t *L3Tun) tunWriter(acc taptun.Accessor, done chan<- struct{}, cancel <-ch
 		// return packet to its owner
 		p.Queue <- p
 	}
-
 }
