@@ -10,10 +10,9 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/hoisie/mustache"
-
 	"github.com/catalyzeio/go-core/udocker"
 	"github.com/catalyzeio/paas-orchestration/registry"
+	"github.com/hoisie/mustache"
 )
 
 type ContainerDNS struct {
