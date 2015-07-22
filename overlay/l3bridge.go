@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/catalyzeio/go-core/actions"
+	"github.com/catalyzeio/go-core/comm"
 )
 
 type L3Bridge struct {
@@ -18,7 +19,7 @@ type L3Bridge struct {
 	invoker *actions.Invoker
 
 	network *net.IPNet
-	pool    *IPPool
+	pool    *comm.IPPool
 	gwIP    net.IP
 
 	tap *L3Tap
@@ -39,7 +40,7 @@ const (
 	localL3IfaceTemplate = "sf3.%s.%d"
 )
 
-func NewL3Bridge(name string, mtu uint16, state *State, actionsDir string, network *net.IPNet, pool *IPPool, gwIP net.IP) *L3Bridge {
+func NewL3Bridge(name string, mtu uint16, state *State, actionsDir string, network *net.IPNet, pool *comm.IPPool, gwIP net.IP) *L3Bridge {
 	return &L3Bridge{
 		name: name,
 		mtu:  strconv.Itoa(int(mtu)),
@@ -125,7 +126,7 @@ func toL3Interface(c *ConnectionDetails) (*l3Interface, error) {
 	if ip == nil {
 		return nil, fmt.Errorf("invalid IP address: %s", c.IP)
 	}
-	convertedIP := IPv4ToInt(ip)
+	convertedIP := comm.IPv4ToInt(ip)
 
 	mac, err := net.ParseMAC(c.MAC)
 	if err != nil {
@@ -278,7 +279,7 @@ func (b *L3Bridge) ListConnections() map[string]*ConnectionDetails {
 func (b *L3Bridge) snapshot() *Snapshot {
 	result := make(map[string]*ConnectionDetails, len(b.connections))
 	for k, v := range b.connections {
-		ip := net.IP(IntToIPv4(v.containerIP))
+		ip := net.IP(comm.IntToIPv4(v.containerIP))
 		result[k] = &ConnectionDetails{
 			Interface: v.localIface,
 			IP:        ip.String(),

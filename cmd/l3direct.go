@@ -81,7 +81,7 @@ func StartL3Direct() {
 
 	routes := overlay.NewRouteTracker()
 
-	pool := overlay.NewIPPool(subnet)
+	pool := comm.NewIPPool(subnet.Network, subnet.Mask)
 
 	state := overlay.NewState(tenant, runDir)
 	state.Start()

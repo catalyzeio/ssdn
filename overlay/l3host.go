@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/catalyzeio/go-core/actions"
-
+	"github.com/catalyzeio/go-core/comm"
 	"github.com/catalyzeio/taptun"
 )
 
@@ -32,7 +32,7 @@ func NewL3HostTun(ip net.IP, mtu uint16, routes *RouteTracker, actionsDir string
 	free := AllocatePacketQueue(tunQueueSize, ethernetHeaderSize+int(mtu))
 	out := make(PacketQueue, tunQueueSize)
 
-	ipVal := IPv4ToInt(ip)
+	ipVal := comm.IPv4ToInt(ip)
 	return &L3HostTun{
 		ip:  ipVal,
 		mtu: mtu,
@@ -92,7 +92,7 @@ func (t *L3HostTun) createTun() (*taptun.Interface, error) {
 	log.Info("Created layer 3 tun %s", name)
 
 	mtu := strconv.Itoa(int(t.mtu))
-	_, err = t.invoker.Execute("init", mtu, name, FormatIPWithMask(t.ip, t.network.Mask))
+	_, err = t.invoker.Execute("init", mtu, name, comm.FormatIPWithMask(t.ip, t.network.Mask))
 	if err != nil {
 		tun.Close()
 		return nil, err

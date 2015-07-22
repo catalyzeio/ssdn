@@ -7,6 +7,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"unsafe"
+
+	"github.com/catalyzeio/go-core/comm"
 )
 
 type ARPResult int
@@ -23,7 +25,7 @@ type ARPTable map[uint32][]byte
 func (t ARPTable) StringMap() map[string]string {
 	sm := make(map[string]string)
 	for k, v := range t {
-		ip := net.IP(IntToIPv4(k))
+		ip := net.IP(comm.IntToIPv4(k))
 		mac := net.HardwareAddr(v)
 		sm[ip.String()] = mac.String()
 	}
@@ -76,7 +78,7 @@ func (at *ARPTracker) Get() ARPTable {
 }
 
 func (at *ARPTracker) TrackQuery(ip net.IP, resolved chan []byte) bool {
-	key := IPv4ToInt(ip)
+	key := comm.IPv4ToInt(ip)
 
 	at.trackersMutex.Lock()
 	defer at.trackersMutex.Unlock()
@@ -90,7 +92,7 @@ func (at *ARPTracker) TrackQuery(ip net.IP, resolved chan []byte) bool {
 }
 
 func (at *ARPTracker) UntrackQuery(ip net.IP) {
-	key := IPv4ToInt(ip)
+	key := comm.IPv4ToInt(ip)
 
 	at.trackersMutex.Lock()
 	defer at.trackersMutex.Unlock()
@@ -157,7 +159,7 @@ func (at *ARPTracker) SetDestinationMAC(packet *PacketBuffer, srcMAC []byte) boo
 
 	// look up destination MAC based on destination IP
 	destIP := buff[30:34]
-	key := IPv4ToInt(destIP)
+	key := comm.IPv4ToInt(destIP)
 	destMAC, present := at.Get()[key]
 	if present {
 		copy(buff[0:6], destMAC)
@@ -264,7 +266,7 @@ func (at *ARPTracker) service() {
 				log.Debug("ARP response: %s is at %s", net.IP(senderIP), net.HardwareAddr(senderMAC))
 			}
 
-			ipKey := IPv4ToInt(senderIP)
+			ipKey := comm.IPv4ToInt(senderIP)
 			if at.isTracking(ipKey, senderMAC) {
 				at.set(ipKey, senderMAC)
 			}

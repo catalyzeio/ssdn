@@ -81,7 +81,7 @@ func StartL3Bridge() {
 
 	routes := overlay.NewRouteTracker()
 
-	pool := overlay.NewIPPool(subnet)
+	pool := comm.NewIPPool(subnet.Network, subnet.Mask)
 	if _, err := pool.Acquire(gwIP); err != nil {
 		fail("Failed to initialize IP pool: %s\n", err)
 	}

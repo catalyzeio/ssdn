@@ -8,6 +8,8 @@ import (
 	"sync/atomic"
 	"time"
 	"unsafe"
+
+	"github.com/catalyzeio/go-core/comm"
 )
 
 type IPv4Route struct {
@@ -29,16 +31,16 @@ func NewIPv4Route(network *net.IPNet) (*IPv4Route, error) {
 	}
 
 	return &IPv4Route{
-		Network: IPv4ToInt(ip),
-		Mask:    IPv4ToInt(network.Mask),
+		Network: comm.IPv4ToInt(ip),
+		Mask:    comm.IPv4ToInt(network.Mask),
 	}, nil
 }
 
 func (r *IPv4Route) Write(w io.Writer) error {
-	if _, err := w.Write(IntToIPv4(r.Network)); err != nil {
+	if _, err := w.Write(comm.IntToIPv4(r.Network)); err != nil {
 		return err
 	}
-	_, err := w.Write(IntToIPv4(r.Mask))
+	_, err := w.Write(comm.IntToIPv4(r.Mask))
 	return err
 }
 
@@ -52,15 +54,15 @@ func ReadIPv4Route(r io.Reader) (*IPv4Route, error) {
 		return nil, err
 	}
 	return &IPv4Route{
-		Network: IPv4ToInt(netBytes),
-		Mask:    IPv4ToInt(netMask),
+		Network: comm.IPv4ToInt(netBytes),
+		Mask:    comm.IPv4ToInt(netMask),
 	}, nil
 }
 
 func (r *IPv4Route) String() string {
-	mask := net.IPMask(IntToIPv4(r.Mask))
+	mask := net.IPMask(comm.IntToIPv4(r.Mask))
 	maskBits, _ := mask.Size()
-	return fmt.Sprintf("%s/%d", net.IP(IntToIPv4(r.Network)), maskBits)
+	return fmt.Sprintf("%s/%d", net.IP(comm.IntToIPv4(r.Network)), maskBits)
 }
 
 type RouteList []*IPv4Route
@@ -209,7 +211,7 @@ func (rt *RouteTracker) RoutePacket(p *PacketBuffer) {
 
 	// pull out destination IP
 	destIPBytes := buff[30:34]
-	destIP := IPv4ToInt(destIPBytes)
+	destIP := comm.IPv4ToInt(destIPBytes)
 
 	// look up destination based on available routes
 	for _, r := range rt.Get() {

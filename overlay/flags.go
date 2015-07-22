@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"net"
 	"regexp"
+
+	"github.com/catalyzeio/go-core/comm"
 )
 
 const (
@@ -138,7 +140,7 @@ func GetSubnetFlags() (*IPv4Route, net.IP, error) {
 		} else {
 			// default to last IP in subnet
 			lastIP := route.Network | ^route.Mask - 1
-			gwIP = net.IP(IntToIPv4(lastIP))
+			gwIP = net.IP(comm.IntToIPv4(lastIP))
 		}
 	}
 
@@ -146,7 +148,7 @@ func GetSubnetFlags() (*IPv4Route, net.IP, error) {
 }
 
 func CheckSubnetInNetwork(subnet *IPv4Route, network *net.IPNet) error {
-	if !network.Contains(net.IP(IntToIPv4(subnet.Network))) {
+	if !network.Contains(net.IP(comm.IntToIPv4(subnet.Network))) {
 		return fmt.Errorf("network %s does not contain subnet %s", network, subnet)
 	}
 	return nil

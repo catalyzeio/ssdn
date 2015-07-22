@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/catalyzeio/go-core/actions"
+	"github.com/catalyzeio/go-core/comm"
 )
 
 type L3Tuns struct {
@@ -19,13 +20,13 @@ type L3Tuns struct {
 	invoker *actions.Invoker
 
 	network *net.IPNet
-	pool    *IPPool
+	pool    *comm.IPPool
 
 	connMutex   sync.Mutex
 	connections map[string]*L3Tun
 }
 
-func NewL3Tuns(subnet *IPv4Route, routes *RouteTracker, mtu uint16, state *State, actionsDir string, network *net.IPNet, pool *IPPool) *L3Tuns {
+func NewL3Tuns(subnet *IPv4Route, routes *RouteTracker, mtu uint16, state *State, actionsDir string, network *net.IPNet, pool *comm.IPPool) *L3Tuns {
 	return &L3Tuns{
 		subnet: subnet,
 		routes: routes,
@@ -198,7 +199,7 @@ func (t *L3Tuns) ListConnections() map[string]*ConnectionDetails {
 func (t *L3Tuns) snapshot() *Snapshot {
 	result := make(map[string]*ConnectionDetails, len(t.connections))
 	for k, v := range t.connections {
-		ip := net.IP(IntToIPv4(v.ip))
+		ip := net.IP(comm.IntToIPv4(v.ip))
 		result[k] = &ConnectionDetails{
 			IP: ip.String(),
 		}
@@ -209,6 +210,6 @@ func (t *L3Tuns) snapshot() *Snapshot {
 func (t *L3Tuns) inject(container string, iface string, ip uint32) error {
 	mtu := strconv.Itoa(int(t.mtu))
 	_, err := t.invoker.Execute("inject", mtu, container, iface, containerIface,
-		FormatIPWithMask(ip, t.network.Mask))
+		comm.FormatIPWithMask(ip, t.network.Mask))
 	return err
 }
