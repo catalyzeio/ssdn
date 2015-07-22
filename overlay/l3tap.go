@@ -6,6 +6,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/catalyzeio/go-core/comm"
 	"github.com/catalyzeio/taptun"
 )
 
@@ -88,18 +89,18 @@ func (t *L3Tap) UnseedMAC(ip uint32) {
 }
 
 func (t *L3Tap) Resolve(ip net.IP) (net.HardwareAddr, error) {
-	ip = ip.To4()
-	if ip == nil {
-		return nil, fmt.Errorf("can only resolve IPv4 addresses")
+	ipVal, err := comm.IPToInt(ip)
+	if err != nil {
+		return nil, err
 	}
 
 	arpTracker := t.arpTracker
 
 	resolved := make(chan []byte, 1)
-	if !arpTracker.TrackQuery(ip, resolved) {
+	if !arpTracker.TrackQuery(ipVal, resolved) {
 		return nil, fmt.Errorf("already resolving %s", ip)
 	}
-	defer arpTracker.UntrackQuery(ip)
+	defer arpTracker.UntrackQuery(ipVal)
 
 	freeARP := t.freeARP
 	outARP := t.outARP

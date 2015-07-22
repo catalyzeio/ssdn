@@ -122,11 +122,10 @@ func toL3Interface(c *ConnectionDetails) (*l3Interface, error) {
 	if parsed == nil {
 		return nil, fmt.Errorf("invalid IP address: %s", c.IP)
 	}
-	ip := parsed.To4()
-	if ip == nil {
-		return nil, fmt.Errorf("invalid IP address: %s", c.IP)
+	convertedIP, err := comm.IPToInt(parsed)
+	if err != nil {
+		return nil, err
 	}
-	convertedIP := comm.IPv4ToInt(ip)
 
 	mac, err := net.ParseMAC(c.MAC)
 	if err != nil {

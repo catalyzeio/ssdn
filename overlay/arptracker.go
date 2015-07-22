@@ -77,27 +77,23 @@ func (at *ARPTracker) Get() ARPTable {
 	return *p
 }
 
-func (at *ARPTracker) TrackQuery(ip net.IP, resolved chan []byte) bool {
-	key := comm.IPv4ToInt(ip)
-
+func (at *ARPTracker) TrackQuery(ip uint32, resolved chan []byte) bool {
 	at.trackersMutex.Lock()
 	defer at.trackersMutex.Unlock()
 
-	_, present := at.trackers[key]
+	_, present := at.trackers[ip]
 	if present {
 		return false
 	}
-	at.trackers[key] = resolved
+	at.trackers[ip] = resolved
 	return true
 }
 
-func (at *ARPTracker) UntrackQuery(ip net.IP) {
-	key := comm.IPv4ToInt(ip)
-
+func (at *ARPTracker) UntrackQuery(ip uint32) {
 	at.trackersMutex.Lock()
 	defer at.trackersMutex.Unlock()
 
-	delete(at.trackers, key)
+	delete(at.trackers, ip)
 }
 
 // XXX ARP packet encoding and decoding are done manually to avoid reflection overheads

@@ -20,19 +20,13 @@ type IPv4Route struct {
 }
 
 func NewIPv4Route(network *net.IPNet) (*IPv4Route, error) {
-	ip := network.IP.To4()
-	if ip == nil {
-		return nil, fmt.Errorf("network must be IPv4")
+	netVal, maskVal, err := comm.NetworkToInt(network)
+	if err != nil {
+		return nil, err
 	}
-
-	_, bits := network.Mask.Size()
-	if bits != 32 {
-		return nil, fmt.Errorf("netmask must be IPv4")
-	}
-
 	return &IPv4Route{
-		Network: comm.IPv4ToInt(ip),
-		Mask:    comm.IPv4ToInt(network.Mask),
+		Network: netVal,
+		Mask:    maskVal,
 	}, nil
 }
 
