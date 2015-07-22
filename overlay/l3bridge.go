@@ -157,7 +157,7 @@ func (b *L3Bridge) Attach(container, ip string) error {
 	// grab the next local interface
 	iface, err := b.associate(container, nextIP, mac)
 	if err != nil {
-		pool.Free(nextIP)
+		pool.Release(nextIP)
 		return err
 	}
 
@@ -167,7 +167,7 @@ func (b *L3Bridge) Attach(container, ip string) error {
 		pool.FormatIP(nextIP), mac.String(),
 		b.network.String(), b.gwIP.String())
 	if err != nil {
-		pool.Free(nextIP)
+		pool.Release(nextIP)
 		return err
 	}
 
@@ -210,7 +210,7 @@ func (b *L3Bridge) Detach(container string) error {
 
 	// unconditionally clean up resources that were allocated to the interface
 	b.tap.UnseedMAC(iface.containerIP)
-	b.pool.Free(iface.containerIP)
+	b.pool.Release(iface.containerIP)
 
 	// return any errors that occurred when detaching the interface from the bridge
 	return err

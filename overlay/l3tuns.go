@@ -96,7 +96,7 @@ func (t *L3Tuns) Attach(container, ip string) error {
 	// create and start the tun device
 	tun := NewL3Tun(container, nextIP, t)
 	if err := tun.Start(); err != nil {
-		pool.Free(nextIP)
+		pool.Release(nextIP)
 		return err
 	}
 
@@ -132,7 +132,7 @@ func (t *L3Tuns) Detach(container string) error {
 
 	// clean up resources that were allocated to the interface
 	tun.Stop()
-	t.pool.Free(tun.ip)
+	t.pool.Release(tun.ip)
 
 	return nil
 }
