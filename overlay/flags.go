@@ -33,7 +33,7 @@ var (
 
 func AddTenantFlags() {
 	tenantFlag = flag.String("tenant", "", "tenant name (required)")
-	tenantIDFlag = flag.String("tenantID", "", "tenant identifier (optional)")
+	tenantIDFlag = flag.String("tenant-id", "", "tenant identifier (optional)")
 }
 
 func GetTenantFlags() (string, string, error) {
