@@ -25,7 +25,7 @@ type ARPTable map[uint32][]byte
 func (t ARPTable) StringMap() map[string]string {
 	sm := make(map[string]string)
 	for k, v := range t {
-		ip := net.IP(comm.IntToIPv4(k))
+		ip := comm.IntToIP(k)
 		mac := net.HardwareAddr(v)
 		sm[ip.String()] = mac.String()
 	}

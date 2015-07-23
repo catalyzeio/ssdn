@@ -199,7 +199,7 @@ func (t *L3Tuns) ListConnections() map[string]*ConnectionDetails {
 func (t *L3Tuns) snapshot() *Snapshot {
 	result := make(map[string]*ConnectionDetails, len(t.connections))
 	for k, v := range t.connections {
-		ip := net.IP(comm.IntToIPv4(v.ip))
+		ip := comm.IntToIP(v.ip)
 		result[k] = &ConnectionDetails{
 			IP: ip.String(),
 		}

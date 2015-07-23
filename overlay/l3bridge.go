@@ -278,7 +278,7 @@ func (b *L3Bridge) ListConnections() map[string]*ConnectionDetails {
 func (b *L3Bridge) snapshot() *Snapshot {
 	result := make(map[string]*ConnectionDetails, len(b.connections))
 	for k, v := range b.connections {
-		ip := net.IP(comm.IntToIPv4(v.containerIP))
+		ip := comm.IntToIP(v.containerIP)
 		result[k] = &ConnectionDetails{
 			Interface: v.localIface,
 			IP:        ip.String(),

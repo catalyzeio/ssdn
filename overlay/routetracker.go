@@ -56,7 +56,7 @@ func ReadIPv4Route(r io.Reader) (*IPv4Route, error) {
 func (r *IPv4Route) String() string {
 	mask := net.IPMask(comm.IntToIPv4(r.Mask))
 	maskBits, _ := mask.Size()
-	return fmt.Sprintf("%s/%d", net.IP(comm.IntToIPv4(r.Network)), maskBits)
+	return fmt.Sprintf("%s/%d", comm.IntToIP(r.Network), maskBits)
 }
 
 type RouteList []*IPv4Route
