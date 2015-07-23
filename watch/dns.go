@@ -24,13 +24,13 @@ type ContainerDNS struct {
 	templatePath string
 }
 
-func NewContainerDNS(dc *udocker.Client, rc *registry.Client, tenant, runDir, confDir string) *ContainerDNS {
+func NewContainerDNS(dc *udocker.Client, rc *registry.Client, tenant, stateDir, confDir string) *ContainerDNS {
 	return &ContainerDNS{
 		dc: dc,
 		rc: rc,
 
 		tenant:       tenant,
-		dataDir:      path.Join(runDir, tenant, "cdns"),
+		dataDir:      path.Join(stateDir, tenant, "cdns"),
 		templatePath: path.Join(confDir, "cdns.d", "data.mustache"),
 	}
 }

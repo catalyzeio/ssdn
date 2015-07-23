@@ -18,10 +18,11 @@ func StartCDNS() {
 
 	simplelog.AddFlags()
 	overlay.AddTenantFlags()
-	overlay.AddDirFlags()
+	overlay.AddDirFlags(false, true)
 	comm.AddTLSFlags()
 	registry.AddFlags(true)
 	udocker.AddFlags("")
+	stateDirFlag := flag.String("state-dir", "./state", "where to store state information")
 	flag.Parse()
 
 	dc, err := udocker.GenerateClient(true)
@@ -35,7 +36,7 @@ func StartCDNS() {
 	}
 	log.Info("Servicing tenant: %s, tenant ID: %s", tenant, tenantID)
 
-	runDir, confDir, err := overlay.GetDirFlags()
+	_, confDir, err := overlay.GetDirFlags()
 	if err != nil {
 		fail("Invalid directory config: %s\n", err)
 	}
@@ -54,7 +55,7 @@ func StartCDNS() {
 	}
 	rc.Start(nil, true)
 
-	c := watch.NewContainerDNS(dc, rc, tenant, runDir, confDir)
+	c := watch.NewContainerDNS(dc, rc, tenant, *stateDirFlag, confDir)
 	c.Watch()
 
 	// wait for all other goroutines to finish

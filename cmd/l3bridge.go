@@ -26,7 +26,7 @@ func StartL3Bridge() {
 	overlay.AddMTUFlag()
 	overlay.AddNetworkFlag()
 	overlay.AddSubnetFlags(true)
-	overlay.AddDirFlags()
+	overlay.AddDirFlags(true, true)
 	overlay.AddPeerTLSFlags()
 	flag.Parse()
 

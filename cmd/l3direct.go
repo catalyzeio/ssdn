@@ -26,7 +26,7 @@ func StartL3Direct() {
 	overlay.AddMTUFlag()
 	overlay.AddNetworkFlag()
 	overlay.AddSubnetFlags(false)
-	overlay.AddDirFlags()
+	overlay.AddDirFlags(true, true)
 	overlay.AddPeerTLSFlags()
 	flag.Parse()
 

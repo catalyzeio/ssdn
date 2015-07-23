@@ -23,7 +23,7 @@ func StartL2Link() {
 	registry.AddFlags(false)
 	overlay.AddTenantFlags()
 	overlay.AddMTUFlag()
-	overlay.AddDirFlags()
+	overlay.AddDirFlags(true, true)
 	overlay.AddPeerTLSFlags()
 	flag.Parse()
 

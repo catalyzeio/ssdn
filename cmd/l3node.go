@@ -24,7 +24,7 @@ func StartL3Node() {
 	overlay.AddTenantFlags()
 	overlay.AddMTUFlag()
 	overlay.AddNetworkFlag()
-	overlay.AddDirFlags()
+	overlay.AddDirFlags(true, true)
 	overlay.AddPeerTLSFlags()
 	ipFlag := flag.String("ip", "", "IP address for this node [required]")
 	flag.Parse()

@@ -79,20 +79,30 @@ func GetMTUFlag() (uint16, error) {
 	return uint16(mtuVal), nil
 }
 
-func AddDirFlags() {
-	runDirFlag = flag.String("run-dir", "/var/run/ssdn", "run-time data directory")
-	confDirFlag = flag.String("conf-dir", "/etc/ssdn", "configuration directory")
+func AddDirFlags(runDir, confDir bool) {
+	if runDir {
+		runDirFlag = flag.String("run-dir", "/var/run/ssdn", "run-time data directory")
+	}
+	if confDir {
+		confDirFlag = flag.String("conf-dir", "/etc/ssdn", "configuration directory")
+	}
 }
 
 func GetDirFlags() (string, string, error) {
-	runDir := *runDirFlag
-	if len(runDir) == 0 {
-		return "", "", fmt.Errorf("-run-dir is required")
+	var runDir string
+	if runDirFlag != nil {
+		runDir = *runDirFlag
+		if len(runDir) == 0 {
+			return "", "", fmt.Errorf("-run-dir is required")
+		}
 	}
 
-	confDir := *confDirFlag
-	if len(confDir) == 0 {
-		return "", "", fmt.Errorf("-conf-dir is required")
+	var confDir string
+	if confDirFlag != nil {
+		confDir = *confDirFlag
+		if len(confDir) == 0 {
+			return "", "", fmt.Errorf("-conf-dir is required")
+		}
 	}
 
 	return runDir, confDir, nil

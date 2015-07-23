@@ -16,7 +16,7 @@ import (
 func StartSSDN() {
 	simplelog.AddFlags()
 	overlay.AddTenantFlags()
-	overlay.AddDirFlags()
+	overlay.AddDirFlags(true, false)
 	flag.Parse()
 
 	tenant, _, err := overlay.GetTenantFlags()
