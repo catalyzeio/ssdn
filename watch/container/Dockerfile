@@ -8,4 +8,4 @@ RUN apt-get update \
 ADD prep.sh /tmp/
 RUN (bash -e /tmp/prep.sh && rm -f /tmp/prep.sh)
 
-CMD ["/usr/bin/svscan", "/service"]
+CMD ["/usr/bin/svscanboot"]

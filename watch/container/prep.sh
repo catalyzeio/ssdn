@@ -4,7 +4,7 @@ CONFIG=/data/cdns/data
 USER=nobody
 LOGUSER=syslog
 
-mkdir -p /service
+mkdir -p /etc/service
 
 # set up tinydns
 tinydns-conf ${USER} ${LOGUSER} /etc/tinydns 127.0.0.2
@@ -59,6 +59,6 @@ mkdir -p log/main
 chown ${LOGUSER}:${LOGUSER} log/main
 
 # configure all to start via svscan
-ln -s /etc/tinydns /service/tinydns
-ln -s /etc/dnscache /service/dnscache
-ln -s /etc/watch /service/watch
+ln -s /etc/tinydns /etc/service/tinydns
+ln -s /etc/dnscache /etc/service/dnscache
+ln -s /etc/watch /etc/service/watch
