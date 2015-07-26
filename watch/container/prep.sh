@@ -42,7 +42,7 @@ exec 2>&1
 cd /etc/tinydns/root
 while true; do
     cp ${CONFIG} .
-    echo updating DNS configuration ${CONFIG}
+    echo Updating DNS configuration ${CONFIG}
     make
     inotifywait -q -e close_write ${CONFIG}
 done

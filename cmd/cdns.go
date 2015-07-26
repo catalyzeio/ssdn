@@ -22,7 +22,7 @@ func StartCDNS() {
 	comm.AddTLSFlags()
 	registry.AddFlags(true)
 	udocker.AddFlags("")
-	stateDirFlag := flag.String("state-dir", "./state", "where to store state information")
+	outputDirFlag := flag.String("output-dir", "./output", "where to store generated configuration data")
 	flag.Parse()
 
 	dc, err := udocker.GenerateClient(true)
@@ -55,7 +55,7 @@ func StartCDNS() {
 	}
 	rc.Start(nil, true)
 
-	c := watch.NewContainerDNS(dc, rc, tenant, *stateDirFlag, confDir)
+	c := watch.NewContainerDNS(dc, rc, tenant, *outputDirFlag, confDir)
 	c.Watch()
 
 	// wait for all other goroutines to finish

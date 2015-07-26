@@ -20,17 +20,17 @@ type ContainerDNS struct {
 	rc *registry.Client
 
 	tenant       string
-	dataDir      string
+	outputDir    string
 	templatePath string
 }
 
-func NewContainerDNS(dc *udocker.Client, rc *registry.Client, tenant, stateDir, confDir string) *ContainerDNS {
+func NewContainerDNS(dc *udocker.Client, rc *registry.Client, tenant, outputDir, confDir string) *ContainerDNS {
 	return &ContainerDNS{
 		dc: dc,
 		rc: rc,
 
 		tenant:       tenant,
-		dataDir:      path.Join(stateDir, tenant, "cdns"),
+		outputDir:    outputDir,
 		templatePath: path.Join(confDir, "cdns.d", "data.mustache"),
 	}
 }
@@ -198,10 +198,10 @@ func (c *ContainerDNS) render(enum *registry.Enumeration) error {
 	}
 
 	// dump it out
-	if err := os.MkdirAll(c.dataDir, 0755); err != nil {
+	if err := os.MkdirAll(c.outputDir, 0755); err != nil {
 		return err
 	}
-	dataFile := path.Join(c.dataDir, "data")
+	dataFile := path.Join(c.outputDir, "data")
 	if err := ioutil.WriteFile(dataFile, []byte(renderedTemplate), 0644); err != nil {
 		return err
 	}
