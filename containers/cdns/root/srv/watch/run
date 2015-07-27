@@ -1,0 +1,10 @@
+#!/bin/sh -e
+exec 2>&1
+
+cd /srv/tinydns/root
+while true; do
+    cp /data/cdns/data .
+    echo Updating DNS configuration /data/cdns/data
+    make
+    inotifywait -q -e close_write /data/cdns/data
+done

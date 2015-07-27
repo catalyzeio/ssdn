@@ -1,0 +1,5 @@
+#!/bin/sh
+exec 2>&1
+
+exec <seed
+exec chpst -U nobody -e ./env -o250 -d3000000 /usr/bin/dnscache
