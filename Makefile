@@ -1,5 +1,5 @@
 GIT_REV=$(shell git rev-parse --short HEAD)
-VERSION=0.7.0-dev-0-${GIT_REV}
+VERSION=0.7.0-dev-1-${GIT_REV}
 
 MULTI=ssdn
 ALIASES=l2link l3bridge l3direct l3node cdns
