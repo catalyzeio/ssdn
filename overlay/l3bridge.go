@@ -26,7 +26,6 @@ type L3Bridge struct {
 
 	connMutex   sync.Mutex
 	connections map[string]*l3Interface
-	ifIndex     int
 }
 
 type l3Interface struct {
@@ -37,7 +36,7 @@ type l3Interface struct {
 }
 
 const (
-	localL3IfaceTemplate = "sl3.veth%d"
+	localL3VethPrefix = "sl3."
 )
 
 func NewL3Bridge(name string, mtu uint16, state *State, actionsDir string, network *net.IPNet, pool *comm.IPPool, gwIP net.IP) *L3Bridge {
@@ -183,6 +182,11 @@ func (b *L3Bridge) Attach(container, ip string) error {
 }
 
 func (b *L3Bridge) associate(container string, ip uint32, mac net.HardwareAddr) (*l3Interface, error) {
+	localIface, err := RandomVethName(localL3VethPrefix)
+	if err != nil {
+		return nil, err
+	}
+
 	b.connMutex.Lock()
 	defer b.connMutex.Unlock()
 
@@ -190,10 +194,8 @@ func (b *L3Bridge) associate(container string, ip uint32, mac net.HardwareAddr) 
 	if present {
 		return nil, fmt.Errorf("already attached to container %s", container)
 	}
-	i := b.ifIndex
-	b.ifIndex++
 	iface := &l3Interface{
-		localIface: fmt.Sprintf(localL3IfaceTemplate, i),
+		localIface: localIface,
 
 		containerIP:  ip,
 		containerMAC: mac,

@@ -18,12 +18,11 @@ type L2Bridge struct {
 
 	connMutex   sync.Mutex
 	connections map[string]string
-	ifIndex     int
 }
 
 const (
-	localL2IfaceTemplate = "sl2.veth%d"
-	containerIface       = "eth1"
+	localL2VethPrefix = "sl2."
+	containerIface    = "eth1"
 )
 
 func NewL2Bridge(name string, mtu uint16, state *State, actionsDir string) *L2Bridge {
@@ -105,6 +104,11 @@ func (b *L2Bridge) Attach(container, ip string) error {
 }
 
 func (b *L2Bridge) associate(container string) (string, error) {
+	localIface, err := RandomVethName(localL2VethPrefix)
+	if err != nil {
+		return "", err
+	}
+
 	b.connMutex.Lock()
 	defer b.connMutex.Unlock()
 
@@ -112,9 +116,6 @@ func (b *L2Bridge) associate(container string) (string, error) {
 	if present {
 		return "", fmt.Errorf("already attached to container %s", container)
 	}
-	i := b.ifIndex
-	b.ifIndex++
-	localIface := fmt.Sprintf(localL2IfaceTemplate, i)
 	b.connections[container] = localIface
 	b.state.Update(b.snapshot())
 	return localIface, nil

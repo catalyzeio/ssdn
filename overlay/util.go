@@ -3,6 +3,12 @@ package overlay
 import (
 	"crypto/rand"
 	"net"
+
+	"github.com/catalyzeio/go-core/comm"
+)
+
+const (
+	maxVethNameLength = 14
 )
 
 func RandomMAC() (net.HardwareAddr, error) {
@@ -15,6 +21,14 @@ func RandomMAC() (net.HardwareAddr, error) {
 	address[0] &= 0xFE
 	address[0] |= 0x02
 	return net.HardwareAddr(address), nil
+}
+
+func RandomVethName(prefix string) (string, error) {
+	chars, err := comm.GenerateChars(maxVethNameLength - len(prefix))
+	if err != nil {
+		return "", err
+	}
+	return prefix + chars, nil
 }
 
 func GetInterfaces() (map[string]struct{}, error) {
