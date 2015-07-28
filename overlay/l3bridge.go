@@ -108,11 +108,16 @@ func (b *L3Bridge) Restore() error {
 }
 
 func (b *L3Bridge) restoreData(container string, d *ConnectionDetails) error {
+	// restore entry in the connections map
 	i, err := toL3Interface(d)
 	if err != nil {
 		return err
 	}
 	b.connections[container] = i
+
+	// re-seed the gateway's ARP cache
+	b.tap.SeedMAC(i.containerIP, i.containerMAC)
+
 	log.Info("Restored state for %s", container)
 	return nil
 }
