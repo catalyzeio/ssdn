@@ -59,7 +59,7 @@ func (t *L3Tun) createTun() (*taptun.Interface, error) {
 		log.Debug("Creating new tun")
 	}
 
-	const tunNameTemplate = "sf3.tun%d"
+	const tunNameTemplate = "sl3.tun%d"
 	tun, err := taptun.NewTUN(tunNameTemplate)
 	if err != nil {
 		return nil, err

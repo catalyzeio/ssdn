@@ -103,7 +103,7 @@ func (c *L3Client) connHandler(conn net.Conn, abort <-chan struct{}) error {
 }
 
 func L3Handshake(peer net.Conn) (*bufio.Reader, *bufio.Writer, error) {
-	return Handshake(peer, "SFL3 1.0")
+	return Handshake(peer, "SSDN-L3 1.0")
 }
 
 func WriteL3PeerInfo(localURL string, subnet *IPv4Route, r *bufio.Reader, w *bufio.Writer) error {

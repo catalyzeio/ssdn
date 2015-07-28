@@ -37,7 +37,7 @@ type l3Interface struct {
 }
 
 const (
-	localL3IfaceTemplate = "sf3.%s.%d"
+	localL3IfaceTemplate = "sl3.veth%d"
 )
 
 func NewL3Bridge(name string, mtu uint16, state *State, actionsDir string, network *net.IPNet, pool *comm.IPPool, gwIP net.IP) *L3Bridge {
@@ -188,7 +188,7 @@ func (b *L3Bridge) associate(container string, ip uint32, mac net.HardwareAddr) 
 	i := b.ifIndex
 	b.ifIndex++
 	iface := &l3Interface{
-		localIface: fmt.Sprintf(localL3IfaceTemplate, b.name, i),
+		localIface: fmt.Sprintf(localL3IfaceTemplate, i),
 
 		containerIP:  ip,
 		containerMAC: mac,

@@ -10,8 +10,10 @@ import (
 	"github.com/catalyzeio/go-core/comm"
 )
 
+// For l2link and l3bridge, the tenant ID is also used as the bridge name.
+// In Linux this has a maximum length of 15 characters.
 const (
-	tenantIDLength = 6
+	tenantIDLength = 15
 )
 
 var (

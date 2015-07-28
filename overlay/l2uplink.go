@@ -84,7 +84,7 @@ func (u *L2Uplink) updateName(name string) {
 }
 
 func L2Handshake(conn net.Conn) (*bufio.Reader, *bufio.Writer, error) {
-	return Handshake(conn, "SFL2 1.0")
+	return Handshake(conn, "SSDN-L2 1.0")
 }
 
 func Handshake(conn net.Conn, hello string) (*bufio.Reader, *bufio.Writer, error) {

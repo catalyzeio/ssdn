@@ -21,7 +21,7 @@ const (
 )
 
 func NewL2Tap() (*L2Tap, error) {
-	const tapNameTemplate = "sf2.tap%d"
+	const tapNameTemplate = "sl2.tap%d"
 	tap, err := taptun.NewTAP(tapNameTemplate)
 	if err != nil {
 		return nil, err

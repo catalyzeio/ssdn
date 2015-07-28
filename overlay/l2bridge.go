@@ -22,7 +22,7 @@ type L2Bridge struct {
 }
 
 const (
-	localL2IfaceTemplate = "sf2.%s.%d"
+	localL2IfaceTemplate = "sl2.veth%d"
 	containerIface       = "eth1"
 )
 
@@ -114,7 +114,7 @@ func (b *L2Bridge) associate(container string) (string, error) {
 	}
 	i := b.ifIndex
 	b.ifIndex++
-	localIface := fmt.Sprintf(localL2IfaceTemplate, b.name, i)
+	localIface := fmt.Sprintf(localL2IfaceTemplate, i)
 	b.connections[container] = localIface
 	b.state.Update(b.snapshot())
 	return localIface, nil

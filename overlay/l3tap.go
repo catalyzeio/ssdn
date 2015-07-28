@@ -143,7 +143,7 @@ func (t *L3Tap) createLinkedTap() (*taptun.Interface, error) {
 		log.Debug("Creating new tap")
 	}
 
-	const tapNameTemplate = "sf3.tap%d"
+	const tapNameTemplate = "sl3.tap%d"
 	tap, err := taptun.NewTAP(tapNameTemplate)
 	if err != nil {
 		return nil, err

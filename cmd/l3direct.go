@@ -108,7 +108,7 @@ func StartL3Direct() {
 	}
 	if rc != nil {
 		advertiseAddress := listenAddress.PublicString()
-		rw := watch.NewRegistryWatcher(rc, "sfl3", advertiseAddress, true)
+		rw := watch.NewRegistryWatcher(rc, "ssdn-l3", advertiseAddress, true)
 		rw.Watch(peers)
 	}
 

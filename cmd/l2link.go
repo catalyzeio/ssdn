@@ -89,7 +89,7 @@ func StartL2Link() {
 		if listenAddress != nil {
 			advertiseAddress = listenAddress.PublicString()
 		}
-		rw := watch.NewRegistryWatcher(rc, "sfl2", advertiseAddress, false)
+		rw := watch.NewRegistryWatcher(rc, "ssdn-l2", advertiseAddress, false)
 		rw.Watch(uplinks)
 	}
 
