@@ -114,6 +114,11 @@ func (b *L3Bridge) restoreData(container string, d *ConnectionDetails) error {
 	}
 	b.connections[container] = i
 
+	// re-reserve the IP address used by the container
+	if _, err := b.pool.Acquire(comm.IntToIPv4(i.containerIP)); err != nil {
+		return err
+	}
+
 	// re-seed the gateway's ARP cache
 	b.tap.SeedMAC(i.containerIP, i.containerMAC)
 
