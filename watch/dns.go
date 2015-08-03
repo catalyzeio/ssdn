@@ -10,6 +10,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/catalyzeio/go-core/comm"
 	"github.com/catalyzeio/go-core/udocker"
 	"github.com/catalyzeio/paas-orchestration/registry"
 	"github.com/hoisie/mustache"
@@ -173,7 +174,7 @@ func (c *ContainerDNS) render(enum *registry.Enumeration) error {
 					host = u.Host
 				}
 				provides = append(provides, map[string]string{
-					"name":   registry.Sanitize(service),
+					"name":   comm.SanitizeService(service),
 					"scheme": u.Scheme,
 					"host":   host,
 					"port":   port,
