@@ -54,7 +54,7 @@ deb: all
 	find conf -type f | sed s-conf-/etc/ssdn- > build/DEBIAN/conffiles
 
 	# build .deb file
-	fakeroot dpkg-deb -b build ssdn-${VERSION}.deb
+	fakeroot dpkg-deb -b build ssdn_${VERSION}_amd64.deb
 
 clean:
 	rm -f *.deb
