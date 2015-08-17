@@ -1,7 +1,0 @@
-# use a short NXDOMAIN TTL for the SOA record
-Zinternal:a.ns.internal:owner.internal::::::5
-
-# set up NS record for local tinydns server
-.internal:127.0.0.2:a:259200
-
-# .internal records
