@@ -137,6 +137,8 @@ func (c *ContainerDNS) extractSet(containers []udocker.ContainerSummary) service
 }
 
 func (c *ContainerDNS) query() {
+	var oldCtx map[string]interface{}
+
 	rc := c.rc
 	for {
 		// wait for more changes
@@ -150,15 +152,23 @@ func (c *ContainerDNS) query() {
 			continue
 		}
 
-		// update data file
-		if err := c.render(enum); err != nil {
-			log.Warn("Failed to update DNS configuration: %s", err)
+		// ignore spurious updates
+		ctx := c.templateContext(enum)
+		if reflect.DeepEqual(ctx, oldCtx) {
+			continue
 		}
+
+		// update data file
+		if err := c.render(ctx); err != nil {
+			log.Warn("Failed to update DNS configuration: %s", err)
+			continue
+		}
+
+		oldCtx = ctx
 	}
 }
 
-func (c *ContainerDNS) render(enum *registry.Enumeration) error {
-	// translate the returned data
+func (c *ContainerDNS) templateContext(enum *registry.Enumeration) map[string]interface{} {
 	var provides []map[string]string
 	if enum != nil {
 		for service, locations := range enum.Provides {
@@ -182,10 +192,12 @@ func (c *ContainerDNS) render(enum *registry.Enumeration) error {
 			}
 		}
 	}
-	ctx := map[string]interface{}{
+	return map[string]interface{}{
 		"provides": provides,
 	}
+}
 
+func (c *ContainerDNS) render(ctx map[string]interface{}) error {
 	// load template
 	template, err := ioutil.ReadFile(c.templatePath)
 	if err != nil {
