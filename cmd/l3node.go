@@ -62,7 +62,7 @@ func StartL3Node() {
 	}
 	log.Info("Local IP: %s", ip)
 
-	runDir, confDir, err := overlay.GetDirFlags()
+	_, confDir, err := overlay.GetDirFlags()
 	if err != nil {
 		fail("Invalid directory config: %s\n", err)
 	}
@@ -108,8 +108,8 @@ func StartL3Node() {
 		rw.Watch(peers)
 	}
 
-	dl := overlay.NewListener(tenant, runDir)
+	/*dl := overlay.NewListener(tenant, runDir)
 	if err := dl.Listen(nil, peers, routes, nil); err != nil {
 		fail("Failed to start domain socket listener: %s\n", err)
-	}
+	}*/
 }

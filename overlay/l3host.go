@@ -52,7 +52,7 @@ func NewL3HostTun(ip net.IP, mtu uint16, routes *RouteTracker, actionsDir string
 }
 
 func (t *L3HostTun) Start() error {
-	t.invoker.Start()
+	//t.invoker.Start()
 
 	tun, err := t.createTun()
 	if err != nil {
@@ -92,7 +92,7 @@ func (t *L3HostTun) createTun() (*taptun.Interface, error) {
 	log.Info("Created layer 3 tun %s", name)
 
 	mtu := strconv.Itoa(int(t.mtu))
-	_, err = t.invoker.Execute("init", mtu, name, comm.FormatIPWithMask(t.ip, t.network.Mask))
+	_, err = t.invoker.Execute("init.bat", mtu, name, comm.FormatIPWithMask(t.ip, t.network.Mask))
 	if err != nil {
 		tun.Close()
 		return nil, err
