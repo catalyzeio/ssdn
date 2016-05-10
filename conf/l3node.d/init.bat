@@ -13,4 +13,4 @@ SET localif=%2
 SET ip=%3
 
 :: set IP for interface
-netsh interface ipv4 set address source=static name="Ethernet 2" address=%ip%
+netsh interface ipv4 set address source=static name="Ethernet 3" address=%ip%

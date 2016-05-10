@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"path"
+        "runtime"
 
 	"github.com/catalyzeio/go-core/comm"
 	"github.com/catalyzeio/go-core/simplelog"
@@ -112,4 +113,5 @@ func StartL3Node() {
 	if err := dl.Listen(nil, peers, routes, nil); err != nil {
 		fail("Failed to start domain socket listener: %s\n", err)
 	}*/
+        runtime.Goexit()
 }
