@@ -1,30 +1,30 @@
 {
 	"ImportPath": "github.com/catalyzeio/ssdn",
-	"GoVersion": "go1.4.2",
+	"GoVersion": "go1.6.2",
 	"Deps": [
 		{
 			"ImportPath": "github.com/catalyzeio/go-core/actions",
-			"Rev": "master"
+			"Rev": "01adbbb7c494baeeb8c8d2df9ab0801cd622b653"
 		},
 		{
 			"ImportPath": "github.com/catalyzeio/go-core/comm",
-			"Rev": "master"
+			"Rev": "01adbbb7c494baeeb8c8d2df9ab0801cd622b653"
 		},
 		{
 			"ImportPath": "github.com/catalyzeio/go-core/multicall",
-			"Rev": "master"
+			"Rev": "01adbbb7c494baeeb8c8d2df9ab0801cd622b653"
 		},
 		{
 			"ImportPath": "github.com/catalyzeio/go-core/simplelog",
-			"Rev": "master"
+			"Rev": "01adbbb7c494baeeb8c8d2df9ab0801cd622b653"
 		},
 		{
 			"ImportPath": "github.com/catalyzeio/go-core/udocker",
-			"Rev": "master"
+			"Rev": "01adbbb7c494baeeb8c8d2df9ab0801cd622b653"
 		},
 		{
 			"ImportPath": "github.com/catalyzeio/paas-orchestration/registry",
-			"Rev": "development"
+			"Rev": "master"
 		},
 		{
 			"ImportPath": "github.com/catalyzeio/taptun",
