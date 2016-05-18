@@ -171,6 +171,9 @@ func AddPeerTLSFlags() {
 }
 
 func GetPeerTLSConfig(config *tls.Config) *tls.Config {
+	if config == nil {
+		return nil
+	}
 	serverName := *serverNameFlag
 	if len(serverName) == 0 {
 		return config
