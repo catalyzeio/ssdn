@@ -12,6 +12,7 @@ import (
 
 	"github.com/catalyzeio/go-core/comm"
 	"github.com/catalyzeio/go-core/udocker"
+	"github.com/catalyzeio/paas-orchestration/agent"
 	"github.com/catalyzeio/paas-orchestration/registry"
 	"github.com/hoisie/mustache"
 )
@@ -19,20 +20,26 @@ import (
 type ContainerDNS struct {
 	dc *udocker.Client
 	rc *registry.Client
+	ac *agent.Client
 
 	tenant       string
 	outputDir    string
 	templatePath string
+
+	advertiseJobState bool
 }
 
-func NewContainerDNS(dc *udocker.Client, rc *registry.Client, tenant, outputDir, confDir string) *ContainerDNS {
+func NewContainerDNS(dc *udocker.Client, rc *registry.Client, ac *agent.Client, tenant, outputDir, confDir string, advertiseJobState bool) *ContainerDNS {
 	return &ContainerDNS{
 		dc: dc,
 		rc: rc,
+		ac: ac,
 
 		tenant:       tenant,
 		outputDir:    outputDir,
 		templatePath: path.Join(confDir, "cdns.d", "data.mustache"),
+
+		advertiseJobState: advertiseJobState,
 	}
 }
 
@@ -42,24 +49,25 @@ func (c *ContainerDNS) Watch() {
 }
 
 type serviceSet map[string]locationSet
-type locationSet map[string]struct{}
+type locationSet map[string]*int
 
-func (s serviceSet) add(name, location string) {
+func (s serviceSet) add(name, location string, state *int) {
 	locs, present := s[name]
 	if !present {
 		locs = make(locationSet)
 		s[name] = locs
 	}
-	locs[location] = struct{}{}
+	locs[location] = state
 }
 
 func (s serviceSet) toAds() []registry.Advertisement {
 	var ads []registry.Advertisement
 	for name, locs := range s {
-		for loc, _ := range locs {
+		for loc, state := range locs {
 			ads = append(ads, registry.Advertisement{
 				Name:     name,
 				Location: loc,
+				State:    state,
 			})
 		}
 	}
@@ -104,6 +112,7 @@ func (c *ContainerDNS) advertise() {
 }
 
 func (c *ContainerDNS) extractSet(containers []udocker.ContainerSummary) serviceSet {
+	ac := c.ac
 	set := make(serviceSet)
 	for _, container := range containers {
 		tenant, present := container.Labels[TenantLabel]
@@ -119,6 +128,11 @@ func (c *ContainerDNS) extractSet(containers []udocker.ContainerSummary) service
 		if !present {
 			continue
 		}
+		// check if the container has any service data
+		jobID, present := container.Labels[JobIDLabel]
+		if !present {
+			continue
+		}
 		// extract service data
 		var services []Service
 		if err := json.Unmarshal([]byte(data), &services); err != nil {
@@ -128,9 +142,19 @@ func (c *ContainerDNS) extractSet(containers []udocker.ContainerSummary) service
 		if log.IsTraceEnabled() {
 			log.Trace("Container %s services: %v", container.Id, services)
 		}
+		var jobState *int
+		if c.advertiseJobState {
+			jobDetails, err := ac.ListJob(jobID)
+			if err != nil {
+				log.Warn("Job %s was not found in the agent: %s", jobID, err)
+			}
+			state := int(jobDetails[jobID].State)
+			jobState = &state
+		}
+
 		// add service data to results
 		for _, v := range services {
-			set.add(v.Name, v.Location)
+			set.add(v.Name, v.Location, jobState)
 		}
 	}
 	return set

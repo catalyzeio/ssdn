@@ -7,6 +7,7 @@ import (
 	"github.com/catalyzeio/go-core/comm"
 	"github.com/catalyzeio/go-core/simplelog"
 	"github.com/catalyzeio/go-core/udocker"
+	"github.com/catalyzeio/paas-orchestration/agent"
 	"github.com/catalyzeio/paas-orchestration/registry"
 
 	"github.com/catalyzeio/ssdn/overlay"
@@ -23,6 +24,8 @@ func StartCDNS() {
 	registry.AddFlags(true)
 	udocker.AddFlags("")
 	outputDirFlag := flag.String("output-dir", "./output", "where to store generated configuration data")
+	agentSocketFlag := flag.String("agent-sock", "/data/orch/state/agent.sock", "path to the agent unix socket")
+	advertiseJobStateFlag := flag.Bool("job-state", true, "whether or not to advertise job state")
 	flag.Parse()
 
 	dc, err := udocker.GenerateClient(true)
@@ -55,7 +58,10 @@ func StartCDNS() {
 	}
 	rc.Start(nil, true)
 
-	c := watch.NewContainerDNS(dc, rc, tenant, *outputDirFlag, confDir)
+	ac := agent.NewSocketClientFromPath(*agentSocketFlag)
+	ac.Start()
+
+	c := watch.NewContainerDNS(dc, rc, ac, tenant, *outputDirFlag, confDir, *advertiseJobStateFlag)
 	c.Watch()
 
 	// wait for all other goroutines to finish
