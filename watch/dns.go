@@ -49,25 +49,25 @@ func (c *ContainerDNS) Watch() {
 }
 
 type serviceSet map[string]locationSet
-type locationSet map[string]*int
+type locationSet map[string]bool
 
-func (s serviceSet) add(name, location string, state *int) {
+func (s serviceSet) add(name, location string, running bool) {
 	locs, present := s[name]
 	if !present {
 		locs = make(locationSet)
 		s[name] = locs
 	}
-	locs[location] = state
+	locs[location] = running
 }
 
 func (s serviceSet) toAds() []registry.Advertisement {
 	var ads []registry.Advertisement
 	for name, locs := range s {
-		for loc, state := range locs {
+		for loc, running := range locs {
 			ads = append(ads, registry.Advertisement{
 				Name:     name,
 				Location: loc,
-				State:    state,
+				Running:  running,
 			})
 		}
 	}
@@ -142,19 +142,18 @@ func (c *ContainerDNS) extractSet(containers []udocker.ContainerSummary) service
 		if log.IsTraceEnabled() {
 			log.Trace("Container %s services: %v", container.Id, services)
 		}
-		var jobState *int
+		running := true
 		if c.advertiseJobState {
 			jobDetails, err := ac.ListJob(jobID)
 			if err != nil {
 				log.Warn("Job %s was not found in the agent: %s", jobID, err)
 			}
-			state := int(jobDetails[jobID].State)
-			jobState = &state
+			running = jobDetails[jobID].State == agent.Running
 		}
 
 		// add service data to results
 		for _, v := range services {
-			set.add(v.Name, v.Location, jobState)
+			set.add(v.Name, v.Location, running)
 		}
 	}
 	return set
