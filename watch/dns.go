@@ -128,11 +128,6 @@ func (c *ContainerDNS) extractSet(containers []udocker.ContainerSummary) service
 		if !present {
 			continue
 		}
-		// check if the container has any service data
-		jobID, present := container.Labels[JobIDLabel]
-		if !present {
-			continue
-		}
 		// extract service data
 		var services []Service
 		if err := json.Unmarshal([]byte(data), &services); err != nil {
@@ -144,6 +139,11 @@ func (c *ContainerDNS) extractSet(containers []udocker.ContainerSummary) service
 		}
 		running := true
 		if c.advertiseJobState {
+			// check if the container has a job label
+			jobID, present := container.Labels[agent.JobLabel]
+			if !present {
+				continue
+			}
 			jobDetails, err := ac.ListJob(jobID)
 			if err != nil {
 				log.Warn("Job %s was not found in the agent: %s", jobID, err)

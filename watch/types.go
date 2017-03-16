@@ -8,7 +8,6 @@ const (
 	TenantLabel   = "io.catalyze.ssdn.tenant"   // plain string
 	IPLabel       = "io.catalyze.ssdn.ip"       // plain string
 	ServicesLabel = "io.catalyze.ssdn.services" // []Service json
-	JobIDLabel    = "io.catalyze.paas.job"      // plain string
 )
 
 type Service struct {
