@@ -145,10 +145,12 @@ func (c *ContainerDNS) extractSet(containers []udocker.ContainerSummary) service
 				continue
 			}
 			jobDetails, err := ac.ListJob(jobID)
-			if err != nil {
-				log.Warn("Job %s was not found in the agent: %s", jobID, err)
+			if err != nil || jobDetails == nil || jobDetails[jobID] == nil {
+				log.Warn("Error retrieving job %s from the agent: %s", jobID, err)
+				running = false
+			} else {
+				running = jobDetails[jobID].State == agent.Running
 			}
-			running = jobDetails[jobID].State == agent.Running
 		}
 
 		// add service data to results
