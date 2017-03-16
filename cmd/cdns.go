@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"flag"
+	"path/filepath"
 	"runtime"
 
 	"github.com/catalyzeio/go-core/comm"
@@ -58,7 +59,12 @@ func StartCDNS() {
 	}
 	rc.Start(nil, true)
 
-	ac := agent.NewSocketClientFromPath(*agentSocketFlag)
+	absSockPath, err := filepath.Abs(*agentSocketFlag)
+	if err != nil {
+		fail("Could not determine the absolute path to the agent socket: %s\n", err)
+	}
+
+	ac := agent.NewSocketClientFromPath(absSockPath)
 	ac.Start()
 
 	c := watch.NewContainerDNS(dc, rc, ac, tenant, *outputDirFlag, confDir, *advertiseJobStateFlag)
