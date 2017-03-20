@@ -27,6 +27,10 @@
 			"Rev": "master"
 		},
 		{
+			"ImportPath": "github.com/catalyzeio/paas-orchestration/agent",
+			"Rev": "master"
+		},
+		{
 			"ImportPath": "github.com/catalyzeio/taptun",
 			"Rev": "master"
 		},
