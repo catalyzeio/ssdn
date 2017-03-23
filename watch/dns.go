@@ -17,6 +17,8 @@ import (
 	"github.com/hoisie/mustache"
 )
 
+const watchInterval = time.Second * 15
+
 type ContainerDNS struct {
 	dc *udocker.Client
 	rc *registry.Client
@@ -106,8 +108,11 @@ func (c *ContainerDNS) advertise() {
 			set = newSet
 		}
 
-		// wait for container state changes
-		<-changes
+		// wait for container state changes or a 15 second timer
+		select {
+		case <-changes:
+		case <-time.After(watchInterval):
+		}
 	}
 }
 
