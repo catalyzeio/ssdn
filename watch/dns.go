@@ -78,40 +78,41 @@ func (s serviceSet) toAds() []registry.Advertisement {
 
 func (c *ContainerDNS) advertise() {
 	var set serviceSet
+	var containers []udocker.ContainerSummary
 
 	dc := c.dc
 	rc := c.rc
 
 	changes := dc.Watch()
+	ticker := time.NewTicker(watchInterval)
 	for {
-		// grab list of containers
-		if log.IsDebugEnabled() {
-			log.Debug("Updating list of containers")
-		}
-		containers, err := dc.ListContainers(false)
-		if err != nil {
-			log.Warn("Error querying list of Docker containers: %s", err)
-			time.Sleep(dockerRetryInterval)
-			continue
-		}
-
-		// refresh advertisements if the current set has changed
-		newSet := c.extractSet(containers)
-		if !reflect.DeepEqual(set, newSet) {
-			ads := newSet.toAds()
-			log.Info("Updating registry advertisements: %s", ads)
-			if err := rc.Advertise(ads); err != nil {
-				log.Warn("Error updating registry: %s", err)
-				time.Sleep(registryRetryInterval)
-				continue
-			}
-			set = newSet
-		}
-
-		// wait for container state changes or a 15 second timer
+		// wait for container state changes or a timer
 		select {
 		case <-changes:
-		case <-time.After(watchInterval):
+			// grab list of containers
+			if log.IsDebugEnabled() {
+				log.Debug("Updating list of containers")
+			}
+			var err error
+			containers, err = dc.ListContainers(false)
+			if err != nil {
+				log.Warn("Error querying list of Docker containers: %s", err)
+				time.Sleep(dockerRetryInterval)
+				continue
+			}
+		case <-ticker.C:
+			// refresh advertisements if the current set has changed
+			newSet := c.extractSet(containers)
+			if !reflect.DeepEqual(set, newSet) {
+				ads := newSet.toAds()
+				log.Info("Updating registry advertisements: %s", ads)
+				if err := rc.Advertise(ads); err != nil {
+					log.Warn("Error updating registry: %s", err)
+					time.Sleep(registryRetryInterval)
+					continue
+				}
+				set = newSet
+			}
 		}
 	}
 }
