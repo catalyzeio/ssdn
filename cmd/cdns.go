@@ -26,7 +26,7 @@ func StartCDNS() {
 	udocker.AddFlags("")
 	outputDirFlag := flag.String("output-dir", "./output", "where to store generated configuration data")
 	agentSocketFlag := flag.String("agent-sock", "/data/orch/state/agent.sock", "path to the agent unix socket")
-	advertiseJobStateFlag := flag.Bool("job-state", false, "whether or not to advertise job state")
+	advertiseJobStateFlag := flag.Bool("job-state", true, "whether or not to advertise job state")
 	flag.Parse()
 
 	dc, err := udocker.GenerateClient(true)

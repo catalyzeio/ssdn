@@ -17,7 +17,10 @@ import (
 	"github.com/hoisie/mustache"
 )
 
-const watchInterval = time.Second * 15
+const (
+	stableWatchInterval   = time.Second * 7
+	unstableWatchInterval = time.Second * 2
+)
 
 type ContainerDNS struct {
 	dc *udocker.Client
@@ -84,7 +87,7 @@ func (c *ContainerDNS) advertise() {
 	rc := c.rc
 
 	changes := dc.Watch()
-	ticker := time.NewTicker(watchInterval)
+	ticker := time.NewTicker(stableWatchInterval)
 	for {
 		// wait for container state changes or a timer
 		select {
@@ -102,16 +105,21 @@ func (c *ContainerDNS) advertise() {
 			}
 		case <-ticker.C:
 			// refresh advertisements if the current set has changed
-			newSet := c.extractSet(containers)
-			if !reflect.DeepEqual(set, newSet) {
-				ads := newSet.toAds()
-				log.Info("Updating registry advertisements: %s", ads)
-				if err := rc.Advertise(ads); err != nil {
-					log.Warn("Error updating registry: %s", err)
-					time.Sleep(registryRetryInterval)
-					continue
+			if containers != nil {
+				newSet := c.extractSet(containers)
+				if !reflect.DeepEqual(set, newSet) {
+					ticker = time.NewTicker(unstableWatchInterval)
+					ads := newSet.toAds()
+					log.Info("Updating registry advertisements: %s", ads)
+					if err := rc.Advertise(ads); err != nil {
+						log.Warn("Error updating registry: %s", err)
+						time.Sleep(registryRetryInterval)
+						continue
+					}
+					set = newSet
+				} else {
+					ticker = time.NewTicker(stableWatchInterval)
 				}
-				set = newSet
 			}
 		}
 	}
