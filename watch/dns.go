@@ -12,27 +12,39 @@ import (
 
 	"github.com/catalyzeio/go-core/comm"
 	"github.com/catalyzeio/go-core/udocker"
+	"github.com/catalyzeio/paas-orchestration/agent"
 	"github.com/catalyzeio/paas-orchestration/registry"
 	"github.com/hoisie/mustache"
+)
+
+const (
+	stableWatchInterval   = time.Second * 7
+	unstableWatchInterval = time.Second * 2
 )
 
 type ContainerDNS struct {
 	dc *udocker.Client
 	rc *registry.Client
+	ac *agent.Client
 
 	tenant       string
 	outputDir    string
 	templatePath string
+
+	advertiseJobState bool
 }
 
-func NewContainerDNS(dc *udocker.Client, rc *registry.Client, tenant, outputDir, confDir string) *ContainerDNS {
+func NewContainerDNS(dc *udocker.Client, rc *registry.Client, ac *agent.Client, tenant, outputDir, confDir string, advertiseJobState bool) *ContainerDNS {
 	return &ContainerDNS{
 		dc: dc,
 		rc: rc,
+		ac: ac,
 
 		tenant:       tenant,
 		outputDir:    outputDir,
 		templatePath: path.Join(confDir, "cdns.d", "data.mustache"),
+
+		advertiseJobState: advertiseJobState,
 	}
 }
 
@@ -42,24 +54,25 @@ func (c *ContainerDNS) Watch() {
 }
 
 type serviceSet map[string]locationSet
-type locationSet map[string]struct{}
+type locationSet map[string]bool
 
-func (s serviceSet) add(name, location string) {
+func (s serviceSet) add(name, location string, running bool) {
 	locs, present := s[name]
 	if !present {
 		locs = make(locationSet)
 		s[name] = locs
 	}
-	locs[location] = struct{}{}
+	locs[location] = running
 }
 
 func (s serviceSet) toAds() []registry.Advertisement {
 	var ads []registry.Advertisement
 	for name, locs := range s {
-		for loc, _ := range locs {
+		for loc, running := range locs {
 			ads = append(ads, registry.Advertisement{
 				Name:     name,
 				Location: loc,
+				Running:  running,
 			})
 		}
 	}
@@ -68,42 +81,60 @@ func (s serviceSet) toAds() []registry.Advertisement {
 
 func (c *ContainerDNS) advertise() {
 	var set serviceSet
-
+	var containers []udocker.ContainerSummary
+	var err error
 	dc := c.dc
 	rc := c.rc
 
-	changes := dc.Watch()
+	// we can't do anything useful without an initial list of containers
 	for {
-		// grab list of containers
-		if log.IsDebugEnabled() {
-			log.Debug("Updating list of containers")
-		}
-		containers, err := dc.ListContainers(false)
+		containers, err = dc.ListContainers(false)
 		if err != nil {
-			log.Warn("Error querying list of Docker containers: %s", err)
+			log.Warn("Error querying initial list of Docker containers: %s", err)
 			time.Sleep(dockerRetryInterval)
-			continue
+		} else {
+			break
 		}
+	}
 
-		// refresh advertisements if the current set has changed
-		newSet := c.extractSet(containers)
-		if !reflect.DeepEqual(set, newSet) {
-			ads := newSet.toAds()
-			log.Info("Updating registry advertisements: %s", ads)
-			if err := rc.Advertise(ads); err != nil {
-				log.Warn("Error updating registry: %s", err)
-				time.Sleep(registryRetryInterval)
+	changes := dc.Watch()
+	ticker := time.NewTicker(unstableWatchInterval)
+	for {
+		// wait for container state changes or a timer
+		select {
+		case <-changes:
+			// grab list of containers
+			if log.IsDebugEnabled() {
+				log.Debug("Updating list of containers")
+			}
+			containers, err = dc.ListContainers(false)
+			if err != nil {
+				log.Warn("Error querying list of Docker containers: %s", err)
+				time.Sleep(dockerRetryInterval)
 				continue
 			}
-			set = newSet
+		case <-ticker.C:
+			// refresh advertisements if the current set has changed
+			newSet := c.extractSet(containers)
+			if !reflect.DeepEqual(set, newSet) {
+				ticker = time.NewTicker(unstableWatchInterval)
+				ads := newSet.toAds()
+				log.Info("Updating registry advertisements: %s", ads)
+				if err := rc.Advertise(ads); err != nil {
+					log.Warn("Error updating registry: %s", err)
+					time.Sleep(registryRetryInterval)
+					continue
+				}
+				set = newSet
+			} else {
+				ticker = time.NewTicker(stableWatchInterval)
+			}
 		}
-
-		// wait for container state changes
-		<-changes
 	}
 }
 
 func (c *ContainerDNS) extractSet(containers []udocker.ContainerSummary) serviceSet {
+	ac := c.ac
 	set := make(serviceSet)
 	for _, container := range containers {
 		tenant, present := container.Labels[TenantLabel]
@@ -128,9 +159,25 @@ func (c *ContainerDNS) extractSet(containers []udocker.ContainerSummary) service
 		if log.IsTraceEnabled() {
 			log.Trace("Container %s services: %v", container.Id, services)
 		}
+		running := true
+		if c.advertiseJobState {
+			// check if the container has a job label
+			jobID, present := container.Labels[agent.JobLabel]
+			if !present {
+				continue
+			}
+			jobDetails, err := ac.ListJob(jobID)
+			if err != nil || jobDetails == nil || jobDetails[jobID] == nil {
+				log.Warn("Error retrieving job %s from the agent: %s", jobID, err)
+				running = false
+			} else {
+				running = jobDetails[jobID].State == agent.Running
+			}
+		}
+
 		// add service data to results
 		for _, v := range services {
-			set.add(v.Name, v.Location)
+			set.add(v.Name, v.Location, running)
 		}
 	}
 	return set
