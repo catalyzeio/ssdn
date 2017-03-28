@@ -82,12 +82,23 @@ func (s serviceSet) toAds() []registry.Advertisement {
 func (c *ContainerDNS) advertise() {
 	var set serviceSet
 	var containers []udocker.ContainerSummary
-
+	var err error
 	dc := c.dc
 	rc := c.rc
 
+	// we can't do anything useful without an initial list of containers
+	for {
+		containers, err = dc.ListContainers(false)
+		if err != nil {
+			log.Warn("Error querying initial list of Docker containers: %s", err)
+			time.Sleep(dockerRetryInterval)
+		} else {
+			break
+		}
+	}
+
 	changes := dc.Watch()
-	ticker := time.NewTicker(stableWatchInterval)
+	ticker := time.NewTicker(unstableWatchInterval)
 	for {
 		// wait for container state changes or a timer
 		select {
@@ -96,7 +107,6 @@ func (c *ContainerDNS) advertise() {
 			if log.IsDebugEnabled() {
 				log.Debug("Updating list of containers")
 			}
-			var err error
 			containers, err = dc.ListContainers(false)
 			if err != nil {
 				log.Warn("Error querying list of Docker containers: %s", err)
@@ -105,21 +115,19 @@ func (c *ContainerDNS) advertise() {
 			}
 		case <-ticker.C:
 			// refresh advertisements if the current set has changed
-			if containers != nil {
-				newSet := c.extractSet(containers)
-				if !reflect.DeepEqual(set, newSet) {
-					ticker = time.NewTicker(unstableWatchInterval)
-					ads := newSet.toAds()
-					log.Info("Updating registry advertisements: %s", ads)
-					if err := rc.Advertise(ads); err != nil {
-						log.Warn("Error updating registry: %s", err)
-						time.Sleep(registryRetryInterval)
-						continue
-					}
-					set = newSet
-				} else {
-					ticker = time.NewTicker(stableWatchInterval)
+			newSet := c.extractSet(containers)
+			if !reflect.DeepEqual(set, newSet) {
+				ticker = time.NewTicker(unstableWatchInterval)
+				ads := newSet.toAds()
+				log.Info("Updating registry advertisements: %s", ads)
+				if err := rc.Advertise(ads); err != nil {
+					log.Warn("Error updating registry: %s", err)
+					time.Sleep(registryRetryInterval)
+					continue
 				}
+				set = newSet
+			} else {
+				ticker = time.NewTicker(stableWatchInterval)
 			}
 		}
 	}
