@@ -17,6 +17,11 @@ import (
 	"github.com/hoisie/mustache"
 )
 
+const (
+	stableWatchInterval   = time.Second * 7
+	unstableWatchInterval = time.Second * 2
+)
+
 type ContainerDNS struct {
 	dc *udocker.Client
 	rc *registry.Client
@@ -76,38 +81,55 @@ func (s serviceSet) toAds() []registry.Advertisement {
 
 func (c *ContainerDNS) advertise() {
 	var set serviceSet
-
+	var containers []udocker.ContainerSummary
+	var err error
 	dc := c.dc
 	rc := c.rc
 
-	changes := dc.Watch()
+	// we can't do anything useful without an initial list of containers
 	for {
-		// grab list of containers
-		if log.IsDebugEnabled() {
-			log.Debug("Updating list of containers")
-		}
-		containers, err := dc.ListContainers(false)
+		containers, err = dc.ListContainers(false)
 		if err != nil {
-			log.Warn("Error querying list of Docker containers: %s", err)
+			log.Warn("Error querying initial list of Docker containers: %s", err)
 			time.Sleep(dockerRetryInterval)
-			continue
+		} else {
+			break
 		}
+	}
 
-		// refresh advertisements if the current set has changed
-		newSet := c.extractSet(containers)
-		if !reflect.DeepEqual(set, newSet) {
-			ads := newSet.toAds()
-			log.Info("Updating registry advertisements: %s", ads)
-			if err := rc.Advertise(ads); err != nil {
-				log.Warn("Error updating registry: %s", err)
-				time.Sleep(registryRetryInterval)
+	changes := dc.Watch()
+	ticker := time.NewTicker(unstableWatchInterval)
+	for {
+		// wait for container state changes or a timer
+		select {
+		case <-changes:
+			// grab list of containers
+			if log.IsDebugEnabled() {
+				log.Debug("Updating list of containers")
+			}
+			containers, err = dc.ListContainers(false)
+			if err != nil {
+				log.Warn("Error querying list of Docker containers: %s", err)
+				time.Sleep(dockerRetryInterval)
 				continue
 			}
-			set = newSet
+		case <-ticker.C:
+			// refresh advertisements if the current set has changed
+			newSet := c.extractSet(containers)
+			if !reflect.DeepEqual(set, newSet) {
+				ticker = time.NewTicker(unstableWatchInterval)
+				ads := newSet.toAds()
+				log.Info("Updating registry advertisements: %s", ads)
+				if err := rc.Advertise(ads); err != nil {
+					log.Warn("Error updating registry: %s", err)
+					time.Sleep(registryRetryInterval)
+					continue
+				}
+				set = newSet
+			} else {
+				ticker = time.NewTicker(stableWatchInterval)
+			}
 		}
-
-		// wait for container state changes
-		<-changes
 	}
 }
 
