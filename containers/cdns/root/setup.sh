@@ -55,15 +55,14 @@ mkdir -p /etc/watch
 cd /etc/watch
 chmod 3755 .
 cat <<EOF > run
-#!/bin/sh -e
+#!/bin/sh -xe
 exec 2>&1
 
 cd /etc/tinydns/root
 while true; do
-    cp ${CONFIG} .
+    cat ${CONFIG} > data
     echo Updating DNS configuration ${CONFIG}
     make
-    inotifywait -q -e close_write ${CONFIG}
 done
 EOF
 chmod 755 run
