@@ -240,7 +240,7 @@ func (c *ContainerDNS) render(ctx map[string]interface{}) error {
 		return err
 	}
 	dataFile := path.Join(c.outputDir, "data")
-	if err := ioutil.WriteFile(dataFile, []byte(renderedTemplate), os.ModeNamedPipe | 0644); err != nil {
+	if err := ioutil.WriteFile(dataFile, []byte(renderedTemplate), 0644); err != nil {
 		return err
 	}
 	log.Info("Updated %s", dataFile)

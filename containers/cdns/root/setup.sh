@@ -60,8 +60,7 @@ exec 2>&1
 
 cd /etc/tinydns/root
 while true; do
-    cat ${CONFIG} > data.tmp
-    cp data.tmp data
+    cat ${CONFIG} > data
     echo Updating DNS configuration ${CONFIG}
     make
 done
