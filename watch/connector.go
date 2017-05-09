@@ -7,6 +7,7 @@ import (
 	"github.com/catalyzeio/go-core/udocker"
 
 	"github.com/catalyzeio/ssdn/overlay"
+	"github.com/catalyzeio/ssdn/watch/types"
 )
 
 type ContainerConnector struct {
@@ -41,7 +42,7 @@ func (c *ContainerConnector) connect(connector overlay.Connector) {
 		containers, err := dc.ListContainers(false)
 		if err != nil {
 			log.Warn("Error querying list of Docker containers: %s", err)
-			time.Sleep(dockerRetryInterval)
+			time.Sleep(types.DockerRetryInterval)
 			continue
 		}
 
@@ -61,7 +62,7 @@ func (c *ContainerConnector) connect(connector overlay.Connector) {
 func (c *ContainerConnector) extractConnections(containers []udocker.ContainerSummary) map[string]string {
 	connections := make(map[string]string)
 	for _, container := range containers {
-		tenant, present := container.Labels[TenantLabel]
+		tenant, present := container.Labels[types.TenantLabel]
 		// only examine containers belonging to this tenant
 		if !present || tenant != c.tenant {
 			continue
@@ -70,7 +71,7 @@ func (c *ContainerConnector) extractConnections(containers []udocker.ContainerSu
 			log.Trace("Container %s belongs to tenant %s", container.Id, c.tenant)
 		}
 		// grab any IP data for the container
-		ip := container.Labels[IPLabel]
+		ip := container.Labels[types.IPLabel]
 		if len(ip) > 0 {
 			if log.IsTraceEnabled() {
 				log.Trace("Container %s IP address: %s", container.Id, ip)

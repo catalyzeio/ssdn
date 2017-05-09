@@ -1,4 +1,4 @@
-package watch
+package types
 
 import (
 	"time"
@@ -10,14 +10,19 @@ const (
 	ServicesLabel = "io.catalyze.ssdn.services" // []Service json
 )
 
+const (
+	StableWatchInterval   = time.Second * 7
+	UnstableWatchInterval = time.Second * 2
+)
+
 type Service struct {
 	Name     string `json:"name"`
 	Location string `json:"location"`
 }
 
 const (
-	dockerRetryInterval = 15 * time.Second
+	DockerRetryInterval = 15 * time.Second
 
-	registryRetryInterval = 5 * time.Second
-	registryPollInterval  = 30 * time.Second
+	RegistryRetryInterval = 5 * time.Second
+	RegistryPollInterval  = 30 * time.Second
 )

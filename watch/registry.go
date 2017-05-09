@@ -6,6 +6,7 @@ import (
 	"github.com/catalyzeio/paas-orchestration/registry"
 
 	"github.com/catalyzeio/ssdn/overlay"
+	"github.com/catalyzeio/ssdn/watch/types"
 )
 
 type RegistryWatcher struct {
@@ -48,7 +49,7 @@ func (r *RegistryWatcher) query(consumer overlay.RegistryConsumer) {
 		peers, err := rc.QueryAll(r.key)
 		if err != nil {
 			log.Warn("Failed to query registry for peers: %s", err)
-			time.Sleep(registryRetryInterval)
+			time.Sleep(types.RegistryRetryInterval)
 			continue
 		}
 
@@ -67,7 +68,7 @@ func (r *RegistryWatcher) query(consumer overlay.RegistryConsumer) {
 		if notify {
 			<-rc.Changes
 		} else {
-			time.Sleep(registryPollInterval)
+			time.Sleep(types.RegistryPollInterval)
 		}
 	}
 }

@@ -14,12 +14,8 @@ import (
 	"github.com/catalyzeio/go-core/udocker"
 	"github.com/catalyzeio/paas-orchestration/agent"
 	"github.com/catalyzeio/paas-orchestration/registry"
+	"github.com/catalyzeio/ssdn/watch/types"
 	"github.com/hoisie/mustache"
-)
-
-const (
-	stableWatchInterval   = time.Second * 7
-	unstableWatchInterval = time.Second * 2
 )
 
 type ContainerDNS struct {
@@ -91,14 +87,14 @@ func (c *ContainerDNS) advertise() {
 		containers, err = dc.ListContainers(false)
 		if err != nil {
 			log.Warn("Error querying initial list of Docker containers: %s", err)
-			time.Sleep(dockerRetryInterval)
+			time.Sleep(types.DockerRetryInterval)
 		} else {
 			break
 		}
 	}
 
 	changes := dc.Watch()
-	ticker := time.NewTicker(unstableWatchInterval)
+	ticker := time.NewTicker(types.UnstableWatchInterval)
 	for {
 		// wait for container state changes or a timer
 		select {
@@ -110,24 +106,24 @@ func (c *ContainerDNS) advertise() {
 			containers, err = dc.ListContainers(false)
 			if err != nil {
 				log.Warn("Error querying list of Docker containers: %s", err)
-				time.Sleep(dockerRetryInterval)
+				time.Sleep(types.DockerRetryInterval)
 				continue
 			}
 		case <-ticker.C:
 			// refresh advertisements if the current set has changed
 			newSet := c.extractSet(containers)
 			if !reflect.DeepEqual(set, newSet) {
-				ticker = time.NewTicker(unstableWatchInterval)
+				ticker = time.NewTicker(types.UnstableWatchInterval)
 				ads := newSet.toAds()
 				log.Info("Updating registry advertisements: %s", ads)
 				if err := rc.Advertise(ads); err != nil {
 					log.Warn("Error updating registry: %s", err)
-					time.Sleep(registryRetryInterval)
+					time.Sleep(types.RegistryRetryInterval)
 					continue
 				}
 				set = newSet
 			} else {
-				ticker = time.NewTicker(stableWatchInterval)
+				ticker = time.NewTicker(types.StableWatchInterval)
 			}
 		}
 	}
@@ -137,7 +133,7 @@ func (c *ContainerDNS) extractSet(containers []udocker.ContainerSummary) service
 	ac := c.ac
 	set := make(serviceSet)
 	for _, container := range containers {
-		tenant, present := container.Labels[TenantLabel]
+		tenant, present := container.Labels[types.TenantLabel]
 		// only examine containers belonging to this tenant
 		if !present || tenant != c.tenant {
 			continue
@@ -146,12 +142,12 @@ func (c *ContainerDNS) extractSet(containers []udocker.ContainerSummary) service
 			log.Trace("Container %s belongs to tenant %s", container.Id, c.tenant)
 		}
 		// check if the container has any service data
-		data, present := container.Labels[ServicesLabel]
+		data, present := container.Labels[types.ServicesLabel]
 		if !present {
 			continue
 		}
 		// extract service data
-		var services []Service
+		var services []types.Service
 		if err := json.Unmarshal([]byte(data), &services); err != nil {
 			log.Warn("Container %s has invalid service definition: %s", container.Id, err)
 			continue
@@ -195,7 +191,7 @@ func (c *ContainerDNS) query() {
 		enum, err := rc.Enumerate()
 		if err != nil {
 			log.Warn("Error querying registry: %s", err)
-			time.Sleep(registryRetryInterval)
+			time.Sleep(types.RegistryRetryInterval)
 			continue
 		}
 
