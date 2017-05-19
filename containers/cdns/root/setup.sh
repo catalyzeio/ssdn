@@ -55,15 +55,41 @@ mkdir -p /etc/watch
 cd /etc/watch
 chmod 3755 .
 cat <<EOF > run
-#!/bin/sh -xe
-exec 2>&1
+#!/usr/bin/env python3
+import os
+import shutil
+import subprocess
 
-cd /etc/tinydns/root
-while true; do
-    cat ${CONFIG} > data
-    echo Updating DNS configuration ${CONFIG}
-    make
-done
+start_delimiter = '## START WATCH UPDATE ##'
+end_delimiter = '## END WATCH UPDATE ##'
+
+os.chdir('/etc/tinydns/root')
+
+with open('${CONFIG}', 'r') as pipe:
+    while True:
+        for line in pipe:
+            if line.strip() == start_delimiter:
+                break
+        with open('data.new', 'wb') as output:
+            for line in pipe:
+                if line.strip() == end_delimiter:
+                    break
+                output.write('{}\n'.format(line).encode('utf-8'))
+
+        print('Updating DNS configuration ${CONFIG}')
+
+        try:
+            shutil.copy('data.new', 'data')
+        except (IOError, shutil.Error) as e:
+            print('Failed to copy the DNS configuration: {}'.format(e))
+            continue
+
+        try:
+            subprocess.call(['make'])
+        except OSError as e:
+            print('Failed to run make: {}'.format(e))
+            continue
+
 EOF
 chmod 755 run
 

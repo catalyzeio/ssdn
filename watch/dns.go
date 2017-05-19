@@ -2,6 +2,7 @@ package watch
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net"
 	"net/url"
@@ -16,6 +17,11 @@ import (
 	"github.com/catalyzeio/paas-orchestration/registry"
 	"github.com/catalyzeio/ssdn/watch/types"
 	"github.com/hoisie/mustache"
+)
+
+const (
+	startDelimiter = "## START WATCH UPDATE ##"
+	endDelimiter   = "## END WATCH UPDATE ##"
 )
 
 type ContainerDNS struct {
@@ -181,6 +187,19 @@ func (c *ContainerDNS) extractSet(containers []udocker.ContainerSummary) service
 
 func (c *ContainerDNS) query() {
 	var oldCtx map[string]interface{}
+	var dataFile *os.File
+	var err error
+
+	dataFilePath := path.Join(c.outputDir, "data")
+	for {
+		dataFile, err = os.OpenFile(dataFilePath, os.O_WRONLY, 0644)
+		if err != nil {
+			log.Errorf("Failed to open %s for writing: %s - retrying", dataFilePath, err)
+			time.Sleep(1 * time.Second)
+			continue
+		}
+		break
+	}
 
 	rc := c.rc
 	for {
@@ -202,7 +221,7 @@ func (c *ContainerDNS) query() {
 		}
 
 		// update data file
-		if err := c.render(ctx); err != nil {
+		if err := c.render(ctx, dataFile); err != nil {
 			log.Warn("Failed to update DNS configuration: %s", err)
 			continue
 		}
@@ -240,7 +259,7 @@ func (c *ContainerDNS) templateContext(enum *registry.Enumeration) map[string]in
 	}
 }
 
-func (c *ContainerDNS) render(ctx map[string]interface{}) error {
+func (c *ContainerDNS) render(ctx map[string]interface{}, dataFile *os.File) error {
 	// load template
 	template, err := ioutil.ReadFile(c.templatePath)
 	if err != nil {
@@ -254,13 +273,9 @@ func (c *ContainerDNS) render(ctx map[string]interface{}) error {
 	}
 
 	// dump it out
-	if err := os.MkdirAll(c.outputDir, 0755); err != nil {
+	if _, err := dataFile.WriteString(fmt.Sprintf("%s\n%s\n%s\n", startDelimiter, renderedTemplate, endDelimiter)); err != nil {
 		return err
 	}
-	dataFile := path.Join(c.outputDir, "data")
-	if err := ioutil.WriteFile(dataFile, []byte(renderedTemplate), 0644); err != nil {
-		return err
-	}
-	log.Info("Updated %s", dataFile)
+	log.Info("Updated %s", dataFile.Name())
 	return nil
 }
