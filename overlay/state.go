@@ -62,10 +62,11 @@ func (s *State) Update(snapshot *Snapshot) {
 }
 
 func (s *State) persist() {
-	save := time.Tick(saveInterval)
+	save := time.NewTicker(saveInterval)
+	defer save.Stop()
 	for {
 		select {
-		case <-save:
+		case <-save.C:
 			if s.unsaved {
 				s.writeState()
 			}
