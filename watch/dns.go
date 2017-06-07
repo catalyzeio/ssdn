@@ -100,7 +100,9 @@ func (c *ContainerDNS) advertise() {
 	}
 
 	changes := dc.Watch()
-	ticker := time.NewTicker(types.UnstableWatchInterval)
+	freq := types.UnstableWatchInterval
+	timer := time.NewTimer(freq)
+	defer timer.Stop()
 	for {
 		// wait for container state changes or a timer
 		select {
@@ -115,22 +117,21 @@ func (c *ContainerDNS) advertise() {
 				time.Sleep(types.DockerRetryInterval)
 				continue
 			}
-		case <-ticker.C:
+		case <-timer.C:
 			// refresh advertisements if the current set has changed
 			newSet := c.extractSet(containers)
 			if !reflect.DeepEqual(set, newSet) {
-				ticker = time.NewTicker(types.UnstableWatchInterval)
 				ads := newSet.toAds()
 				log.Info("Updating registry advertisements: %s", ads)
 				if err := rc.Advertise(ads); err != nil {
 					log.Warn("Error updating registry: %s", err)
 					time.Sleep(types.RegistryRetryInterval)
-					continue
 				}
-				set = newSet
+				freq = types.UnstableWatchInterval
 			} else {
-				ticker = time.NewTicker(types.StableWatchInterval)
+				freq = types.StableWatchInterval
 			}
+			timer.Reset(freq)
 		}
 	}
 }
