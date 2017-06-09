@@ -127,6 +127,7 @@ func (c *ContainerDNS) advertise() {
 					log.Warn("Error updating registry: %s", err)
 					time.Sleep(types.RegistryRetryInterval)
 				}
+				set = newSet
 				freq = types.UnstableWatchInterval
 			} else {
 				freq = types.StableWatchInterval
