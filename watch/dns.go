@@ -121,13 +121,16 @@ func (c *ContainerDNS) advertise() {
 			// refresh advertisements if the current set has changed
 			newSet := c.extractSet(containers)
 			if !reflect.DeepEqual(set, newSet) {
+				freq = types.UnstableWatchInterval
 				ads := newSet.toAds()
 				log.Info("Updating registry advertisements: %s", ads)
 				if err := rc.Advertise(ads); err != nil {
 					log.Warn("Error updating registry: %s", err)
 					time.Sleep(types.RegistryRetryInterval)
+				} else {
+					set = newSet
 				}
-				freq = types.UnstableWatchInterval
+
 			} else {
 				freq = types.StableWatchInterval
 			}
