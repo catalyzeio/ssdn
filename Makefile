@@ -1,5 +1,6 @@
 GIT_REV=$(shell git rev-parse --short HEAD)
-VERSION=0.8.4-${GIT_REV}
+VERSION=0.8.4
+ITERATION=${GIT_REV}
 
 MULTI=ssdn
 ALIASES=l2link l3bridge l3direct l3node cdns
@@ -27,7 +28,9 @@ l3node: ${MULTI}
 cdns: ${MULTI}
 	ln -sf ${MULTI} $@
 
-deb: all
+deb: pkgs
+
+pkgs: all
 	# reset build directory
 	rm -rf build
 
@@ -46,18 +49,13 @@ deb: all
 	# add placeholder for run directory
 	mkdir -p build/var/run/ssdn
 
-	# patch up control file
-	mkdir -p build/DEBIAN/
-	sed s/VERSION/$(VERSION)/ control.in > build/DEBIAN/control
-
-	# record config files
-	find conf -type f | sed s-conf-/etc/ssdn- > build/DEBIAN/conffiles
-
-	# build .deb file
-	fakeroot dpkg-deb -b build ssdn_${VERSION}_amd64.deb
+	# build .deb and .rpm files
+	fakeroot fpm -s dir -t rpm -n ssdn -v ${VERSION} -a amd64 --config-files /etc/ssdn --iteration ${ITERATION} -C build .
+	fakeroot fpm -s dir -t deb -n ssdn -v ${VERSION} -a amd64 --config-files /etc/ssdn --iteration ${ITERATION} -C build .
 
 clean:
 	rm -f *.deb
+	rm -f *.rpm
 	rm -rf build
 	rm -f ${MULTI} ${ALIASES}
 
