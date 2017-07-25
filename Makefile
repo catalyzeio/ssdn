@@ -1,5 +1,5 @@
 GIT_REV=$(shell git rev-parse --short HEAD)
-VERSION=0.8.5-dev-0
+VERSION=0.8.4
 ITERATION=${GIT_REV}
 
 MULTI=ssdn
