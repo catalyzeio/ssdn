@@ -28,6 +28,8 @@ l3node: ${MULTI}
 cdns: ${MULTI}
 	ln -sf ${MULTI} $@
 
+deb: pkgs
+
 pkgs: all
 	# reset build directory
 	rm -rf build
