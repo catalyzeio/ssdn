@@ -10,7 +10,7 @@ test:
 	go test ./...
 
 ssdn:
-	go build
+	go build -ldflags="-w -s"
 
 l2link: ${MULTI}
 	ln -sf ${MULTI} $@
