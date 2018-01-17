@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"regexp"
+	"strings"
 
 	"github.com/catalyzeio/go-core/comm"
 )
@@ -26,9 +27,10 @@ var (
 	runDirFlag  *string
 	confDirFlag *string
 
-	networkFlag *string
-	subnetFlag  *string
-	gatewayFlag *string
+	networkFlag       *string
+	subnetFlag        *string
+	alternateNetworks *string
+	gatewayFlag       *string
 
 	serverNameFlag *string
 )
@@ -126,6 +128,10 @@ func AddSubnetFlags(gw bool) {
 	}
 }
 
+func AddAlternateNetworksFlag() {
+	alternateNetworks = flag.String("alternate-networks", "", "alternate overlay networks")
+}
+
 func GetSubnetFlags() (*IPv4Route, net.IP, error) {
 	_, subnet, err := net.ParseCIDR(*subnetFlag)
 	if err != nil {
@@ -157,6 +163,21 @@ func GetSubnetFlags() (*IPv4Route, net.IP, error) {
 	}
 
 	return route, gwIP, nil
+}
+
+func GetAlternateNetworks() ([]*net.IPNet, error) {
+	var res []*net.IPNet
+	for _, n := range strings.Split(*alternateNetworks, ",") {
+		strNet := strings.TrimSpace(n)
+		if len(strNet) > 0 {
+			_, altNet, err := net.ParseCIDR(strNet)
+			if err != nil {
+				return nil, fmt.Errorf("invalid cidr, %s: %s", strNet, err)
+			}
+			res = append(res, altNet)
+		}
+	}
+	return res, nil
 }
 
 func CheckSubnetInNetwork(subnet *IPv4Route, network *net.IPNet) error {

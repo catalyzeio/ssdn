@@ -1,8 +1,8 @@
 #!/bin/bash -e
 source $(dirname -- "$0")/../utils.bash
 
-if [ "$#" -ne 9 ]; then
-    echo "Usage: $0 [bridge] [mtu] [container] [localif] [containerif] [ip/netmask] [mac] [overlaynet] [gwip]"
+if [ "$#" -ne 10 ]; then
+    echo "Usage: $0 [bridge] [mtu] [container] [localif] [containerif] [ip/netmask] [mac] [overlaynet] [gwip] \"[alternate_networks]\""
     exit 1
 fi
 
@@ -15,6 +15,7 @@ ip=$6
 mac=$7
 overlaynet=$8
 gwip=$9
+alternate_networks=$10
 
 # set up NS link
 link_netns ${container}
@@ -35,3 +36,9 @@ ip netns exec ${container} \
 # set up route for virtual gateway
 ip netns exec ${container} \
    ip route replace to ${overlaynet} via ${gwip}
+
+
+for net in $alternate_networks; do
+    ip netns exec ${container} \
+       ip route add $net via ${gwip} dev eth1
+done
