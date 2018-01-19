@@ -1,0 +1,23 @@
+#!/bin/bash -e
+DIR=$(dirname -- "$0")
+if [ -f ${DIR}/conf/utils.bash ]; then
+    source ${DIR}/conf/utils.bash
+elif [ -f /etc/ssdn/utils.bash ]; then
+    source /etc/ssdn/utils.bash
+else
+    echo Failed to determine path to utility functions
+    exit 1
+fi
+
+if [ "$#" -lt 2 ]; then
+	  echo "Usage: $0 [container] [args...]"
+	  exit 1
+fi
+
+container=$1; shift
+
+# set up NS link
+link_netns ${container}
+
+# exec command
+ip netns exec ${container} "$@"

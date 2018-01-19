@@ -1,0 +1,66 @@
+{
+  "name": "test",
+  "type": "docker",
+  "description": {
+    "tenant": "me",
+    "provides": [
+      "foo"
+    ]
+  },
+  "payload": {
+    "tenantToken": "asdf",
+    "dockerImage": "127.0.0.1:5000/cust01/b1test",
+    "dockerCommand": "nc -l 0.0.0.0 -p 8080",
+    "environment": {
+      "FOO": "1",
+      "BAR": "2"
+    },
+    "files": {
+      "/etc/file1": {
+        "contents": "file 1 contents",
+        "mode": "0755",
+        "user": "nobody",
+        "group": "nogroup"
+      },
+      "/etc/file2": {
+        "contents": "file\n2\ncontents",
+        "uid": 4,
+        "gid": 5
+      },
+      "/etc/file3": {
+        "contents": "file 3 contents"
+      },
+      "/etc/config/test.in": {
+        "contents": "foo\n{{foo_bar}}\n{{FOO}}\nz={{BAR}}\n",
+        "uid": 0,
+        "mode": "0707"
+      }
+    },
+    "templateValues": {
+      "FOO": "33",
+      "foo_bar": "baz"
+    },
+    "templates": {
+      "/etc/config/test": "/etc/config/test.in"
+    },
+    "proxy": {
+      "requires": [
+        "mysql@3306",
+        "logging@127.0.0.1:1514"
+      ],
+      "provides": [
+        "app@127.0.0.1:8080"
+      ]
+    },
+    "publishes": [
+      {
+        "name": "ssh",
+        "port": 22
+      },
+      {
+        "name": "http",
+        "port": 80
+      }
+    ]
+  }
+}

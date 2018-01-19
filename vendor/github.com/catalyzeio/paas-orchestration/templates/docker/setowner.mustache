@@ -1,0 +1,7 @@
+#!/bin/sh -e
+{{#users}}
+chown {{{user}}} "{{{filename}}}"
+{{/users}}
+{{#groups}}
+chgrp {{{group}}} "{{{filename}}}"
+{{/groups}}

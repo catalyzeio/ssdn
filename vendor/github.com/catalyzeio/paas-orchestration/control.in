@@ -1,0 +1,9 @@
+Package: paas-orchestration
+Version: VERSION
+Architecture: amd64
+Maintainer: Catalyze Staff <admin@catalyze.io>
+Depends: runit, bash
+Conflicts: orch-council
+Section: system
+Priority: extra
+Description: PaaS orchestration services and clients

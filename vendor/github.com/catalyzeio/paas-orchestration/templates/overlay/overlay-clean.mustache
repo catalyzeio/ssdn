@@ -1,0 +1,8 @@
+#!/bin/sh
+cd "{{{overlayServiceDir}}}"
+rm -fv ca.pem cert.pem cert.key
+
+bname="{{{tenantID}}}"
+
+ip link set ${bname} down || true
+brctl delbr ${bname}
