@@ -1,0 +1,29 @@
+{
+  "name": "test",
+  "type": "docker",
+  "description": {
+    "tenant": "tenant1"
+  },
+  "payload": {
+    "tenantToken": "dummy",
+    "dockerImage": "loproxy",
+    "environment": {
+      "FOO": "1",
+      "BAR": "2"
+    },
+    "dns": [
+      "127.0.0.1",
+      "8.8.8.8"
+    ],
+    "proxy": {
+      "requires": [],
+      "provides": []
+    },
+    "publishes": [
+      {
+        "name": "sshd",
+        "port": 22
+      }
+    ]
+  }
+}

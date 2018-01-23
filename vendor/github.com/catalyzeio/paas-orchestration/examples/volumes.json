@@ -1,0 +1,32 @@
+{
+  "name": "test",
+  "type": "docker",
+  "description": {
+    "tenant": "tenant1"
+  },
+  "payload": {
+    "dockerImage": "ubuntu",
+    "dockerCommand": "python3 -m http.server 8080",
+    "dns": [
+      "8.8.8.8"
+    ],
+    "volumes": [
+      {
+        "type": "simple",
+        "containerPath": "/mnt/tmp",
+        "hostPath": "/tmp"
+      },
+      {
+        "type": "simple",
+        "containerPath": "/mnt/bin",
+        "hostPath": "/bin"
+      }
+    ],
+    "publishes": [
+      {
+        "name": "http",
+        "port": 8080
+      }
+    ]
+  }
+}

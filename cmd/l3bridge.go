@@ -26,6 +26,7 @@ func StartL3Bridge() {
 	overlay.AddMTUFlag()
 	overlay.AddNetworkFlag()
 	overlay.AddSubnetFlags(true)
+	overlay.AddAlternateNetworksFlag()
 	overlay.AddDirFlags(true, true)
 	overlay.AddPeerTLSFlags()
 	flag.Parse()
@@ -50,6 +51,10 @@ func StartL3Bridge() {
 	subnet, gwIP, err := overlay.GetSubnetFlags()
 	if err != nil {
 		fail("Invalid subnet config: %s\n", err)
+	}
+	alternateNetworks, err := overlay.GetAlternateNetworks()
+	if err != nil {
+		fail("Invalid alternate network config: %s\n", err)
 	}
 	if err := overlay.CheckSubnetInNetwork(subnet, network); err != nil {
 		fail("Invalid subnet config: %s\n", err)
@@ -89,7 +94,7 @@ func StartL3Bridge() {
 	state := overlay.NewState(tenant, runDir)
 	state.Start()
 
-	bridge := overlay.NewL3Bridge(tenantID, mtu, state, path.Join(confDir, "l3bridge.d"), network, pool, gwIP)
+	bridge := overlay.NewL3Bridge(tenantID, mtu, state, path.Join(confDir, "l3bridge.d"), network, alternateNetworks, pool, gwIP)
 
 	tap, err := overlay.NewL3Tap(gwIP, mtu, bridge, routes)
 	if err != nil {

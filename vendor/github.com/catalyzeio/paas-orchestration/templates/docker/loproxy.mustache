@@ -1,0 +1,10 @@
+[program:loproxy]
+environment=LOPROXY_TENANT_ID={{{tenant}}},LOPROXY_TENANT_TOKEN={{{tenantToken}}}
+command=/usr/bin/loproxy
+    -c=/etc/loproxy/config/
+    -name=managed
+    -public={{{publicAddress}}}
+    -private=0.0.0.0
+    -registry={{{registry}}}
+    -tls={{{tls}}}
+    {{{provides}}} {{{requires}}} {{{publishes}}}

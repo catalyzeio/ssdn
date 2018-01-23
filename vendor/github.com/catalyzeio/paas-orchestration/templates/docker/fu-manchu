@@ -1,0 +1,27 @@
+#!/usr/bin/env perl
+use strict;
+
+# Renders a template file using environment variables as context,
+# using mustache's {{variable}} syntax.
+
+while (@ARGV) {
+    # render output from template file
+    my ($template, $output) = (shift, shift);
+    open(IN, "<$template") || die "template file '$template' not found";
+    open(OUT, ">$output") || die "can not output to '$output'";
+    foreach (<IN>) {
+        my $line = $_;
+        my @matches = m/({{\s*([a-zA-Z_0-9]+)\s*}})/g;
+        while (@matches) {
+            my ($match, $var) = (shift @matches, shift @matches);
+            $line =~ s/\Q$match\E/@ENV{$var}/g;
+        }
+        print OUT $line;
+    }
+    close(IN);
+    close(OUT);
+    # copy over file permissions
+    my @desc = stat($template);
+    chmod @desc[2], $output;
+    chown @desc[4], @desc[5], $output;
+}

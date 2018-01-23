@@ -1,0 +1,9 @@
+#!/bin/sh -e
+exec 2>&1
+
+USER=nobody
+REGISTRY=${REGISTRY-tcp://registry.local}
+
+exec chpst -u ${USER} /opt/orch/bin/schedserver \
+    -registry=${REGISTRY} \
+    -v=4

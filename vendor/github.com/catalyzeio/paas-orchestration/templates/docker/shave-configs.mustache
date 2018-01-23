@@ -1,0 +1,8 @@
+#!/bin/sh -e
+{{#vars}}
+export {{{key}}}={{{value}}}
+{{/vars}}
+
+{{#shaves}}
+/usr/bin/fu-manchu "{{{template}}}" "{{{file}}}"
+{{/shaves}}

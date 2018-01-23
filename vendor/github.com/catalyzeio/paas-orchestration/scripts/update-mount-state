@@ -1,0 +1,48 @@
+#!/usr/bin/env python
+import argparse
+import json
+import sys
+import time
+import subprocess
+
+def rename(d, old, new):
+    val = d.pop(old)
+    if val:
+        d[new] = val
+
+parser = argparse.ArgumentParser(description='Migrates old agent state file to one with necessary new mount info')
+parser.add_argument('input', help='input agent.json file')
+parser.add_argument('output', help='output file')
+args = parser.parse_args()
+
+infile, outfile = args.input, args.output
+
+state = {}
+if infile == '-':
+    state = json.load(sys.stdin)
+else:
+    with open(infile) as data:
+        state = json.load(data)
+
+for job_id, job_data in state.items():
+    container = json.loads(subprocess.Popen(("docker inspect %s" % job_id), shell=True, stdout=subprocess.PIPE).stdout.read().decode("utf-8"))
+    bind_map = {}
+    if len(container) > 0:
+        if container[0].get("HostConfig", {}).get("Binds", []) != None:
+            for bind in container[0]["HostConfig"]["Binds"]:
+                sp = bind.split(':')
+                bind_map[sp[0]] = sp[1]
+    else:
+        print("agent file in bad state, job %s is not inspectable" % job_id)
+        os.exit(1)
+    if job_data["context"].get("mounts", None) is not None:
+        for m in job_data["context"].get("mounts", []):
+            if m.get("ContainerPath", "") == "" and m["HostPath"] in bind_map:
+                m["ContainerPath"] = bind_map[m["HostPath"]]
+                
+
+if outfile == '-':
+    json.dump(state, sys.stdout)
+else:
+    with open(outfile, 'w') as dest:
+        json.dump(state, dest)

@@ -1,0 +1,7 @@
+#!/bin/sh -e
+exec 2>&1
+
+USER=nobody
+
+exec chpst -u ${USER} /opt/orch/bin/regserver \
+    -v=4
