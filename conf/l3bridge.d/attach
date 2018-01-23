@@ -28,7 +28,6 @@ ip link set ${tempif} netns ${container}
 ip netns exec ${container} \
    ip link set ${tempif} up \
    mtu ${mtu} name ${containerif} address ${mac}
-
 # set IP for container
 ip netns exec ${container} \
    ip addr replace ${ip} dev ${containerif}
