@@ -1,0 +1,31 @@
+#!/bin/sh
+exec 2>&1
+
+# This script is loosely adapted from the runit boot scripts, especially
+# stage 3 for cleanup. It relies on /bin/sh to reap zombie processes and
+# traps SIGINT and SIGTERM so it can ask daemontools to shut down all
+# monitored processes.
+#
+# See also my_init from Phusion's baseimage-docker, which does the same
+# thing in a more convoluted way.
+
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+
+logmsg() {
+    echo "$(date -u) - $1"
+}
+
+stopall() {
+    logmsg 'Waiting for services to stop...'
+    svc -dx /etc/service/* /etc/service/*/log
+    logmsg 'Shut down all services'
+    exit 0
+}
+
+startall() {
+    exec svscanboot
+}
+
+trap stopall 1 2 3 15
+logmsg 'Starting svscanboot'
+startall & wait

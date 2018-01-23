@@ -1,0 +1,19 @@
+{
+  "name": "cust01/b1test",
+  "type": "build",
+  "description": {
+    "tenant": "tenant1"
+  },
+  "payload": {
+    "template": "helloWorld",
+    "registry": "127.0.0.1:5000",
+    "environment": {
+      "a": "var a",
+      "b": "var b"
+    },
+    "templateValues": {
+      "baseImage": "ubuntu",
+      "message": "howdy there"
+    }
+  }
+}

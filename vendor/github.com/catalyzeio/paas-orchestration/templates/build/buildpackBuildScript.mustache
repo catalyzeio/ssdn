@@ -1,0 +1,136 @@
+#!/bin/bash -e
+
+###############################################################################
+{{#overlay}}
+echo [buildstep] Waiting for network to become available
+# wait for overlay interface to come up
+netifcheck eth1
+# wait for DNS server to start working
+for (( i = 0; i < 10; i++ )); do
+    host 127.0.0.1 && break
+    sleep 1
+done
+{{/overlay}}
+
+###############################################################################
+echo [buildstep] Configuring SSH settings for {{{gitHost}}}:{{{gitPort}}}
+mkdir -p /root/.ssh
+/bin/sh -c 'echo "{{{gitKey}}}" > /root/.ssh/deploy_key'
+chmod 0400 /root/.ssh/deploy_key
+
+cat <<EOF > /root/.ssh/config
+Host {{{gitHost}}}
+    Hostname {{{gitHost}}}
+    Port {{{gitPort}}}
+    BatchMode yes
+    IdentityFile /root/.ssh/deploy_key
+    StrictHostKeyChecking no
+EOF
+
+###############################################################################
+echo [buildstep] Cloning {{{gitRepo}}}
+git clone --depth 1 {{{gitRepo}}} /app
+
+mkdir -p /var/run/app
+
+###############################################################################
+echo [buildstep] Preparing to invoke /build/builder
+
+# This redundant log message is only here to trigger the post-commit Git hook
+# to start forwarding log messages to the user's "git push" SSH session.
+
+###############################################################################
+if [ ! -d /app/.datica ] && [ -d /app/.catalyze ]; then
+    ln -s /app/.catalyze /app/.datica
+fi
+
+export DEBIAN_FRONTEND=noninteractive
+if [ -e /app/.datica/packages ]; then
+    echo [buildstep] Installing custom packages
+    package_list=$(cat /app/.datica/packages)
+    echo [buildstep] Packages: $package_list
+    apt-get update
+    apt-get install -y $package_list
+fi
+
+###############################################################################
+if [ "${CLEAR_BUILD_CACHE}" = "true" ]; then
+    echo [buildstep] Clearing out build artifact caches
+    rm -rf /tmp/cache/*
+fi
+
+###############################################################################
+
+if [ -x /app/.datica/pre-build ]; then
+    echo [buildstep] Running pre-build hook
+    # The /build/builder step below always generates a random user account.
+    # Since we need the pre-build hook to run as an unprivileged user and
+    # the random account generation process can't be split out of the build
+    # step below, we use the canned "nobody" account to run this command.
+    chown -R nobody:nogroup /app
+    setuidgid nobody /app/.datica/pre-build
+fi
+
+###############################################################################
+echo [buildstep] Building application
+/build/builder
+
+###############################################################################
+
+if [ -x /app/.datica/post-build ]; then
+    if hash herokuish 2>/dev/null; then
+        echo [buildstep] Running post-build hook
+        herokuish procfile exec /app/.datica/post-build
+    else
+        echo [buildstep] Warning: Post-build hooks not supported in this environment
+    fi
+fi
+
+###############################################################################
+echo [buildstep] Cleaning package cache
+apt-get clean
+
+###############################################################################
+if [ -d /etc/supervisor/conf.d ]; then
+    # supervisord scripts and config (old base image)
+    echo [buildstep] Removing unnecessary services
+    rm -fv /etc/supervisor/conf.d/dnsmasq.conf
+    rm -fv /etc/supervisor/conf.d/collectd.conf
+
+    echo [buildstep] Initializing legacy startup scripts
+
+    cat <<"EOF" > /start_app.sh  # quotes avoid variable substitution
+#!/bin/bash -e
+for (( i = 0; i < 10; i++ )); do
+    if [ -f /var/run/rsyslogd.pid ]; then
+        break
+    fi
+    echo "$(date -u): Waiting for rsyslog.pid" >> /sup-order
+    sleep 6
+done
+echo "$(date -u): Starting app" >> /sup-order
+
+export COMMIT_HASH=$(git --git-dir=/app/.git rev-parse HEAD)
+echo "Starting application, revision: ${COMMIT_HASH}" | logger
+
+/start ${PROCFILE_TARGET:-web}
+EOF
+    chmod 755 /start_app.sh
+
+    cat <<EOF > /etc/supervisor/conf.d/app.conf
+[program:app]
+command=/start_app.sh
+
+stdout_logfile=syslog
+stderr_logfile=syslog
+EOF
+fi
+
+###############################################################################
+echo [buildstep] Build finished
+
+###############################################################################
+echo [buildstep] Build script completed. Removing intermediate container.
+
+# This useless log message is only here to trigger the post-commit Git hook
+# to display the "finalizing build" message.

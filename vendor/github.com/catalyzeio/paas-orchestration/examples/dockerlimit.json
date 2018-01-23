@@ -1,0 +1,17 @@
+{
+  "type": "docker",
+  "description": {
+    "tenant": "me",
+    "provides": [
+      "foo"
+    ]
+  },
+  "payload": {
+    "tenantToken": "asdf",
+    "dockerImage": "busybox",
+    "dockerCommand": "nc -l 0.0.0.0 -p 8080",
+    "limits": {
+      "memory": 268435456
+    }
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "type": "dummy",
+  "description": {
+    "provides": [
+      "foo"
+    ]
+  },
+  "payload": {
+    "dummyDelay": 30000
+  }
+}

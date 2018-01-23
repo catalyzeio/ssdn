@@ -1,0 +1,14 @@
+{
+  "type": "dummy",
+  "description": {
+    "provides": [
+      "foo"
+    ],
+    "resources": {
+      "memory": 268435456
+    }
+  },
+  "payload": {
+    "dummyDelay": 30000
+  }
+}

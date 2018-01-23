@@ -1,0 +1,15 @@
+#!/bin/sh -e
+exec 2>&1
+
+BINDIR=${BINDIR:-/usr/sbin}
+
+export REGISTRY_TENANT_TOKEN="{{{tenantToken}}}"
+
+echo "$(date -u) - Starting DNS watcher for {{{tenant}}}"
+exec ${BINDIR}/cdns \
+     -docker-host="{{{dockerHost}}}" \
+     -registry="{{{registryURL}}}" \
+     -tenant="{{{tenant}}}" \
+     {{#tls}}-tls=true{{/tls}} \
+     {{#ca}}-tls-ca=ca.pem{{/ca}} \
+     -v=4
