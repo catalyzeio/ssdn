@@ -1,0 +1,8 @@
+Package: ssdn
+Version: VERSION
+Architecture: all
+Maintainer: Adam Leko <adam@catalyze.io>
+Depends: bridge-utils, net-tools, iproute
+Section: system
+Priority: extra
+Description: Secure network overlays for Docker containers

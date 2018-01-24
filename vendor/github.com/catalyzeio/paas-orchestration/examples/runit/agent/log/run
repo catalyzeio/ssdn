@@ -1,0 +1,11 @@
+#!/bin/sh -e
+LOGDIR=/data/docker/logs/agent
+LOGUSER=daemon
+
+if [ ! -e ${LOGDIR} ]; then
+    mkdir -p ${LOGDIR}
+    chmod 700 ${LOGDIR}
+    chown -R ${LOGUSER} ${LOGDIR}
+fi
+
+exec chpst -u ${LOGUSER} svlogd ${LOGDIR}

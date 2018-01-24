@@ -1,0 +1,25 @@
+#!/bin/sh -e
+exec 2>&1
+
+ADDRESS=127.0.0.1  # FIXME
+
+HANDLERS=docker
+
+USER=root  # necessary for now
+REGISTRY=${REGISTRY-tcp://registry.local}
+DOCKER_HOST=unix:///var/run/docker.sock
+STATE_DIR=/data/docker/orch/agent/state
+
+if [ ! -e ${STATE_DIR} ]; then
+    mkdir -p ${STATE_DIR}
+    chmod 700 ${STATE_DIR}
+fi
+
+exec chpst -u ${USER} /opt/orch/bin/agentserver \
+    -handlers=${HANDLERS} \
+    -address=${ADDRESS} \
+    -registry=${REGISTRY} \
+    -docker-host=${DOCKER_HOST} \
+    -state-dir=${STATE_DIR} \
+    -memory-limit=1.2 \
+    -v=4

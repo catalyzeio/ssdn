@@ -1,0 +1,21 @@
+#!/bin/bash -e
+POD_ID=$1
+
+REG_FILE=/data/orch/state/registry.json
+TENANT_FILE=/data/orch/state/tenantsfile.json
+CA_FILE=/etc/orch/certs/sauron/ca.pem
+
+curl -H "X-Pod-ID: $POD_ID" http://127.0.0.1:8001/environments > $TENANT_FILE
+cat $TENANT_FILE | jq .
+
+/opt/orch/bin/regcli -tenants-file=$TENANT_FILE \
+         -registry tcps://127.0.0.1:7411 \
+         -tls=true \
+         -tls-ca=$CA_FILE \
+         -destination=$REG_FILE.tmp
+
+if [ -e $REG_FILE ]; then
+    cp $REG_FILE  $REG_FILE.backup
+fi
+
+mv $REG_FILE.tmp $REG_FILE

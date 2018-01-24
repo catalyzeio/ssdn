@@ -1,0 +1,18 @@
+{
+  "name": "cust01/b2test",
+  "type": "build",
+  "description": {
+    "tenant": "tenant1"
+  },
+  "payload": {
+    "template": "buildpackBuild",
+    "registry": "127.0.0.1:5000",
+    "environment": {
+      "a": "var a",
+      "b": "var b"
+    },
+    "templateValues": {
+      "baseImage": "ubuntu"
+    }
+  }
+}

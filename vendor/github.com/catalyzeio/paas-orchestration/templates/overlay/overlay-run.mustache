@@ -1,0 +1,22 @@
+#!/bin/sh -e
+exec 2>&1
+
+BINDIR=${BINDIR:-/usr/sbin}
+
+export REGISTRY_TENANT_TOKEN="{{{tenantToken}}}"
+
+exec ${BINDIR}/l3bridge \
+     -docker-host="{{{dockerHost}}}" \
+     -registry="{{{registryURL}}}" \
+     -address={{{serviceAddress}}} \
+     -tenant="{{{tenant}}}" \
+     -tenant-id="{{{tenantID}}}" \
+     -network={{{network}}} \
+     -subnet={{{subnet}}} \
+     -gateway={{{gatewayIP}}} \
+     {{#tls}}-tls=true{{/tls}} \
+     {{#ca}}-tls-ca=ca.pem{{/ca}} \
+     {{#cert}}-tls-cert=cert.pem{{/cert}} \
+     {{#key}}-tls-key=cert.key{{/key}} \
+     {{#peerName}}-tls-peer-name={{{peerName}}}{{/peerName}} \
+     -v=4

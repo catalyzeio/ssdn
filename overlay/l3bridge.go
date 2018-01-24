@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/catalyzeio/go-core/actions"
@@ -18,9 +19,10 @@ type L3Bridge struct {
 
 	invoker *actions.Invoker
 
-	network *net.IPNet
-	pool    *comm.IPPool
-	gwIP    net.IP
+	network           *net.IPNet
+	alternateNetworks []*net.IPNet
+	pool              *comm.IPPool
+	gwIP              net.IP
 
 	tap *L3Tap
 
@@ -39,7 +41,7 @@ const (
 	localL3VethPrefix = "sl3."
 )
 
-func NewL3Bridge(name string, mtu uint16, state *State, actionsDir string, network *net.IPNet, pool *comm.IPPool, gwIP net.IP) *L3Bridge {
+func NewL3Bridge(name string, mtu uint16, state *State, actionsDir string, network *net.IPNet, alternateNetworks []*net.IPNet, pool *comm.IPPool, gwIP net.IP) *L3Bridge {
 	return &L3Bridge{
 		name: name,
 		mtu:  strconv.Itoa(int(mtu)),
@@ -48,9 +50,10 @@ func NewL3Bridge(name string, mtu uint16, state *State, actionsDir string, netwo
 
 		invoker: actions.NewInvoker(actionsDir),
 
-		network: network,
-		pool:    pool,
-		gwIP:    gwIP,
+		network:           network,
+		alternateNetworks: alternateNetworks,
+		pool:              pool,
+		gwIP:              gwIP,
 
 		connections: make(map[string]*l3Interface),
 	}
@@ -170,11 +173,15 @@ func (b *L3Bridge) Attach(container, ip string) error {
 		return err
 	}
 
+	var altNets []string
+	for _, n := range b.alternateNetworks {
+		altNets = append(altNets, n.String())
+	}
 	// attach the local interface to the bridge
 	_, err = b.invoker.Execute("attach", b.name, b.mtu, container,
 		iface.localIface, containerIface,
 		pool.FormatIP(nextIP), mac.String(),
-		b.network.String(), b.gwIP.String())
+		b.network.String(), b.gwIP.String(), strings.Join(altNets, " "))
 	if err != nil {
 		pool.Release(nextIP)
 		return err

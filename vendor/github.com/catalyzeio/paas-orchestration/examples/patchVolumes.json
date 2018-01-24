@@ -1,0 +1,15 @@
+{
+  "incomplete": false,
+  "volumes": [
+    {
+      "type": "simple",
+      "containerPath": "/mnt/tmp",
+      "hostPath": "/tmp"
+    },
+    {
+      "type": "simple",
+      "containerPath": "/mnt/bin",
+      "hostPath": "/bin"
+    }
+  ]
+}

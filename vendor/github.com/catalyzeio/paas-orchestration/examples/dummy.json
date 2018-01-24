@@ -1,0 +1,12 @@
+{
+  "name": "d1test",
+  "type": "dummy",
+  "description": {
+    "tenant": "tenant1"
+  },
+  "payload": {
+    "incomplete": true,
+    "dummyDelay": 5000,
+    "dummyFail": true
+  }
+}

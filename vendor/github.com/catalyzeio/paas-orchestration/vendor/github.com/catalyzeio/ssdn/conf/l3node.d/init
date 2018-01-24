@@ -1,0 +1,17 @@
+#!/bin/bash -e
+source $(dirname -- "$0")/../utils.bash
+
+if [ "$#" -ne 3 ]; then
+    echo "Usage: $0 [mtu] [localif] [ip/netmask]"
+    exit 1
+fi
+
+mtu=$1
+localif=$2
+ip=$3
+
+# set IP for interface
+ip addr replace ${ip} dev ${localif}
+
+# bring up interface
+ip link set ${localif} up mtu ${mtu}

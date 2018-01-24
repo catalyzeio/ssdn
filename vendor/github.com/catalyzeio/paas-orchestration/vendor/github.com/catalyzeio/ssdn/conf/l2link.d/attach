@@ -1,0 +1,25 @@
+#!/bin/bash -e
+source $(dirname -- "$0")/../utils.bash
+
+if [ "$#" -ne 5 ]; then
+    echo "Usage: $0 [bridge] [mtu] [container] [localif] [containerif]"
+    exit 1
+fi
+
+bname=$1
+mtu=$2
+container=$3
+localif=$4
+containerif=$5
+
+# set up NS link
+link_netns ${container}
+
+# create veth pair and add to bridge
+tempif=$(bridge_veth_pair ${bname} ${mtu} ${localif})
+
+# add remote interface to container
+ip link set ${tempif} netns ${container}
+ip netns exec ${container} \
+   ip link set ${tempif} up \
+   mtu ${mtu} name ${containerif} \

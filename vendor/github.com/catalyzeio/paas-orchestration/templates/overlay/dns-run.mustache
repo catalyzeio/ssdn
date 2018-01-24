@@ -1,0 +1,25 @@
+#!/bin/bash -e
+exec 2>&1
+
+CDNS_IMG=${CDNS_IMG:-registry.local:5000/catalyzeio/cdns:1.2.0}
+
+DOCKER=$(command -v docker.io || command -v docker)
+
+# make named pipe for rendered DNS config files to be sent into the DNS container
+mkdir -p "{{{outputDir}}}"
+if [ ! -p "{{{outputDir}}}/data" ]; then
+  rm -f "{{{outputDir}}}/data"
+  mkfifo -m 0644 "{{{outputDir}}}/data"
+  chown -R {{{uid}}}:{{{gid}}} "{{{outputDir}}}"
+fi
+
+# clean up any existing DNS container for this tenant, stopped or otherwise
+${DOCKER} rm -f "{{{tenant}}}-dns" || true
+
+# start up a new DNS container for this tenant
+exec ${DOCKER} run \
+     --rm --name "{{{tenant}}}-dns" \
+     --label "io.catalyze.ssdn.tenant={{{tenant}}}" \
+     --label "io.catalyze.ssdn.ip={{{dnsIP}}}" \
+     --volume "{{{outputDir}}}:/data/cdns:ro" \
+     ${CDNS_IMG}

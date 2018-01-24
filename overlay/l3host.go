@@ -3,6 +3,7 @@ package overlay
 import (
 	"net"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/catalyzeio/go-core/actions"
@@ -19,7 +20,8 @@ type L3HostTun struct {
 
 	invoker *actions.Invoker
 
-	network *net.IPNet
+	network           *net.IPNet
+	alternateNetworks []*net.IPNet
 
 	free PacketQueue
 	out  PacketQueue
@@ -27,7 +29,7 @@ type L3HostTun struct {
 	control chan struct{}
 }
 
-func NewL3HostTun(ip net.IP, mtu uint16, routes *RouteTracker, actionsDir string, network *net.IPNet) *L3HostTun {
+func NewL3HostTun(ip net.IP, mtu uint16, routes *RouteTracker, actionsDir string, network *net.IPNet, alternateNetworks []*net.IPNet) *L3HostTun {
 	const tunQueueSize = tapQueueSize
 	free := AllocatePacketQueue(tunQueueSize, ethernetHeaderSize+int(mtu))
 	out := make(PacketQueue, tunQueueSize)
@@ -42,7 +44,8 @@ func NewL3HostTun(ip net.IP, mtu uint16, routes *RouteTracker, actionsDir string
 
 		invoker: actions.NewInvoker(actionsDir),
 
-		network: network,
+		network:           network,
+		alternateNetworks: alternateNetworks,
 
 		free: free,
 		out:  out,
@@ -92,7 +95,11 @@ func (t *L3HostTun) createTun() (*taptun.Interface, error) {
 	log.Info("Created layer 3 tun %s", name)
 
 	mtu := strconv.Itoa(int(t.mtu))
-	_, err = t.invoker.Execute("init", mtu, name, comm.FormatIPWithMask(t.ip, t.network.Mask))
+	var altNets []string
+	for _, n := range t.alternateNetworks {
+		altNets = append(altNets, n.String())
+	}
+	_, err = t.invoker.Execute("init", mtu, name, comm.FormatIPWithMask(t.ip, t.network.Mask), strings.Join(altNets, " "))
 	if err != nil {
 		tun.Close()
 		return nil, err

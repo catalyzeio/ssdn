@@ -1,0 +1,19 @@
+# Note: the build user needs access to the go-core and paas-orchestration repos
+image: catalyzeio/gobase
+script:
+  - cd ..
+  - git clone git@github.com:catalyzeio/go-core.git
+  - git clone git@github.com:catalyzeio/paas-orchestration.git
+  - cd ssdn
+  - godep restore
+  - make clean deb
+  - "aws s3 cp *.deb s3://paas-assets/latest/ --acl private --region us-east-1"
+notify:
+  slack:
+    team: catalyze
+    channel: "#builds"
+    username: drone
+    token: c1WPHH8RQCeZ46LM28iY2Xu9
+    on_started: true
+    on_failure: true
+    on_success: true

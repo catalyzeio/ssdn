@@ -1,0 +1,13 @@
+{
+  "type": "docker",
+  "description": {
+    "tenant": "me",
+    "provides": [
+      "foo"
+    ]
+  },
+  "payload": {
+    "tenantToken": "asdf",
+    "dockerImage": "busybox"
+  }
+}
