@@ -24,6 +24,7 @@ func StartL3Node() {
 	overlay.AddTenantFlags()
 	overlay.AddMTUFlag()
 	overlay.AddNetworkFlag()
+	overlay.AddAlternateNetworksFlag()
 	overlay.AddDirFlags(true, true)
 	overlay.AddPeerTLSFlags()
 	ipFlag := flag.String("ip", "", "IP address for this node [required]")
@@ -45,6 +46,12 @@ func StartL3Node() {
 		fail("Invalid network config: %s\n", err)
 	}
 	log.Info("Overlay network: %s", network)
+
+	alternateNetworks, err := overlay.GetAlternateNetworks()
+	if err != nil {
+		fail("Invalid alternate networks config: %s\n", err)
+	}
+	log.Info("Routing alternative networks: %v", alternateNetworks)
 
 	ip := net.ParseIP(*ipFlag)
 	if len(ip) == 0 {
@@ -82,7 +89,7 @@ func StartL3Node() {
 
 	routes := overlay.NewRouteTracker()
 
-	tun := overlay.NewL3HostTun(ip, mtu, routes, path.Join(confDir, "l3node.d"), network)
+	tun := overlay.NewL3HostTun(ip, mtu, routes, path.Join(confDir, "l3node.d"), network, alternateNetworks)
 	if err := tun.Start(); err != nil {
 		fail("Failed to initialize host interface: %s\n", err)
 	}
