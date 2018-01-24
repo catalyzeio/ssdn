@@ -1,7 +1,7 @@
 #!/bin/bash -e
 source $(dirname -- "$0")/../utils.bash
 
-if [ "$#" -ne 3 ]; then
+if [ "$#" -ne 4 ]; then
     echo "Usage: $0 [mtu] [localif] [ip/netmask] \"[alternate_networks]\""
     exit 1
 fi
@@ -10,7 +10,7 @@ mtu=$1
 localif=$2
 ip=$3
 alternate_networks=$4
-
+ip_nomask=${ip:0:$(expr $(expr index $ip \/) - 1)}
 # set IP for interface
 ip addr replace ${ip} dev ${localif}
 
@@ -18,5 +18,5 @@ ip addr replace ${ip} dev ${localif}
 ip link set ${localif} up mtu ${mtu}
 
 for net in $alternate_networks; do
-    ip route add $net via ${ip} dev ${localif}
+    ip route add $net via ${ip_nomask} dev ${localif}
 done
