@@ -1,10 +1,6 @@
 #!/bin/bash -e
 source $(dirname -- "$0")/../utils.bash
 
-if [ "$#" -ne 10 ]; then
-    echo "Usage: $0 [bridge] [mtu] [container] [localif] [containerif] [ip/netmask] [mac] [overlaynet] [gwip] \"[alternate_networks]\""
-fi
-
 bname=$1
 mtu=$2
 container=$3

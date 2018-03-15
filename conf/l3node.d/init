@@ -1,10 +1,6 @@
 #!/bin/bash -e
 source $(dirname -- "$0")/../utils.bash
 
-if [ "$#" -ne 4 ]; then
-    echo "Usage: $0 [mtu] [localif] [ip/netmask] \"[alternate_networks]\""
-fi
-
 mtu=$1
 localif=$2
 ip=$3
