@@ -102,6 +102,14 @@ chmod 755 log/run
 mkdir -p log/main
 chown ${LOGUSER}:${LOGUSER} log/main
 
+# overwrite tinydns's default run script to boost softlimit setting from 300k to 1m
+cat <<EOF > /etc/tinydns/run
+#!/bin/sh
+exec 2>&1
+exec envuidgid nobody envdir ./env softlimit -d1000000 /usr/bin/tinydns
+EOF
+chmod 755 /etc/tinydns/run
+
 # configure all to start via svscan
 ln -s /etc/tinydns /etc/service/tinydns
 ln -s /etc/dnscache /etc/service/dnscache
